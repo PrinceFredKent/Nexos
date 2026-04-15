@@ -1,0 +1,50 @@
+{
+  "Common Cold": {
+    "symptoms": ["Cough", "Fever", "Fatigue", "Sore Throat"],
+    "facts": [
+      "The common cold is a viral infection of your nose and throat (upper respiratory tract).",
+      "Most people recover from a common cold in a week or 10 days.",
+      "Symptoms might last longer in people who smoke."
+    ],
+    "prevention": [
+      "Wash your hands often with soap and water.",
+      "Avoid close contact with anyone who has a cold."
+    ]
+  },
+  "Flu": {
+    "symptoms": ["Fever", "Fatigue", "Aching", "Cough", "Chills"],
+    "facts": [
+      "Influenza is a viral infection that attacks your respiratory system.",
+      "Flu is primarily treated with rest and fluids to allow the body to fight the infection on its own.",
+      "Annual flu vaccines can help prevent the flu and its complications."
+    ],
+    "prevention": [
+      "Annual vaccination is the most effective way to prevent the flu.",
+      "Cover your mouth and nose when coughing or sneezing."
+    ]
+  },
+  "Migraine": {
+    "symptoms": ["Headache", "Nausea", "Sensitivity to Light"],
+    "facts": [
+      "A migraine is a headache that can cause severe throbbing pain or a pulsing sensation.",
+      "It's often accompanied by nausea, vomiting, and extreme sensitivity to light and sound.",
+      "Migraine attacks can last for hours to days."
+    ],
+    "treatment_tips": [
+      "Resting in a quiet, dark room can help.",
+      "Hot or cold compresses to your head or neck may provide relief."
+    ]
+  },
+  "Dehydration": {
+    "symptoms": ["Fatigue", "Headache", "Dizziness", "Dry Mouth"],
+    "facts": [
+      "Dehydration occurs when you use or lose more fluid than you take in.",
+      "If you don't replace lost fluids, you will get dehydrated.",
+      "Anyone can become dehydrated, but the condition is especially dangerous for young children and older adults."
+    ],
+    "rehydration": [
+      "Drink plenty of fluids, and focus on water or drinks with electrolytes.",
+      "Avoid caffeine and alcohol which can increase dehydration."
+    ]
+  }
+}

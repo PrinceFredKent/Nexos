@@ -1,0 +1,1570 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from './config';
+import './styles/main.css';
+import Login from './components/Login';
+import Signup from './components/Signup';
+import AddMedicationModal from './components/AddMedicationModal';
+import Profile from './components/Profile';
+import Settings from './components/Settings';
+import CycleTracker from './components/CycleTracker';
+import Emergency from './components/Emergency';
+// import DoctorDashboard from './components/DoctorDashboard'; // Removed
+
+const COMMON_SYMPTOMS = [
+  'Headache', 'Fever', 'Fatigue', 'Cough', 'Nausea', 'Aching', 
+  'Dizziness', 'Sore Throat', 'Chest Pain', 'Shortness of Breath', 
+  'Muscle Pain', 'Chills', 'Loss of Taste', 'Congestion',
+  'Sweating', 'Body Aches', 'Weakness', 'Loss of Appetite',
+  'Abdominal Pain', 'Diarrhea', 'Persistent Cough', 'Weight Loss',
+  'Blurred Vision', 'Shortness of Breath', 'Difficulty Breathing',
+  'Wheezing', 'Chest Tightness', 'Abdominal Cramps', 'Severe Headache',
+  'Sudden Weakness', 'Slurred Speech', 'Confusion', 'Vision Problems',
+  'Frequent Urination', 'Excess Thirst', 'Restlessness', 'Rapid Heartbeat',
+  'Persistent Sadness', 'Loss of Interest'
+];
+
+const AnalysisLoading = () => (
+  <div className="analysis-loading-card fade-in">
+    <div className="loading-icon-wrapper">
+      <div className="loading-halo"></div>
+      <div className="scan-box">
+        <div className="scan-laser"></div>
+      </div>
+      <span className="material-icons-round main-loading-icon">monitor_heart</span>
+    </div>
+    <div className="loading-text-content">
+      <h2>Processing Symptoms</h2>
+      <p>Our AI is analyzing your health data...</p>
+    </div>
+    <div className="loading-steps">
+      <div className="loading-dot"></div>
+      <div className="loading-dot"></div>
+      <div className="loading-dot"></div>
+    </div>
+  </div>
+);
+
+function App() {
+  const [theme, setTheme] = useState(localStorage.getItem('nexos_theme') || 'system');
+  const [isAuthenticated, setIsAuthenticated] = useState(!!(localStorage.getItem('token') || sessionStorage.getItem('token')));
+  const [userRole, setUserRole] = useState('patient'); // Always patient now
+  const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
+  const [activeTab, setActiveTab] = useState('symptoms');
+  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
+  const [availableChips, setAvailableChips] = useState([
+    'Headache', 'Fever', 'Fatigue', 'Cough', 'Nausea', 'Aching', 
+    'Dizziness', 'Sore Throat', 'Chest Pain', 'Shortness of Breath',
+    'Weakness', 'Sweating', 'Abdominal Pain', 'Congestion'
+  ]);
+  const [customSymptom, setCustomSymptom] = useState('');
+  const [isCheckerCollapsed, setIsCheckerCollapsed] = useState(false);
+  const [analysis, setAnalysis] = useState(null);
+  const [patient, setPatient] = useState(null);
+  const [meds, setMeds] = useState([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [showGreeting, setShowGreeting] = useState(true);
+  const [isAddMedModalOpen, setIsAddMedModalOpen] = useState(false);
+  const [historyMed, setHistoryMed] = useState(null);
+  const [historyRecords, setHistoryRecords] = useState([]);
+  const [cycleLogs, setCycleLogs] = useState([]);
+  const [cycleContext, setCycleContext] = useState(null);
+  const [showEmergencyCountdown, setShowEmergencyCountdown] = useState(false);
+  const [countdownTimer, setCountdownTimer] = useState(5);
+  const [isEmergencyProtocolEngaged, setIsEmergencyProtocolEngaged] = useState(false);
+  const [userEvents, setUserEvents] = useState([]);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [selectedEventDate, setSelectedEventDate] = useState(null);
+  const [newEvent, setNewEvent] = useState({ title: '', description: '', location: '', type: 'Appointment' });
+  
+  // Header Functionality State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'search', 'notifications', 'actions'
+  const [notifications, setNotifications] = useState([
+    { id: 1, type: 'info', title: 'Welcome to Nexos', text: 'All systems are active. Stay healthy!', read: false },
+    { id: 2, type: 'reminder', title: 'Medication Schedule', text: 'Your Morning dose of multivitamin is coming up.', read: false }
+  ]);
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const [closingDropdown, setClosingDropdown] = useState(null);
+  const [isClosingDetail, setIsClosingDetail] = useState(false);
+
+  // Dropdown Refs for Click-Outside logic
+  const searchRef = useRef(null);
+  const notificationsRef = useRef(null);
+  const actionsRef = useRef(null);
+
+  // Transition Handlers
+  const closeDropdown = () => {
+    if (!activeDropdown) return;
+    setClosingDropdown(activeDropdown);
+    setTimeout(() => {
+        setActiveDropdown(null);
+        setClosingDropdown(null);
+    }, 280);
+  };
+
+  const toggleDropdown = (type) => {
+    if (activeDropdown === type) {
+        closeDropdown();
+    } else {
+        setActiveDropdown(type);
+        if (type === 'notifications') {
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        }
+    }
+  };
+
+  const closeDetail = () => {
+    if (!selectedDetail) return;
+    setIsClosingDetail(true);
+    setTimeout(() => {
+        setSelectedDetail(null);
+        setIsClosingDetail(false);
+    }, 280);
+  };
+
+  // Click-Outside Dismissal Effect
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+        const isClickInSearch = searchRef.current && searchRef.current.contains(event.target);
+        const isClickInNotif = notificationsRef.current && notificationsRef.current.contains(event.target);
+        const isClickInActions = actionsRef.current && actionsRef.current.contains(event.target);
+        
+        if (!isClickInSearch && !isClickInNotif && !isClickInActions) {
+            closeDropdown();
+        }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [activeDropdown]);
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  // Global Theme Effect
+  React.useEffect(() => {
+    const applyTheme = (t) => {
+      let active = t;
+      if (t === 'system') {
+        active = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      
+      if (active === 'dark') {
+        document.body.classList.add('dark-theme');
+      } else {
+        document.body.classList.remove('dark-theme');
+      }
+    };
+
+    applyTheme(theme);
+    localStorage.setItem('nexos_theme', theme);
+
+    // Listener for system appearance changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = e => {
+      if (theme === 'system') applyTheme('system');
+    };
+    
+    mediaQuery.addEventListener('change', onChange);
+    return () => mediaQuery.removeEventListener('change', onChange);
+  }, [theme]);
+
+  // Auto-hide greeting
+  React.useEffect(() => {
+    if (isAuthenticated) {
+        const timer = setTimeout(() => {
+            setShowGreeting(false);
+        }, 9000);
+        return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated]);
+
+  // Emergency Countdown Effect
+  useEffect(() => {
+    let interval = null;
+    if (showEmergencyCountdown && countdownTimer > 0) {
+        interval = setInterval(() => {
+            setCountdownTimer(prev => prev - 1);
+        }, 1000);
+    } else if (showEmergencyCountdown && countdownTimer === 0) {
+        // Time's up, auto-engage
+        handleProceedEmergency();
+    }
+    return () => clearInterval(interval);
+  }, [showEmergencyCountdown, countdownTimer]);
+
+  const handleProceedEmergency = () => {
+      setShowEmergencyCountdown(false);
+      setIsEmergencyProtocolEngaged(true);
+      setActiveTab('emergency');
+  };
+
+  const cancelEmergency = () => {
+      setShowEmergencyCountdown(false);
+      setCountdownTimer(5);
+  };
+
+  // Fetch patient data on load if authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const headers = { 'Authorization': `Bearer ${token}` };
+
+        fetch(`${API_BASE_URL}/patient-info`, { headers })
+            .then(res => {
+                if (!res.ok) throw new Error('Unauthorized');
+                return res.json();
+            })
+            .then(setPatient)
+            .catch(err => {
+                console.error("Auth error:", err);
+                handleLogout();
+            });
+
+        fetchMeds();
+        fetchEvents();
+
+        // Fetch cycle logs for female users after patient data loads
+        fetch(`${API_BASE_URL}/patient-info`, { headers })
+          .then(r => r.ok ? r.json() : null)
+          .then(patientRes => {
+            if (patientRes && patientRes.gender && patientRes.gender.toLowerCase() === 'female') {
+              fetchCycleLogs();
+            }
+          })
+          .catch(() => null);
+    }
+  }, [isAuthenticated]);
+
+  const fetchMeds = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_BASE_URL}/medications`, { 
+        headers: { 'Authorization': `Bearer ${token}` } 
+    })
+    .then(res => res.json())
+    .then(setMeds)
+    .catch(err => console.error("Fetch meds error:", err));
+  };
+
+  const fetchCycleLogs = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_BASE_URL}/cycle-logs`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+      const logs = Array.isArray(data) ? data : [];
+      setCycleLogs(logs);
+      // Compute cycle context string for symptom AI
+      if (logs.length > 0) {
+        const sorted = [...logs].sort((a, b) => new Date(b.period_start) - new Date(a.period_start));
+        const latest = sorted[0];
+        const today = new Date(); today.setHours(0,0,0,0);
+        const start = new Date(latest.period_start);
+        const dayOfCycle = Math.round((today - start) / (1000*60*60*24)) + 1;
+        const cl = latest.cycle_length || 28;
+        const periodDur = latest.period_end
+          ? Math.round((new Date(latest.period_end) - start) / (1000*60*60*24)) + 1
+          : 5;
+        let phase = 'Luteal';
+        if (dayOfCycle <= periodDur) phase = 'Menstruation';
+        else if (dayOfCycle <= 13) phase = 'Follicular';
+        else if (dayOfCycle <= 15) phase = 'Ovulation';
+        setCycleContext(`Patient is on Day ${dayOfCycle} of a ${cl}-day cycle (${phase} phase). Last period started ${latest.period_start}.`);
+      } else {
+        setCycleContext(null);
+      }
+    })
+    .catch(err => console.error("Cycle logs error:", err));
+  };
+
+  const fetchEvents = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_BASE_URL}/events`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => setUserEvents(Array.isArray(data) ? data : []))
+    .catch(err => console.error("Fetch events error:", err));
+  };
+
+  const handleAddEvent = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const eventData = {
+      ...newEvent,
+      appointment_date: selectedEventDate + "T10:00:00" // Default time for now
+    };
+    fetch(`${API_BASE_URL}/events`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(eventData)
+    })
+    .then(res => res.json())
+    .then(() => {
+      fetchEvents();
+      setIsEventModalOpen(false);
+      setNewEvent({ title: '', description: '', location: '', type: 'Appointment' });
+    })
+    .catch(err => console.error("Add event error:", err));
+  };
+
+  const handleDeleteEvent = (id) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    fetch(`http://localhost:8000/events/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(() => fetchEvents())
+    .catch(err => console.error("Delete event error:", err));
+  };
+
+  const handleAddMed = (medData) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    fetch(`${API_BASE_URL}/medications`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(medData)
+    })
+    .then(res => res.json())
+    .then(() => fetchMeds())
+    .catch(err => console.error("Add med error:", err));
+  };
+
+  const handleTakeMed = (medId, slot = "General") => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    fetch(`http://localhost:8000/medications/${medId}/take?slot=${slot}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(() => fetchMeds())
+    .catch(err => console.error("Take med error:", err));
+  };
+
+  const fetchHistory = (med) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    setHistoryMed(med);
+    fetch(`http://localhost:8000/medications/${med.id}/history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(setHistoryRecords)
+    .catch(err => console.error("History error:", err));
+  };
+
+  const handleDeleteMed = (medId) => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    fetch(`http://localhost:8000/medications/${medId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(() => fetchMeds())
+    .catch(err => console.error("Delete med error:", err));
+  };
+  
+  // Fetch suggested symptoms when selection changes
+  React.useEffect(() => {
+    if (selectedSymptoms.length > 0) {
+        setIsSuggesting(true);
+        fetch(`${API_BASE_URL}/suggest-symptoms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(selectedSymptoms)
+        })
+        .then(res => res.json())
+        .then(newChips => {
+            // Keep selected ones + new suggestions, unique items
+            const combined = Array.from(new Set([...selectedSymptoms, ...newChips]));
+            setAvailableChips(combined);
+        })
+        .catch(err => console.error("Suggestion error:", err))
+        .finally(() => setIsSuggesting(false));
+    } else {
+        // Reset to default 10 if nothing selected
+        setAvailableChips([
+            'Headache', 'Fever', 'Fatigue', 'Cough', 'Nausea', 'Aching', 
+            'Dizziness', 'Sore Throat', 'Chest Pain', 'Shortness of Breath'
+        ]);
+    }
+  }, [selectedSymptoms]);
+
+  // Add female symptom chips when user is female
+  React.useEffect(() => {
+    if (patient?.gender?.toLowerCase() === 'female' && selectedSymptoms.length === 0) {
+      setAvailableChips([
+        'Headache', 'Fever', 'Fatigue', 'Cough', 'Nausea', 'Cramps',
+        'Dizziness', 'Sore Throat', 'Chest Pain', 'Shortness of Breath',
+        'Weakness', 'Sweating', 'Abdominal Pain', 'Mood Swings',
+        'Bloating', 'Breast Tenderness'
+      ]);
+    }
+  }, [patient]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('username');
+    setUserRole('patient');
+    setIsAuthenticated(false);
+    setPatient(null);
+    setMeds([]);
+    setUserEvents([]);
+    setNotifications([]);
+  };
+
+  const handleLoginSuccess = (token, username, rememberMe = true) => {
+    if (rememberMe) {
+        localStorage.setItem('token', token);
+    } else {
+        sessionStorage.setItem('token', token);
+    }
+    localStorage.setItem('username', username);
+    setUserRole('patient');
+    setIsAuthenticated(true);
+  };
+
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return null;
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+    }
+    return age;
+  };
+
+  const handleSearchAction = (action) => {
+    if (action.type === 'page') setActiveTab(action.value);
+    if (action.type === 'symptom') toggleSymptom(action.value);
+    if (action.type === 'med') {
+        setActiveTab('meds');
+        setTimeout(() => {
+            const el = document.getElementById(`med-${action.value}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+    if (action.type === 'fact') {
+        setSelectedDetail(action);
+    }
+    setSearchTerm('');
+    closeDropdown();
+  };
+
+  const getSearchResults = () => {
+    if (!searchTerm) return [];
+    const term = searchTerm.toLowerCase();
+    const results = [];
+    
+    const sections = [
+        { name: 'Dashboard', icon: 'home', tab: 'symptoms' },
+        { name: 'Medications', icon: 'medication', tab: 'meds' },
+        { name: 'Profile', icon: 'person', tab: 'profile' },
+        { name: 'Settings', icon: 'settings', tab: 'settings' },
+        { name: 'Cycle Tracker', icon: 'favorite', tab: 'cycle' }
+    ];
+    sections.forEach(s => {
+        if (s.name.toLowerCase().includes(term)) 
+            results.push({ type: 'page', title: s.name, subtitle: 'Application Section', icon: s.icon, value: s.tab });
+    });
+
+    availableChips.forEach(s => {
+        if (s.toLowerCase().includes(term))
+            results.push({ type: 'symptom', title: s, subtitle: 'Health Tracking', icon: 'monitor_heart', value: s });
+    });
+
+    meds.forEach(m => {
+        if (m.name.toLowerCase().includes(term))
+            results.push({ type: 'med', title: m.name, subtitle: `${m.dosage} - Medication`, icon: m.icon === 'pill' ? 'medication' : 'medication_liquid', value: m.id });
+    });
+
+    const library = [
+        { name: 'Hypertension', fact: 'Persistent high blood pressure. Recommended low salt diet, regular exercise, and stress management. Normal BP is 120/80 mmHg. Persistent readings above 140/90 require medical consultation.', icon: 'favorite' },
+        { name: 'Dehydration', fact: 'Occurs when the body loses more fluid than it takes in. Symptoms include darkened urine, dry mouth, and dizziness. Drink 2-3 liters of water daily, especially in tropical climates.', icon: 'water_drop' },
+        { name: 'Common Cold', fact: 'Viral infection of the upper respiratory tract. Rest, fluids, and zinc can help reduce duration. Usually resolves in 7-10 days.', icon: 'medical_information' },
+        { name: 'Insomnia', fact: 'Difficulty falling or staying asleep. Maintain a consistent sleep schedule, avoid blue light before bed, and limit caffeine for better sleep hygiene.', icon: 'bedtime' },
+        { name: 'Diabetes Type 2', fact: 'A chronic condition affecting how correctly the body processes blood sugar. Characterized by insulin resistance. Managed via diet, exercise, and monitoring.', icon: 'monitor_heart' },
+        { name: 'Malaria Prevention', fact: 'Use insecticide-treated mosquito nets (ITNs), wear long sleeves at dusk, and maintain clean drainage systems to prevent breeding.', icon: 'shield' },
+        { name: 'Nutrition: Vitamin D', fact: 'Essential for bone health and immune function. Natural sources include sunlight and oily fish. Deficiency can lead to bone pain and fatigue.', icon: 'wb_sunny' },
+        { name: 'Oral Hygiene', fact: 'Brush twice daily and floss once. Oral health is linked to cardiovascular health. Visit a dentist every 6 months for professional cleaning.', icon: 'health_and_safety' },
+        { name: 'Anemia', fact: 'Lacking enough healthy red blood cells to carry oxygen. Eat iron-rich foods like spinach, red meat, and beans. Often causes fatigue and weakness.', icon: 'bloodtype' },
+        { name: 'Stroke Warning (FAST)', fact: 'Face drooping, Arm weakness, Speech difficulty, Time to call emergency. Minutes matter in stroke care.', icon: 'emergency' },
+        { name: 'Sanitization', fact: 'Handwashing with soap reduces diarrheal disease by 50%. Clean water and sanitation prevent Typhoid and Cholera outbreaks.', icon: 'clean_hands' },
+        { name: 'Heat Stroke', fact: 'Serious condition when body temperature exceeds 40°C. Symptoms include confusion and rapid pulse. Move to shade and hydrate immediately.', icon: 'thermostat' }
+    ];
+    library.forEach(l => {
+        if (l.name.toLowerCase().includes(term))
+            results.push({ type: 'fact', title: l.name, subtitle: l.fact, icon: l.icon, isGeneral: true });
+    });
+
+    return results;
+  };
+
+
+  // Automated Health Insight Engine (Notifications)
+  React.useEffect(() => {
+    if (isAuthenticated && meds.length > 0) {
+        const checkMedNotifications = () => {
+            const now = new Date();
+            const hour = now.getHours();
+            let currentSlot = '';
+            if (hour >= 6 && hour < 11) currentSlot = 'Morning';
+            else if (hour >= 11 && hour < 14) currentSlot = 'Noon';
+            else if (hour >= 17 && hour < 21) currentSlot = 'Evening';
+            else if (hour >= 21 || hour < 5) currentSlot = 'Bedtime';
+
+            if (currentSlot) {
+                const dueMeds = meds.filter(m => 
+                    m.time?.split(',').map(t => t.trim()).includes(currentSlot) && 
+                    (!m.taken_today || !m.taken_today.includes(currentSlot))
+                );
+
+                if (dueMeds.length > 0) {
+                    const title = `${currentSlot} Medications`;
+                    setNotifications(prev => {
+                        if (prev.find(n => n.title === title)) return prev;
+                        return [{
+                            id: Date.now(),
+                            type: 'reminder',
+                            title: title,
+                            text: `You have ${dueMeds.length} pending doses.`,
+                            read: false
+                        }, ...prev];
+                    });
+                }
+            }
+        };
+
+        checkMedNotifications();
+        const interval = setInterval(checkMedNotifications, 60000 * 5); 
+        return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, meds]);
+
+  if (!isAuthenticated) {
+    return authView === 'login' ? (
+      <Login 
+        onSwitch={() => setAuthView('signup')} 
+        onLoginSuccess={handleLoginSuccess}
+      />
+    ) : (
+      <Signup 
+        onSwitch={() => setAuthView('login')} 
+        onSignupAutoLogin={handleLoginSuccess}
+      />
+    );
+  }
+
+  const toggleSymptom = (symptom) => {
+    setSelectedSymptoms(prev => 
+      prev.includes(symptom) 
+        ? prev.filter(s => s !== symptom) 
+        : [...prev, symptom]
+    );
+  };
+
+  const handleAnalyze = async () => {
+    setAnalysis({ status: "Analyzing...", results: "Our AI is analyzing your symptoms..." });
+    setIsCheckerCollapsed(true);
+    try {
+      const allSymptoms = [...selectedSymptoms];
+      if (customSymptom.trim()) {
+        allSymptoms.push(customSymptom.trim());
+      }
+
+      // For female users: inject cycle context into the request
+      const isFemale = patient?.gender?.toLowerCase() === 'female';
+      const requestBody = {
+        symptoms: allSymptoms,
+        ...(isFemale && cycleContext && { cycle_context: cycleContext })
+      };
+
+      const response = await fetch(`${API_BASE_URL}/analyze-symptoms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        // Backend returned an error (e.g. 422 if server not restarted after update)
+        const errData = await response.json().catch(() => null);
+        const errMsg = errData?.detail
+          ? (typeof errData.detail === 'string' ? errData.detail : JSON.stringify(errData.detail))
+          : `Server error ${response.status}. Please restart the backend server.`;
+        setAnalysis({ status: "Error", results: errMsg });
+        return;
+      }
+
+      const data = await response.json();
+      setAnalysis(data);
+
+      if (isAuthenticated && data.status === "Success") {
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        fetch(`${API_BASE_URL}/save-analysis`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            symptoms: allSymptoms,
+            top_condition: data.top_condition,
+            risk_level: data.risk_level,
+            explanation: data.explanation
+          })
+        }).catch(err => console.error("Save analysis error:", err));
+      }
+
+      if (data.risk_level === 'High') {
+          setCountdownTimer(5);
+          setShowEmergencyCountdown(true);
+      }
+    } catch (error) {
+      setAnalysis({ status: "Error", results: "Could not connect to the health server. Is the backend running?" });
+    }
+  };
+
+  return (
+    <div className="app-layout">
+      {/* Sidebar */}
+      <aside className="sidebar expanded">
+        <div className="logo-container">
+            <div className="logo-wrapper">
+                <div className="logo-icon">
+                    <span className="material-icons-round">health_and_safety</span>
+                </div>
+                <div className="logo-text">Nexos</div>
+            </div>
+        </div>
+
+        <nav className="nav-icons">
+              <div className={`nav-icon ${activeTab === 'symptoms' ? 'active' : ''}`} onClick={() => setActiveTab('symptoms')}>
+                <span className="material-icons-round">home</span>
+                <span className="nav-text">Dashboard</span>
+              </div>
+              <div className={`nav-icon ${activeTab === 'meds' ? 'active' : ''}`} onClick={() => setActiveTab('meds')}>
+                <span className="material-icons-round">bar_chart</span>
+                <span className="nav-text">Medications</span>
+              </div>
+              <div className={`nav-icon ${activeTab === 'planner' ? 'active' : ''}`} onClick={() => setActiveTab('planner')}>
+                <span className="material-icons-round">calendar_today</span>
+                <span className="nav-text">Planner</span>
+              </div>
+              {patient?.gender?.toLowerCase() === 'female' && (
+                <div className={`nav-icon cycle-nav ${activeTab === 'cycle' ? 'active' : ''}`} onClick={() => setActiveTab('cycle')}>
+                  <span className="material-icons-round">favorite</span>
+                  <span className="nav-text">My Cycle</span>
+                </div>
+              )}
+
+          <div className={`nav-icon ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
+            <span className="material-icons-round">person_outline</span>
+            <span className="nav-text">My Profile</span>
+          </div>
+          <div className={`nav-icon ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+            <span className="material-icons-round">settings</span>
+            <span className="nav-text">Settings</span>
+          </div>
+          
+          <div className={`nav-icon emergency-nav ${activeTab === 'emergency' ? 'active' : ''}`} onClick={() => setActiveTab('emergency')}>
+            <span className="material-icons-round">emergency</span>
+            <span className="nav-text">Emergency</span>
+          </div>
+        </nav>
+
+        <div className="logout-icon" onClick={handleLogout} title="Logout">
+            <span className="material-icons-round">logout</span>
+            <span className="nav-text">Logout</span>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="main-content fade-in">
+        <header className="top-bar">
+          <div style={{ position: 'relative' }} ref={searchRef}>
+              <input 
+                type="text" 
+                className="search-box" 
+                placeholder="Search for events, symptoms..." 
+                value={searchTerm}
+                onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    if (e.target.value) setActiveDropdown('search');
+                    else closeDropdown();
+                }}
+              />
+              {activeDropdown === 'search' && searchTerm && (
+                  <div className={`header-dropdown-panel search-results-panel origin-top-left ${closingDropdown === 'search' ? 'is-closing' : ''}`}>
+                      {getSearchResults().length > 0 ? getSearchResults().map((res, i) => (
+                          <div 
+                            key={i} 
+                            className={`search-result-item ${res.isGeneral ? 'health-library-item' : ''}`}
+                            onClick={() => handleSearchAction(res)}
+                          >
+                              <div className="result-icon"><span className="material-icons-round">{res.icon}</span></div>
+                              <div className="result-content">
+                                  <h5>{res.title}</h5>
+                                  <p>{res.subtitle}</p>
+                              </div>
+                          </div>
+                      )) : (
+                          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No results found</div>
+                      )}
+                  </div>
+              )}
+          </div>
+
+          <div className="top-actions" style={{display: 'flex', gap: '1.2rem', alignItems: 'center', color: 'var(--text-muted)', position: 'relative'}}>
+            <div style={{ position: 'relative' }} ref={notificationsRef}>
+                <span 
+                    className="material-icons-round" 
+                    style={{cursor: 'pointer', color: activeDropdown === 'notifications' ? 'var(--primary)' : 'inherit'}}
+                    onClick={() => toggleDropdown('notifications')}
+                >notifications</span>
+                {notifications.some(n => !n.read) && <div className="notification-badge"></div>}
+                
+                {activeDropdown === 'notifications' && (
+                    <div className={`header-dropdown-panel notifications-panel origin-top-right ${closingDropdown === 'notifications' ? 'is-closing' : ''}`}>
+                        <div className="dropdown-header">
+                            <h4>Notifications</h4>
+                            <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setNotifications([])}>Clear All</span>
+                        </div>
+                        <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                            {notifications.length > 0 ? notifications.map(n => (
+                                <div key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`}>
+                                    <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{n.title}</h5>
+                                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.text}</p>
+                                </div>
+                            )) : (
+                                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>All caught up!</div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div style={{ position: 'relative' }} ref={actionsRef}>
+                <span 
+                    className="material-icons-round" 
+                    style={{cursor: 'pointer', color: activeDropdown === 'actions' ? 'var(--primary)' : 'inherit'}}
+                    onClick={() => toggleDropdown('actions')}
+                >medical_services</span>
+                
+                {activeDropdown === 'actions' && (
+                    <div className={`header-dropdown-panel quick-actions-panel origin-top-right ${closingDropdown === 'actions' ? 'is-closing' : ''}`}>
+                        <div className="dropdown-header">
+                            <h4>Quick Tools</h4>
+                        </div>
+                        <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
+                            <span className="material-icons-round">add_box</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Add Medication</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Record a new prescription</p>
+                            </div>
+                        </div>
+                        <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
+                            <span className="material-icons-round">emergency</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Medical Identity</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
+                            </div>
+                        </div>
+                        <div className="action-menu-item" onClick={() => { setActiveTab('symptoms'); setIsCheckerCollapsed(false); closeDropdown(); }}>
+                            <span className="material-icons-round">edit_note</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Log Symptoms</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Update your current status</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <span
+                className="material-icons-round"
+                style={{cursor: 'pointer', color: activeTab === 'settings' ? 'var(--primary)' : 'inherit'}}
+                onClick={() => setActiveTab('settings')}
+                title="Settings"
+              >settings</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Content Container */}
+
+        <div className="dashboard-content">
+
+          {activeTab === 'symptoms' && (
+            <div className="symptoms-section slide-in-top">
+              <div className={`modern-symptom-checker glass-card ${isCheckerCollapsed ? 'collapsed' : ''}`}>
+                  <div className="checker-header-modern" onClick={() => isCheckerCollapsed && setIsCheckerCollapsed(false)} style={{cursor: isCheckerCollapsed ? 'pointer' : 'default'}}>
+                      <div className="ai-icon-pulse" style={{width: isCheckerCollapsed ? 45 : 60, height: isCheckerCollapsed ? 45 : 60, transition: 'all 0.3s'}}>
+                          <span className="material-icons-round" style={{fontSize: isCheckerCollapsed ? '1.5rem' : '2rem', transition: 'all 0.3s'}}>psychology</span>
+                      </div>
+                      <div style={{flex: 1}}>
+                          <h2 style={{fontSize: isCheckerCollapsed ? '1.3rem' : '1.8rem', margin: '0 0 0.2rem 0', transition: 'all 0.3s'}}>How are you feeling today?</h2>
+                          {!isCheckerCollapsed && <p style={{margin: 0, color: 'var(--text-muted)'}}>Describe your symptoms or select from common indicators below.</p>}
+                          {isCheckerCollapsed && (selectedSymptoms.length > 0 || customSymptom.trim()) && (
+                              <div className="collapsed-symptom-list" style={{margin: '0.4rem 0 0 0'}}>
+                                  {selectedSymptoms.map((s, idx) => <span key={idx} className="collapsed-symptom-tag">{s}</span>)}
+                                  {customSymptom.trim() && <span className="collapsed-symptom-tag">{customSymptom}</span>}
+                              </div>
+                          )}
+                      </div>
+                      {isCheckerCollapsed ? (
+                          <span className="material-icons-round text-muted" style={{fontSize: '1.5rem'}}>expand_more</span>
+                      ) : (
+                          (selectedSymptoms.length > 0 || customSymptom.trim() !== '') && (
+                             <span className="material-icons-round text-muted" style={{cursor: 'pointer', fontSize: '1.5rem'}} onClick={(e) => { e.stopPropagation(); setIsCheckerCollapsed(true); }}>expand_less</span>
+                          )
+                      )}
+                  </div>
+                  
+                  <div className="checker-body-modern">
+                      {selectedSymptoms.length > 0 && (
+                          <div className="selected-tags">
+                              {selectedSymptoms.map((s, idx) => (
+                                  <span key={idx} className="modern-tag">
+                                      {s} 
+                                      <span className="material-icons-round remove-tag" onClick={() => toggleSymptom(s)}>close</span>
+                                  </span>
+                              ))}
+                          </div>
+                      )}
+                      
+                      <div className="modern-input-wrapper">
+                          <span className="material-icons-round search-icon">search</span>
+                          
+                          <input 
+                              type="text" 
+                              placeholder={selectedSymptoms.length > 0 ? "Any other symptoms?" : "e.g., headache, mild fever, back pain..."}
+                              className="modern-symptom-input"
+                              value={customSymptom}
+                              onChange={(e) => setCustomSymptom(e.target.value)}
+                          />
+                          
+                          <button className="btn-modern-analyze" onClick={handleAnalyze}>
+                              <span className="material-icons-round">auto_awesome</span>
+                              Analyze
+                          </button>
+                      </div>
+
+                      {availableChips.filter(s => !selectedSymptoms.includes(s)).length > 0 && (
+                          <div className="modern-suggestions">
+                              <span className="suggestions-label">Suggestions:</span>
+                              <div className="horizontal-chips custom-scrollbar">
+                                  {availableChips.filter(s => !selectedSymptoms.includes(s)).map((s, idx) => (
+                                      <div key={idx} className="modern-chip" onClick={() => toggleSymptom(s)}>
+                                          <span className="material-icons-round">add</span> {s}
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+
+              <div className="dashboard-grid-main" style={{display: 'block', marginTop: '2.5rem'}}>
+                <div className="main-stats-col">
+                  {analysis ? (
+                    <div className="stat-card analysis-card-full">
+                      <h3>AI Analysis Results</h3>
+                      <div className="analysis-results fade-in">
+                        {analysis.status === "Analyzing..." ? (
+                          <AnalysisLoading />
+                        ) : (!analysis.status || analysis.status === "Error" || analysis.status === "Empty") ? (
+                          <div className="analysis-text" style={{marginTop: '1.5rem'}}>
+                            <strong>Status: {analysis.status || "Error"}</strong>
+                            <p style={{marginTop: '0.5rem', color: 'var(--text-muted)'}}>{analysis.results || analysis.detail || analysis.analysis || "An unexpected error occurred."}</p>
+                          </div>
+                        ) : (
+                          <div className="full-analysis-view" style={{marginTop: '1rem'}}>
+                            <div className="result-header" style={{borderLeft: `4px solid ${analysis.risk_level === 'High' ? '#ef4444' : analysis.risk_level === 'Medium' ? '#f59e0b' : '#22c55e'}`}}>
+                              <div className="result-title-row">
+                                <div className="top-condition-highlight">
+                                  <span className="label">Most Likely Condition</span>
+                                  <h2 className="top-condition-name">{analysis.top_condition || "Assessment"}</h2>
+                                </div>
+                                <span className={`risk-badge ${analysis.risk_level?.toLowerCase() || 'medium'}`}>
+                                  {analysis.risk_level} Risk
+                                </span>
+                              </div>
+                              <p style={{fontSize: '1rem', lineHeight: '1.6', color: 'var(--text-muted)', marginTop: '0.5rem'}}>{analysis.explanation}</p>
+                            </div>
+                            
+                            <div className="analysis-grid-row" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem'}}>
+                              {analysis.possibilities && analysis.possibilities.length > 0 && (
+                                <div className="result-section">
+                                  <h4>Potential Conditions</h4>
+                                  <div className="possibility-list">
+                                    {analysis.possibilities.map((p, idx) => (
+                                      <div key={idx} className="match-bar-container">
+                                        <div className="match-text">
+                                          <span>{p.condition}</span>
+                                          <strong>{p.match_percentage}%</strong>
+                                        </div>
+                                        <div className="match-bar-bg"><div className="match-bar-fill" style={{width: `${p.match_percentage}%`}}></div></div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="result-section">
+                                <h4>Action Steps</h4>
+                                <ul className="action-steps-list">
+                                  {Array.isArray(analysis.action_steps) ? analysis.action_steps.map((step, idx) => (
+                                    <li key={idx}>{step}</li>
+                                  )) : <li>Monitor symptoms and stay hydrated.</li>}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="welcome-placeholder-card fade-in glass-card" style={{padding: '3rem', textAlign: 'center'}}>
+                      <div className="placeholder-icon" style={{width: '70px', height: '70px', background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem'}}>
+                        <span className="material-icons-round" style={{fontSize: '2.5rem'}}>psychology</span>
+                      </div>
+                      <h3>Your Health Intelligence</h3>
+                      <p style={{maxWidth: '400px', margin: '0 auto', color: 'var(--text-muted)'}}>Select symptoms above to generate a preliminary AI assessment of your current health state.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'planner' && (
+            <div className="planner-full-section slide-in-bottom" style={{maxWidth: '1000px', margin: '0 auto'}}>
+              <div className="planner-header-card">
+                <div className="schedule-header" style={{margin: 0, padding: 0, border: 'none'}}>
+                  <div className="header-title-group">
+                    <h3>Personal Health Planner</h3>
+                    <div className="ux-prompt-small">Manage your appointments, tests, and routines.</div>
+                  </div>
+                  {userEvents.length > 0 && (
+                    <button className="date-display" onClick={() => { setSelectedEventDate(new Date().toISOString().split('T')[0]); setIsEventModalOpen(true); }} style={{border: 'none', cursor: 'pointer', fontFamily: 'inherit'}}>
+                      New Plan
+                    </button>
+                  )}
+                </div>
+              </div>
+
+
+              <div className="planner-agenda-container" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem'}}>
+                {userEvents.length > 0 ? userEvents.sort((a,b) => new Date(a.appointment_date) - new Date(b.appointment_date)).map(event => {
+                  const typeMap = {
+                    'Appointment': 'type-appointment',
+                    'Exercise': 'type-exercise',
+                    'Lab Test': 'type-lab-test',
+                    'Medication': 'type-medication',
+                    'Other': 'type-other'
+                  };
+                  const typeClass = typeMap[event.type] || 'type-other';
+                  
+                  return (
+                    <div key={event.id} className={`agenda-card-premium ${typeClass} fade-in`}>
+                      <div className={`agenda-date-gradient ${typeClass}`}>
+                         <span style={{fontSize: '0.8rem', opacity: 0.9, fontWeight: 600}}>{new Date(event.appointment_date).toLocaleString('en-US', { month: 'short' })}</span>
+                         <span style={{fontSize: '1.5rem', fontWeight: 800}}>{new Date(event.appointment_date).getDate()}</span>
+                      </div>
+                      <div style={{flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column'}}>
+                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem'}}>
+                           <h4 style={{margin: 0, fontSize: '1.1rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '1rem'}}>{event.title}</h4>
+                           <span className={`event-type-badge ${typeClass}`}>{event.type}</span>
+                         </div>
+                         <p style={{fontSize: '0.9rem', margin: 0, color: 'var(--text-muted)', lineHeight: '1.5', flex: 1}}>{event.description}</p>
+                         <div style={{display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600}}>
+                            {event.location && <span style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}><span className="material-icons-round" style={{fontSize: '1.1rem'}}>place</span> {event.location}</span>}
+                            <span style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}><span className="material-icons-round" style={{fontSize: '1.1rem'}}>schedule</span> {new Date(event.appointment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                         </div>
+                      </div>
+                      <button className="icon-btn-delete" onClick={() => handleDeleteEvent(event.id)} style={{position: 'absolute', bottom: '1.2rem', right: '1.5rem', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.4, transition: 'all 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                        <span className="material-icons-round">delete_outline</span>
+                      </button>
+                    </div>
+                  );
+                }) : (
+                  <div className="planner-empty-premium fade-in">
+                    <div className="empty-icon-glow">
+                        <span className="material-icons-round">calendar_month</span>
+                    </div>
+                    <h3>Your Schedule is Clear</h3>
+                    <p style={{color: 'var(--text-muted)', maxWidth: '300px', margin: '0 auto 1.5rem'}}>You don't have any upcoming appointments, tests, or exercises planned.</p>
+                    <button className="btn-primary" onClick={() => { setSelectedEventDate(new Date().toISOString().split('T')[0]); setIsEventModalOpen(true); }} style={{padding: '0.8rem 2rem', width: 'max-content', flexShrink: 0}}>
+                        <span className="material-icons-round" style={{marginRight: '0.5rem', fontSize: '1.2rem', verticalAlign: 'middle'}}>add</span> 
+                        Create First Plan
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'meds' && (
+             <div className="meds-section fade-in">
+               <div className="meds-dashboard">
+                 {/* Today's Schedule Timeline */}
+                 <section className="schedule-container">
+                    <div className="schedule-header">
+                        <div className="header-title-group">
+                            <h3>Today's Medication Plan</h3>
+                            <div className="ux-prompt-small">Stick to your schedule for better health.</div>
+                        </div>
+                        <div className="date-display">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+                    </div>
+                    
+                    <div className="daily-timeline">
+                        {[
+                          { name: 'Morning', icon: 'wb_sunny', color: '#f59e0b' },
+                          { name: 'Noon', icon: 'restaurant', color: '#fbbf24' },
+                          { name: 'Evening', icon: 'wb_twilight', color: '#6366f1' },
+                          { name: 'Bedtime', icon: 'bedtime', color: '#1e1b4b' }
+                        ].map(slot => {
+                          const slotMeds = meds.filter(m => m.time && m.time.split(',').map(t => t.trim()).includes(slot.name));
+                          return (
+                            <div key={slot.name} className={`timeline-slot ${slotMeds.length > 0 ? 'active' : ''}`}>
+                                <div className="slot-header">
+                                    <span className="material-icons-round" style={{color: slot.color}}>{slot.icon}</span>
+                                    <span className="slot-name">{slot.name}</span>
+                                </div>
+                                <div className="slot-meds">
+                                    {slotMeds.length > 0 ? slotMeds.map(med => {
+                                      const isSlotTaken = med.taken_today && med.taken_today.includes(slot.name);
+                                      return (
+                                        <div key={med.id} className={`mini-med-card ${isSlotTaken ? 'taken' : ''}`}>
+                                            <div className="med-symbol" style={{color: isSlotTaken ? '#16a34a' : 'var(--primary)', opacity: isSlotTaken ? 1 : 0.6}}>
+                                                <span className="material-icons-round" style={{fontSize: '1.2rem'}}>
+                                                    {med.icon === 'pill' ? 'medication' : 
+                                                     med.icon === 'liquid' ? 'water_drop' : 
+                                                     med.icon === 'shot' ? 'vaccines' : 
+                                                     med.icon === 'capsule' ? 'medication_liquid' : 'pill'}
+                                                </span>
+                                            </div>
+                                            <div className="med-info">
+                                                <h4>{med.name}</h4>
+                                                <p>{med.dosage}</p>
+                                            </div>
+                                            <button 
+                                                className={`take-btn ${isSlotTaken ? 'active' : ''}`} 
+                                                title={isSlotTaken ? "Dose taken" : "Mark as taken"}
+                                                onClick={() => !isSlotTaken && handleTakeMed(med.id, slot.name)}
+                                                disabled={isSlotTaken}
+                                            >
+                                                <span className="material-icons-round">{isSlotTaken ? 'done_all' : 'check'}</span>
+                                            </button>
+                                        </div>
+                                      );
+                                    }) : (
+                                      <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', opacity: 0.5}}>No medications</p>
+                                    )}
+                                </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                 </section>
+
+                 {/* Medication Cabinet */}
+                 <section className="cabinet-section">
+                    <div className="section-header-flex">
+                        <h3>My Medicine Cabinet</h3>
+                        <button className="btn-primary-horizontal" onClick={() => setIsAddMedModalOpen(true)}>
+                            <span className="material-icons-round">add_circle</span>
+                            <span>Add Medication</span>
+                        </button>
+                    </div>
+                    
+                    <div className="cabinet-grid">
+                        {meds.map(med => {
+                          const isTakenToday = med.last_taken && new Date(med.last_taken).toDateString() === new Date().toDateString();
+                          const stockPercent = (med.stock / (med.total_stock || 1)) * 100;
+                          return (
+                            <div key={med.id} className={`med-card-premium ${isTakenToday ? 'taken' : ''}`}>
+                                {isTakenToday && (
+                                    <div className="taken-badge">
+                                        <span className="material-icons-round" style={{fontSize: '0.9rem'}}>verified</span>
+                                        TAKEN TODAY
+                                    </div>
+                                )}
+                                <div className="med-icon-box">
+                                    <span className="material-icons-round">
+                                        {med.icon === 'pill' ? 'medication' : 
+                                         med.icon === 'liquid' ? 'water_drop' : 
+                                         med.icon === 'shot' ? 'vaccines' : 
+                                         med.icon === 'capsule' ? 'medication_liquid' : 'pill'}
+                                    </span>
+                                </div>
+                                <div className="med-details">
+                                    <h4>{med.name}</h4>
+                                    <div style={{display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center'}}>
+                                        <span className="dosage">{med.dosage}</span>
+                                        <span className="frequency" style={{background: 'var(--bg-main)', padding: '0.1rem 0.6rem', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600}}>
+                                            {med.frequency}
+                                        </span>
+                                        <button 
+                                           className="btn-history-mini" 
+                                           onClick={() => fetchHistory(med)}
+                                           style={{background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.7}}
+                                           title="View Intake History"
+                                        >
+                                            <span className="material-icons-round" style={{fontSize: '1.2rem'}}>history</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="stock-progress-container">
+                                        <div className="stock-label-row">
+                                            <span>Stock Remaining</span>
+                                            <span>{med.stock} doses</span>
+                                        </div>
+                                        <div className="stock-progress-bar">
+                                            <div 
+                                                className={`stock-bar-fill ${med.stock < 5 ? 'low' : ''}`} 
+                                                style={{width: `${stockPercent}%`}}
+                                            ></div>
+                                        </div>
+                                        {med.stock < 5 && <p style={{color: '#f43f5e', fontSize: '0.75rem', fontWeight: 700, marginTop: '5px'}}>Low stock - refill soon!</p>}
+                                    </div>
+                                </div>
+                                
+                                <div className="btn-delete-med" onClick={() => handleDeleteMed(med.id)} title="Delete medication">
+                                    <span className="material-icons-round">delete_outline</span>
+                                </div>
+                            </div>
+                          );
+                        })}
+                        
+                        <div 
+                            className="med-card-premium add-new" 
+                            style={{borderStyle: 'dashed', cursor: 'pointer', justifyContent: 'center', alignItems: 'center', background: 'transparent', opacity: 0.6}}
+                            onClick={() => setIsAddMedModalOpen(true)}
+                        >
+                            <div style={{textAlign: 'center', color: 'var(--text-muted)'}}>
+                                <span className="material-icons-round" style={{fontSize: '2.5rem'}}>add_pills</span>
+                                <p style={{marginTop: '0.5rem', fontWeight: 700}}>Fast Add</p>
+                            </div>
+                        </div>
+                    </div>
+                 </section>
+               </div>
+             </div>
+          )}
+
+          {activeTab === 'profile' && patient && (
+            <Profile 
+              patient={patient} 
+              onUpdate={(updatedUser) => setPatient(updatedUser)} 
+            />
+          )}
+
+          {activeTab === 'settings' && patient && (
+            <Settings 
+              patient={patient} 
+              onUpdate={(updatedUser) => setPatient(updatedUser)} 
+              theme={theme}
+              setTheme={setTheme}
+            />
+          )}
+
+          {activeTab === 'cycle' && patient?.gender?.toLowerCase() === 'female' && (
+            <CycleTracker 
+              patient={patient} 
+              userEvents={userEvents}
+              onDayClick={(date) => {
+                setSelectedEventDate(date.toISOString().split('T')[0]);
+                setIsEventModalOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'emergency' && (
+            <Emergency patient={patient} autoEngaged={isEmergencyProtocolEngaged} />
+          )}
+
+        </div>
+      </main>
+
+      {/* Right Sidebar - Only on Dashboard/Symptoms */}
+      {((activeTab === 'dashboard' || activeTab === 'symptoms') && patient) && (
+        <aside className="aside slide-in-right">
+          {showGreeting && (
+            <div className={`profile-greeting fade-out-timer`}>
+                <div className="greeting-icon">
+                    <span className="material-icons-round">waving_hand</span>
+                </div>
+                <div className="greeting-text">
+                    <span className="time-tag">{getGreeting()}</span>
+                    <h4>{patient?.full_name || localStorage.getItem('username')}!</h4>
+                </div>
+            </div>
+          )}
+          <section className="profile-card">
+            <h3>MY PROFILE</h3>
+            <div className="profile-avatar" style={{ overflow: 'hidden' }}>
+              {patient?.profile_picture ? (
+                  <img src={patient.profile_picture} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                  <span className="material-icons-round" style={{fontSize: '3rem'}}>person</span>
+              )}
+            </div>
+            <h2>{patient?.full_name || localStorage.getItem('username') || 'User'}</h2>
+            <p style={{color: 'var(--text-muted)', fontSize: '0.9rem'}}>Patient ID: #NX-2026</p>
+            
+            <div className="profile-details" style={{textAlign: 'left'}}>
+                <div className="detail-item">
+                    <span className="detail-label">Age</span>
+                    <span className="detail-value">
+                      {patient.birth_date ? (() => {
+                        const birth = new Date(patient.birth_date);
+                        const today = new Date();
+                        let age = today.getFullYear() - birth.getFullYear();
+                        const m = today.getMonth() - birth.getMonth();
+                        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+                        return age;
+                      })() : (patient.age || 'N/A')}
+                    </span>
+                </div>
+                <div className="detail-item">
+                    <span className="detail-label">Blood</span>
+                    <span className="detail-value">{patient.blood_type || 'Unknown'}</span>
+                </div>
+            </div>
+          </section>
+
+          <section className="calendar-card">
+            <h3>MY CALENDAR</h3>
+            <p style={{fontWeight: 600, marginTop: '0.5rem'}}>{new Date().toLocaleString('en-US', { month: 'long' })}</p>
+            <div className="mini-cal" style={{display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.5rem', marginTop: '1rem', fontSize: '0.8rem', textAlign: 'center'}}>
+                {['S','M','T','W','T','F','S'].map(d => <span key={d} style={{opacity: 0.5}}>{d}</span>)}
+                {Array.from({length: 31}, (_, i) => {
+                    const dayNum = i + 1;
+                    const hasEvents = userEvents.some(e => {
+                        const ed = new Date(e.appointment_date);
+                        return ed.getDate() === dayNum && ed.getMonth() === new Date().getMonth() && ed.getFullYear() === new Date().getFullYear();
+                    });
+                    return (
+                        <span key={i} style={{
+                            padding: '5px', 
+                            borderRadius: '50%', 
+                            background: (dayNum === new Date().getDate()) ? 'white' : 'transparent',
+                            color: (dayNum === new Date().getDate()) ? 'var(--primary)' : 'inherit',
+                            position: 'relative'
+                        }}>
+                            {dayNum}
+                            {hasEvents && <div className="event-marker-dot" style={{position: 'absolute', bottom: '2px', left: '50%', transform: 'translateX(-50%)', width: '4px', height: '4px'}}></div>}
+                        </span>
+                    );
+                })}
+            </div>
+          </section>
+
+          <section className="upcoming-integrated-card" style={{marginTop: '1.5rem'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                    <h3 style={{fontSize: '0.9rem', letterSpacing: '1px'}}>UPCOMING</h3>
+                    <button onClick={() => setActiveTab('planner')} style={{background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer'}}>VIEW ALL</button>
+                </div>
+                <div className="integrated-planner-list" style={{display: 'flex', flexDirection: 'column', gap: '0.8rem'}}>
+                    {userEvents.length > 0 ? (
+                        userEvents.slice(0, 3).map(event => (
+                            <div key={event.id} className="mini-event-row" style={{display: 'flex', gap: '0.8rem', alignItems: 'center'}}>
+                                <div style={{width: '38px', height: '38px', background: 'var(--bg-main)', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem'}}>
+                                    <span style={{fontSize: '0.6rem', opacity: 0.5}}>{new Date(event.appointment_date).toLocaleString('en-US', { month: 'short' })}</span>
+                                    {new Date(event.appointment_date).getDate()}
+                                </div>
+                                <div style={{flex: 1, minWidth: 0}}>
+                                    <h4 style={{fontSize: '0.85rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{event.title}</h4>
+                                    <p style={{fontSize: '0.7rem', margin: 0, opacity: 0.6}}>{event.type}</p>
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div style={{textAlign: 'center', padding: '1rem', border: '1px dashed var(--border)', borderRadius: '15px', opacity: 0.6}}>
+                            <p style={{fontSize: '0.8rem', margin: '0 0 0.5rem 0'}}>No health plans</p>
+                            <button className="btn-primary-mini" onClick={() => { setSelectedEventDate(new Date().toISOString().split('T')[0]); setIsEventModalOpen(true); }} style={{fontSize: '0.7rem', padding: '0.4rem 0.8rem'}}>+ ADD PLAN</button>
+                        </div>
+                    )}
+                </div>
+          </section>
+
+          <section className="emergency-card-aside">
+              <h3>EMERGENCY</h3>
+              <p className="contact-name">{patient.emergency_contact_name || 'Contact N/A'}</p>
+              <p className="contact-phone">{patient.emergency_contact_phone || 'N/A'}</p>
+          </section>
+        </aside>
+      )}
+      {/* Modals */}
+      <AddMedicationModal 
+        isOpen={isAddMedModalOpen}
+        onClose={() => setIsAddMedModalOpen(false)}
+        onAdd={handleAddMed}
+        patient={patient}
+      />
+
+      {/* Medication History Modal */}
+      {historyMed && (
+        <div className="modal-overlay fade-in" onClick={() => setHistoryMed(null)}>
+            <div className="modal-content glass-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '450px'}}>
+                <div className="modal-header">
+                    <div className="header-title-group">
+                        <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
+                            <span className="material-icons-round" style={{color: 'var(--primary)', fontSize: '2rem'}}>history</span>
+                            <div>
+                                <h2 style={{margin: 0}}>{historyMed.name}</h2>
+                                <p style={{fontSize: '0.85rem', opacity: 0.7}}>{historyMed.dosage} - History</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button className="close-btn" onClick={() => setHistoryMed(null)}>
+                        <span className="material-icons-round">close</span>
+                    </button>
+                </div>
+                
+                <div className="history-list" style={{marginTop: '1.5rem', maxHeight: '400px', overflowY: 'auto', paddingRight: '0.5rem'}}>
+                    {historyRecords.length > 0 ? historyRecords.map((record, idx) => {
+                        const date = new Date(record.taken_at);
+                        const isToday = date.toDateString() === new Date().toDateString();
+                        return (
+                            <div key={idx} className="history-item" style={{
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center',
+                                padding: '1rem',
+                                borderBottom: '1px solid var(--border)',
+                                animationDelay: `${idx * 0.05}s`
+                            }}>
+                                <div className="history-time-group" style={{display: 'flex', alignItems: 'center'}}>
+                                    <span style={{
+                                        fontSize: '0.65rem', 
+                                        fontWeight: 800, 
+                                        textTransform: 'uppercase',
+                                        background: 'rgba(67, 97, 238, 0.1)',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        color: 'var(--primary)',
+                                        marginRight: '0.8rem'
+                                    }}>{record.slot}</span>
+                                    <span style={{fontWeight: 600}}>{isToday ? 'Today' : date.toLocaleDateString()}</span>
+                                </div>
+                                <span style={{fontSize: '0.9rem', opacity: 0.6}}>
+                                    {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                            </div>
+                        );
+                    }) : (
+                        <div style={{textAlign: 'center', padding: '3rem 0', opacity: 0.3}}>
+                            <span className="material-icons-round" style={{fontSize: '3.5rem'}}>query_stats</span>
+                            <p style={{marginTop: '1rem'}}>No history recorded yet.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+      {/* Search Detail Modal */}
+      {selectedDetail && (
+        <div className={`search-detail-overlay ${isClosingDetail ? 'is-closing' : ''}`} onClick={closeDetail}>
+            <div className={`search-detail-modal ${isClosingDetail ? 'is-closing' : ''}`} onClick={e => e.stopPropagation()}>
+                <button className="close-detail-btn" onClick={closeDetail}>
+                    <span className="material-icons-round">close</span>
+                </button>
+                <div className="detail-header">
+                    <div className="detail-icon-box">
+                        <span className="material-icons-round">{selectedDetail.icon}</span>
+                    </div>
+                    <div className="detail-title-group">
+                        <div className="detail-badge">Health Library</div>
+                        <h2>{selectedDetail.title}</h2>
+                    </div>
+                </div>
+                <div className="detail-body">
+                    <h4>Clinical Overview & Facts</h4>
+                    <p>{selectedDetail.subtitle}</p>
+                </div>
+                <div className="detail-actions">
+                    <button className="detail-btn secondary" onClick={closeDetail}>
+                        Dismiss
+                    </button>
+                    {selectedDetail.type === 'fact' && (
+                        <button className="detail-btn primary" onClick={() => { setSearchTerm(selectedDetail.title); setActiveDropdown('search'); closeDetail(); }}>
+                            <span className="material-icons-round">search</span>
+                            Continue Search
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* User Event Modal - Moved to global stack */}
+      {isEventModalOpen && (
+        <div className="modal-overlay fade-in" onClick={() => setIsEventModalOpen(false)}>
+          <div className="modal-content glass-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+            <div className="modal-header">
+                <div className="header-title-group">
+                    <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
+                        <span className="material-icons-round" style={{color: 'var(--primary)', fontSize: '2rem'}}>event</span>
+                        <div>
+                            <h2 style={{margin: 0}}>New Health Plan</h2>
+                            <p style={{fontSize: '0.85rem', opacity: 0.7}}>Schedule an upcoming event</p>
+                        </div>
+                    </div>
+                </div>
+                <button className="close-btn" onClick={() => setIsEventModalOpen(false)}>
+                    <span className="material-icons-round">close</span>
+                </button>
+            </div>
+            
+            <div className="modal-body" style={{marginTop: '1.5rem'}}>
+                <div className="input-group filled">
+                  <input type="text" placeholder=" " value={newEvent.title} onChange={e => setNewEvent({...newEvent, title: e.target.value})} />
+                  <label>Title (e.g. Dentist Appt)</label>
+                </div>
+                <div className="input-group filled">
+                  <input type="date" value={selectedEventDate} onChange={e => setSelectedEventDate(e.target.value)} />
+                  <label>Date</label>
+                </div>
+                <div className="input-group filled">
+                  <select value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value})} style={{width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', marginTop: '0.5rem'}}>
+                    <option value="Appointment">Medical Appointment</option>
+                    <option value="Exercise">Exercise/Workout</option>
+                    <option value="Lab Test">Lab Test</option>
+                    <option value="Medication">Medication Start</option>
+                    <option value="Other">Other Plan</option>
+                  </select>
+                </div>
+                <div className="input-group filled">
+                  <input type="text" placeholder=" " value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />
+                  <label>Location (Optional)</label>
+                </div>
+                <div className="input-group filled">
+                  <textarea placeholder=" " rows="3" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} style={{width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-card)', resize: 'none'}} />
+                  <label>Notes/Details</label>
+                </div>
+                <button className="btn-primary" style={{ width: '100%', marginTop: '1.5rem', padding: '1rem' }} onClick={handleAddEvent}>Create Plan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Countdown Modal */}
+      {showEmergencyCountdown && (
+        <div className="modal-overlay emergency-overlay fade-in">
+            <div className="modal-content glass-modal slide-in-top critical-modal" onClick={e => e.stopPropagation()}>
+                <div className="urgent-pulse-bg"></div>
+                <div style={{ textAlign: 'center', position: 'relative', zIndex: 2 }}>
+                    <div className="pulse-ring-container large" style={{ margin: '0 auto 1.5rem' }}>
+                        <div className="pulse-dot"></div>
+                        <div className="pulse-ring"></div>
+                    </div>
+                    <h2 style={{ color: '#ef4444', fontSize: '2rem', marginBottom: '0.5rem' }}>CRITICAL RISK DETECTED</h2>
+                    <p style={{ fontSize: '1.1rem', color: 'var(--text-main)', marginBottom: '2rem', padding: '0 1rem' }}>
+                        Your symptoms indicate a potentially life-threatening condition. 
+                        Engaging Emergency Response Protocol in:
+                    </p>
+                    
+                    <div className="countdown-display">
+                        <span>{countdownTimer}</span>
+                    </div>
+
+                    <div className="modal-actions" style={{ display: 'flex', gap: '1rem', marginTop: '2rem', justifyContent: 'center' }}>
+                        <button className="btn-emergency-cancel" onClick={cancelEmergency}>
+                            Cancel
+                        </button>
+                        <button className="btn-emergency-proceed" onClick={handleProceedEmergency}>
+                            Engage Now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* ── Mobile Bottom Navigation Bar ── */}
+      <nav className="bottom-nav">
+        <div className="bottom-nav-inner">
+          {/* Dashboard */}
+          <div
+            className={`bottom-nav-item ${activeTab === 'symptoms' ? 'active' : ''}`}
+            onClick={() => setActiveTab('symptoms')}
+          >
+            <span className="material-icons-round">home</span>
+            <span className="bottom-nav-label">Home</span>
+          </div>
+
+          {/* Medications */}
+          <div
+            className={`bottom-nav-item ${activeTab === 'meds' ? 'active' : ''}`}
+            onClick={() => setActiveTab('meds')}
+          >
+            <span className="material-icons-round">medication</span>
+            <span className="bottom-nav-label">Meds</span>
+          </div>
+
+          {/* Emergency — Centre FAB */}
+          <div
+            className={`bottom-nav-emergency ${activeTab === 'emergency' ? 'active' : ''}`}
+            onClick={() => setActiveTab('emergency')}
+          >
+            <div className="bottom-nav-emergency-btn">
+              <span className="material-icons-round">emergency</span>
+            </div>
+            <span className="bottom-nav-emergency-label">SOS</span>
+          </div>
+
+          {/* Planner */}
+          <div
+            className={`bottom-nav-item ${activeTab === 'planner' ? 'active' : ''}`}
+            onClick={() => setActiveTab('planner')}
+          >
+            <span className="material-icons-round">calendar_today</span>
+            <span className="bottom-nav-label">Planner</span>
+          </div>
+
+          {/* Profile */}
+          <div
+            className={`bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            <span className="material-icons-round">person_outline</span>
+            <span className="bottom-nav-label">Profile</span>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── Floating Cycle / Period Button (female only, mobile only) ── */}
+      {patient?.gender?.toLowerCase() === 'female' && (
+        <div
+          className={`cycle-fab ${activeTab === 'cycle' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cycle')}
+        >
+          <div className="cycle-fab-btn">
+            <span className="material-icons-round">favorite</span>
+          </div>
+          <span className="cycle-fab-label">Cycle</span>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+export default App;
