@@ -449,6 +449,22 @@ function App() {
     return age;
   };
 
+  const getCurrentCycleDay = () => {
+    if (!cycleLogs || cycleLogs.length === 0) return null;
+    const sorted = [...cycleLogs].sort((a, b) => new Date(b.period_start) - new Date(a.period_start));
+    const latest = sorted[0];
+    const today = new Date(); today.setHours(0,0,0,0);
+    const start = new Date(latest.period_start);
+    const day = Math.round((today - start) / (1000*60*60*24)) + 1;
+    
+    // Fallback to 28 if cycle_length missing
+    const cycleLen = latest.cycle_length || 28;
+    if (day > 0 && day <= cycleLen + 5) {
+        return day;
+    }
+    return null;
+  };
+
   const handleSearchAction = (action) => {
     if (action.type === 'page') setActiveTab(action.value);
     if (action.type === 'symptom') toggleSymptom(action.value);
@@ -665,12 +681,6 @@ function App() {
                 <span className="material-icons-round">calendar_today</span>
                 <span className="nav-text">Planner</span>
               </div>
-              {patient?.gender?.toLowerCase() === 'female' && (
-                <div className={`nav-icon cycle-nav ${activeTab === 'cycle' ? 'active' : ''}`} onClick={() => setActiveTab('cycle')}>
-                  <span className="material-icons-round">favorite</span>
-                  <span className="nav-text">My Cycle</span>
-                </div>
-              )}
 
           <div className={`nav-icon ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>
             <span className="material-icons-round">person_outline</span>
@@ -1550,16 +1560,19 @@ function App() {
         </div>
       </nav>
 
-      {/* ── Floating Cycle / Period Button (female only, mobile only) ── */}
+      {/* ── Floating Cycle / Period Button (female only, all screens) ── */}
       {patient?.gender?.toLowerCase() === 'female' && (
         <div
           className={`cycle-fab ${activeTab === 'cycle' ? 'active' : ''}`}
           onClick={() => setActiveTab('cycle')}
+          title={getCurrentCycleDay() ? `Day ${getCurrentCycleDay()} of cycle` : "Track Cycle"}
         >
           <div className="cycle-fab-btn">
             <span className="material-icons-round">favorite</span>
           </div>
-          <span className="cycle-fab-label">Cycle</span>
+          <span className="cycle-fab-label">
+            {getCurrentCycleDay() ? `Day ${getCurrentCycleDay()}` : "My Cycle"}
+          </span>
         </div>
       )}
 

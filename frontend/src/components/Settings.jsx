@@ -130,7 +130,6 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
   return (
     <div className="settings-container fade-in">
       
-
       {/* Settings Content */}
       <div className="settings-content">
         {message && (

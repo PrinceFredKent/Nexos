@@ -665,6 +665,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding-left: 12px;
 }
 
 .logo-icon {
@@ -5259,20 +5260,19 @@ body.dark-theme .official-item {
 
 /* ─── Floating Cycle / Period Button ─── */
 .cycle-fab {
-  display: none;
-  /* shown only on mobile via media query */
+  display: flex;
   position: fixed;
-  bottom: 120px;
-  /* Above the floating nav bar safely */
-  right: 16px;
+  bottom: 40px;
+  /* Lowered on desktop, will be higher on mobile */
+  right: 24px;
   z-index: 9998;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  animation: float 3s ease-in-out infinite;
+  gap: 6px;
+  animation: float 3.5s ease-in-out infinite;
 }
 
 @keyframes float {
@@ -5395,6 +5395,7 @@ body.dark-theme .cycle-fab-btn {
     width: 48px;
     height: 48px;
     padding: 0;
+    padding-left: 12px;
   }
 
   .sidebar.expanded .logo-container {
@@ -5407,6 +5408,10 @@ body.dark-theme .cycle-fab-btn {
     width: 45px;
     height: 45px;
     padding: 0;
+  }
+
+  .nav-icons {
+    align-items: center;
   }
 
   .aside {
@@ -5446,7 +5451,7 @@ body.dark-theme .cycle-fab-btn {
   }
 
   .cycle-fab {
-    display: flex;
+    bottom: 120px; /* Clear the bottom nav on mobile */
   }
 
   .main-content {
@@ -5721,8 +5726,8 @@ body.dark-theme .cycle-fab-btn {
   }
 }
 
-/* ─── Very Large Screens / Desktop Refined Layout ─── */
-@media (min-width: 1025px) {
+/* ─── Tablets & Desktops: Locked Height Sticky Layout (≥ 769px) ─── */
+@media (min-width: 769px) {
   .app-layout {
     height: 100vh;
     overflow: hidden;
