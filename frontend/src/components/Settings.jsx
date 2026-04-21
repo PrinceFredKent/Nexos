@@ -289,34 +289,62 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
             <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
               <div 
                 onClick={() => setTheme('light')}
-                style={{ flex: 1, minWidth: '200px', border: theme === 'light' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '16px', padding: '1.5rem', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card)', color: 'var(--text-main)', transition: 'all 0.2s', boxShadow: theme === 'light' ? 'var(--shadow-md)' : 'none' }}
+                style={{ flex: 1, minWidth: '240px', border: theme === 'light' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '20px', padding: '1.2rem', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card)', color: 'var(--text-main)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: theme === 'light' ? 'var(--shadow-md)' : 'none', position: 'relative', overflow: 'hidden' }}
               >
-                <span className="material-icons-round" style={{ fontSize: '3rem', color: theme === 'light' ? 'var(--primary)' : 'var(--text-muted)' }}>light_mode</span>
-                <h4 style={{ marginTop: '1rem', margin: '1rem 0 0.2rem 0' }}>Light Theme</h4>
+                <div className="theme-preview light" style={{ height: '100px', background: '#f8fafc', borderRadius: '12px', marginBottom: '1.2rem', padding: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '6px' }}>
+                    <div style={{ width: '25%', background: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0' }}></div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ height: '12px', background: '#4361ee', borderRadius: '2px', width: '40%' }}></div>
+                        <div style={{ flex: 1, background: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0', padding: '6px' }}>
+                            <div style={{ height: '4px', background: '#e2e8f0', borderRadius: '1px', width: '80%', marginBottom: '4px' }}></div>
+                            <div style={{ height: '4px', background: '#e2e8f0', borderRadius: '1px', width: '60%' }}></div>
+                        </div>
+                    </div>
+                </div>
+                <h4 style={{ margin: '0 0 0.2rem 0' }}>Light Theme</h4>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>Always bright & clear</p>
                 {theme === 'light' && <div style={{marginTop: '1rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px'}}><span className="material-icons-round" style={{fontSize: '1rem'}}>check_circle</span> Active</div>}
               </div>
 
               <div 
                 onClick={() => setTheme('dark')}
-                style={{ flex: 1, minWidth: '200px', border: theme === 'dark' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '16px', padding: '1.5rem', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-input)', color: 'var(--text-main)', transition: 'all 0.2s', boxShadow: theme === 'dark' ? 'var(--shadow-md)' : 'none' }}
+                style={{ flex: 1, minWidth: '240px', border: theme === 'dark' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '20px', padding: '1.2rem', textAlign: 'center', cursor: 'pointer', background: '#0f172a', color: '#f8fafc', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: theme === 'dark' ? '0 10px 30px rgba(0,0,0,0.5)' : 'none', position: 'relative', overflow: 'hidden' }}
               >
-                <span className="material-icons-round" style={{ fontSize: '3rem', color: theme === 'dark' ? 'var(--primary)' : 'var(--text-muted)' }}>dark_mode</span>
-                <h4 style={{ marginTop: '1rem', margin: '1rem 0 0.2rem 0' }}>Dark Theme</h4>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>Easy on the eyes</p>
-                {theme === 'dark' && <div style={{marginTop: '1rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px'}}><span className="material-icons-round" style={{fontSize: '1rem'}}>check_circle</span> Active</div>}
+                <div className="theme-preview dark" style={{ height: '100px', background: '#1e293b', borderRadius: '12px', marginBottom: '1.2rem', padding: '8px', border: '1px solid #334155', display: 'flex', gap: '6px' }}>
+                    <div style={{ width: '25%', background: '#0f172a', borderRadius: '4px', border: '1px solid #334155' }}></div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ height: '12px', background: '#5c7cfa', borderRadius: '2px', width: '40%' }}></div>
+                        <div style={{ flex: 1, background: '#0f172a', borderRadius: '4px', border: '1px solid #334155', padding: '6px' }}>
+                            <div style={{ height: '4px', background: '#334155', borderRadius: '1px', width: '80%', marginBottom: '4px' }}></div>
+                            <div style={{ height: '4px', background: '#334155', borderRadius: '1px', width: '60%' }}></div>
+                        </div>
+                    </div>
+                </div>
+                <h4 style={{ margin: '0 0 0.2rem 0' }}>Dark Theme</h4>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>Easy on the eyes</p>
+                {theme === 'dark' && <div style={{marginTop: '1rem', color: '#5c7cfa', fontWeight: 700, fontSize: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px'}}><span className="material-icons-round" style={{fontSize: '1rem'}}>check_circle</span> Active</div>}
               </div>
 
               <div 
                 onClick={() => setTheme('system')}
-                style={{ flex: 1, minWidth: '200px', border: theme === 'system' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '16px', padding: '1.5rem', textAlign: 'center', cursor: 'pointer', background: 'linear-gradient(135deg, white 50%, #0f172a 50%)', transition: 'all 0.2s', boxShadow: theme === 'system' ? '0 4px 12px rgba(67,97,238,0.15)' : 'none' }}
+                style={{ flex: 1, minWidth: '240px', border: theme === 'system' ? '2px solid var(--primary)' : '1px solid var(--border)', borderRadius: '20px', padding: '1.2rem', textAlign: 'center', cursor: 'pointer', background: 'var(--bg-card)', color: 'var(--text-main)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: theme === 'system' ? '0 10px 30px rgba(67, 97, 238, 0.15)' : 'none', position: 'relative', overflow: 'hidden' }}
               >
-                <div style={{background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)', display: 'inline-block', borderRadius: '50%', padding: '0.5rem'}}>
-                    <span className="material-icons-round" style={{ fontSize: '3rem', color: theme === 'system' ? 'var(--primary)' : '#4b5563' }}>settings_brightness</span>
+                <div className="theme-preview system" style={{ height: '100px', background: 'linear-gradient(90deg, #f8fafc 50%, #1e293b 50%)', borderRadius: '12px', marginBottom: '1.2rem', position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', display: 'flex' }}>
+                    <div style={{ flex: 1, padding: '4px', borderRight: '1px solid rgba(0,0,0,0.1)' }}>
+                        <div style={{ height: '8px', background: '#4361ee', borderRadius: '2px', width: '40%', marginBottom: '4px' }}></div>
+                        <div style={{ height: '30px', background: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0' }}></div>
+                    </div>
+                    <div style={{ flex: 1, padding: '4px' }}>
+                        <div style={{ height: '8px', background: '#5c7cfa', borderRadius: '2px', width: '40%', marginBottom: '4px' }}></div>
+                        <div style={{ height: '30px', background: '#0f172a', borderRadius: '4px', border: '1px solid #334155' }}></div>
+                    </div>
+                    <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--bg-card)', border: '2px solid var(--primary)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                        <span className="material-icons-round" style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>settings_brightness</span>
+                    </div>
                 </div>
-                <h4 style={{ marginTop: '1rem', margin: '1rem 0 0.2rem 0', color: theme === 'system' ? 'var(--primary)' : '#0f172a', textShadow: theme === 'system' ? '0 1px 2px rgba(0,0,0,0.5)' : 'none' }}>System Default</h4>
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>Sync with your OS</p>
-                {theme === 'system' && <div style={{marginTop: '1rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', textShadow: '0 1px 2px rgba(0,0,0,0.5)'}}><span className="material-icons-round" style={{fontSize: '1rem'}}>check_circle</span> Active</div>}
+                <h4 style={{ margin: '0 0 0.2rem 0', fontWeight: 800 }}>System Default</h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>Syncs with your device</p>
+                {theme === 'system' && <div style={{marginTop: '1rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.8rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px'}}><span className="material-icons-round" style={{fontSize: '1rem'}}>check_circle</span> Active</div>}
               </div>
             </div>
           </div>

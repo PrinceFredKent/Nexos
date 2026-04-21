@@ -488,6 +488,22 @@ async def create_event(event: EventCreate, username: str = Depends(get_current_u
     db.refresh(new_event)
     return new_event
 
+@app.put("/events/{event_id}")
+async def update_event(event_id: int, event: EventCreate, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    db_event = db.query(DBAppointment).filter(DBAppointment.id == event_id, DBAppointment.user_id == user.id).first()
+    if not db_event: raise HTTPException(status_code=404)
+    
+    db_event.title = event.title
+    db_event.description = event.description
+    db_event.location = event.location
+    db_event.appointment_date = event.appointment_date
+    db_event.type = event.type
+    
+    db.commit()
+    db_event = db.query(DBAppointment).filter(DBAppointment.id == event_id).first() # Ensure fresh data
+    return db_event
+
 @app.delete("/events/{event_id}")
 async def delete_event(event_id: int, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.username == username).first()

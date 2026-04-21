@@ -1691,9 +1691,7 @@ body.dark-theme .emergency-card-aside {
   margin: 0 0 0.5rem 0;
   font-size: 1.8rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--text-main), var(--primary));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-main);
 }
 
 .schedule-header .ux-prompt-small {
@@ -1723,8 +1721,8 @@ body.dark-theme .emergency-card-aside {
 
 .daily-timeline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2.5rem;
   align-items: start;
 }
 
@@ -4410,12 +4408,19 @@ body.dark-theme .cycle-len-badge {
   position: absolute;
   top: -4px;
   right: -4px;
-  width: 10px;
-  height: 10px;
+  width: 11px;
+  height: 11px;
   background: #ef4444;
   border-radius: 50%;
-  border: 2px solid var(--bg-main);
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  animation: notification-pulse 2s infinite ease-in-out;
+}
+
+@keyframes notification-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .search-result-item {
@@ -5290,12 +5295,12 @@ body.dark-theme .official-item {
 .cycle-fab-btn {
   width: 52px;
   height: 52px;
-  background: linear-gradient(135deg, #ff79c6, #ff92d0);
+  background: linear-gradient(135deg, var(--primary), #6366f1);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 20px rgba(255, 121, 198, 0.3);
+  box-shadow: 0 10px 20px var(--primary-glow);
   transition: all 0.3s ease;
 }
 
@@ -5309,9 +5314,9 @@ body.dark-theme .official-item {
 .cycle-fab.active .cycle-fab-btn {
   transform: scale(1.12) translateY(-4px);
   box-shadow:
-    0 10px 28px rgba(236, 72, 153, 0.55),
+    0 10px 28px var(--primary-glow),
     0 0 0 3px var(--glass-bg),
-    0 0 0 5px rgba(236, 72, 153, 0.25);
+    0 0 0 5px rgba(67, 97, 238, 0.2);
 }
 
 .cycle-fab-label {
@@ -5319,14 +5324,14 @@ body.dark-theme .official-item {
   font-weight: 800;
   letter-spacing: 0.3px;
   text-transform: uppercase;
-  color: #ec4899;
+  color: var(--primary);
   background: var(--glass-bg);
   backdrop-filter: blur(8px);
   padding: 2px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(236, 72, 153, 0.2);
+  border: 1px solid var(--primary-glow);
   white-space: nowrap;
-  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.15);
+  box-shadow: 0 2px 8px rgba(67, 97, 238, 0.15);
 }
 
 /* Dark theme bottom nav overrides */

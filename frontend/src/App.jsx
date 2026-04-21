@@ -75,6 +75,9 @@ function App() {
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [selectedEventDate, setSelectedEventDate] = useState(null);
   const [newEvent, setNewEvent] = useState({ title: '', description: '', location: '', type: 'Appointment' });
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
+  const [editingEventId, setEditingEventId] = useState(null);
+  const [eventTime, setEventTime] = useState('10:00');
   
   // Header Functionality State
   const [searchTerm, setSearchTerm] = useState('');
@@ -299,10 +302,14 @@ function App() {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     const eventData = {
       ...newEvent,
-      appointment_date: selectedEventDate + "T10:00:00" // Default time for now
+      appointment_date: `${selectedEventDate}T${eventTime}:00`
     };
-    fetch(`${API_BASE_URL}/events`, {
-      method: 'POST',
+
+    const url = isEditingEvent ? `${API_BASE_URL}/events/${editingEventId}` : `${API_BASE_URL}/events`;
+    const method = isEditingEvent ? 'PUT' : 'POST';
+
+    fetch(url, {
+      method: method,
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -313,9 +320,38 @@ function App() {
     .then(() => {
       fetchEvents();
       setIsEventModalOpen(false);
+      setIsEditingEvent(false);
+      setEditingEventId(null);
       setNewEvent({ title: '', description: '', location: '', type: 'Appointment' });
+      setEventTime('10:00');
     })
-    .catch(err => console.error("Add event error:", err));
+    .catch(err => console.error(`${isEditingEvent ? "Update" : "Add"} event error:`, err));
+  };
+
+  const handleEditEvent = (event) => {
+    const dateStr = event.appointment_date ? event.appointment_date.split('T')[0] : '';
+    const timeStr = event.appointment_date ? event.appointment_date.split('T')[1].substring(0, 5) : '10:00';
+    
+    setNewEvent({
+      title: event.title || '',
+      description: event.description || '',
+      location: event.location || '',
+      type: event.type || 'Appointment'
+    });
+    setSelectedEventDate(dateStr);
+    setEventTime(timeStr);
+    setEditingEventId(event.id);
+    setIsEditingEvent(true);
+    setIsEventModalOpen(true);
+  };
+
+  const openNewEventModal = (date = new Date().toISOString().split('T')[0]) => {
+    setNewEvent({ title: '', description: '', location: '', type: 'Appointment' });
+    setSelectedEventDate(date);
+    setEventTime('10:00');
+    setIsEditingEvent(false);
+    setEditingEventId(null);
+    setIsEventModalOpen(true);
   };
 
   const handleDeleteEvent = (id) => {
@@ -710,7 +746,12 @@ function App() {
               <input 
                 type="text" 
                 className="search-box" 
-                placeholder="Search for events, symptoms..." 
+                placeholder={
+                    activeTab === 'symptoms' ? "Search for symptoms, tips..." :
+                    activeTab === 'meds' ? "Search for medications, dosing..." :
+                    activeTab === 'planner' ? "Search for events, plans..." :
+                    "Search for health records..."
+                } 
                 value={searchTerm}
                 onChange={(e) => {
                     setSearchTerm(e.target.value);
@@ -971,7 +1012,7 @@ function App() {
                     <div className="ux-prompt-small">Manage your appointments, tests, and routines.</div>
                   </div>
                   {userEvents.length > 0 && (
-                    <button className="date-display" onClick={() => { setSelectedEventDate(new Date().toISOString().split('T')[0]); setIsEventModalOpen(true); }} style={{border: 'none', cursor: 'pointer', fontFamily: 'inherit'}}>
+                    <button className="date-display" onClick={() => openNewEventModal()} style={{border: 'none', cursor: 'pointer', fontFamily: 'inherit'}}>
                       New Plan
                     </button>
                   )}
@@ -1007,22 +1048,56 @@ function App() {
                             <span style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}><span className="material-icons-round" style={{fontSize: '1.1rem'}}>schedule</span> {new Date(event.appointment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                          </div>
                       </div>
-                      <button className="icon-btn-delete" onClick={() => handleDeleteEvent(event.id)} style={{position: 'absolute', bottom: '1.2rem', right: '1.5rem', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.4, transition: 'all 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
-                        <span className="material-icons-round">delete_outline</span>
-                      </button>
+                       <button className="icon-btn-edit" onClick={() => handleEditEvent(event)} style={{position: 'absolute', bottom: '1.2rem', right: '3.5rem', background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', opacity: 0.4, transition: 'all 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                         <span className="material-icons-round">edit_note</span>
+                       </button>
+                       <button className="icon-btn-delete" onClick={() => handleDeleteEvent(event.id)} style={{position: 'absolute', bottom: '1.2rem', right: '1.5rem', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.4, transition: 'all 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
+                         <span className="material-icons-round">delete_outline</span>
+                       </button>
                     </div>
                   );
                 }) : (
                   <div className="planner-empty-premium fade-in">
-                    <div className="empty-icon-glow">
-                        <span className="material-icons-round">calendar_month</span>
+                    <div className="empty-illustration-glow">
+                        <div className="illustration-circles"></div>
+                        <span className="material-icons-round illustration-icon">event_note</span>
                     </div>
                     <h3>Your Schedule is Clear</h3>
                     <p style={{color: 'var(--text-muted)', maxWidth: '300px', margin: '0 auto 1.5rem'}}>You don't have any upcoming appointments, tests, or exercises planned.</p>
-                    <button className="btn-primary" onClick={() => { setSelectedEventDate(new Date().toISOString().split('T')[0]); setIsEventModalOpen(true); }} style={{padding: '0.8rem 2rem', width: 'max-content', flexShrink: 0}}>
+                    <button className="btn-primary" onClick={() => openNewEventModal()} style={{padding: '0.8rem 2rem', width: 'max-content', flexShrink: 0}}>
                         <span className="material-icons-round" style={{marginRight: '0.5rem', fontSize: '1.2rem', verticalAlign: 'middle'}}>add</span> 
                         Create First Plan
                     </button>
+                    <style>{`
+                        .empty-illustration-glow {
+                            position: relative;
+                            width: 120px;
+                            height: 120px;
+                            margin: 0 auto 2rem;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        }
+                        .illustration-icon {
+                            font-size: 3.5rem !important;
+                            color: var(--primary);
+                            z-index: 2;
+                        }
+                        .illustration-circles {
+                            position: absolute;
+                            width: 100%;
+                            height: 100%;
+                            border-radius: 50%;
+                            background: var(--primary-light);
+                            opacity: 0.3;
+                            animation: pulse-ring 3s infinite;
+                        }
+                        @keyframes pulse-ring {
+                            0% { transform: scale(0.8); opacity: 0.3; }
+                            50% { transform: scale(1.1); opacity: 0.1; }
+                            100% { transform: scale(0.8); opacity: 0.3; }
+                        }
+                    `}</style>
                   </div>
                 )}
               </div>
@@ -1084,7 +1159,10 @@ function App() {
                                         </div>
                                       );
                                     }) : (
-                                      <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic', opacity: 0.5}}>No medications</p>
+                                      <div className="empty-slot-illustration" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem 0', opacity: 0.8 }}>
+                                        <span className="material-icons-round" style={{fontSize: '1.8rem', color: 'var(--primary)', opacity: 0.4, marginBottom: '0.5rem'}}>check_circle_outline</span>
+                                        <p style={{fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 500}}>No medications</p>
+                                      </div>
                                     )}
                                 </div>
                             </div>
@@ -1199,8 +1277,7 @@ function App() {
               patient={patient} 
               userEvents={userEvents}
               onDayClick={(date) => {
-                setSelectedEventDate(date.toISOString().split('T')[0]);
-                setIsEventModalOpen(true);
+                openNewEventModal(date.toISOString().split('T')[0]);
               }}
             />
           )}
@@ -1301,23 +1378,60 @@ function App() {
                                 </div>
                                 <div style={{flex: 1, minWidth: 0}}>
                                     <h4 style={{fontSize: '0.85rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{event.title}</h4>
-                                    <p style={{fontSize: '0.7rem', margin: 0, opacity: 0.6}}>{event.type}</p>
+                                    <p style={{fontSize: '0.7rem', margin: 0, opacity: 0.6, display: 'flex', alignItems: 'center', gap: '4px'}}>
+                                        <span className="material-icons-round" style={{fontSize: '0.9rem', opacity: 0.7}}>schedule</span>
+                                        {event.type} • {new Date(event.appointment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
                                 </div>
                             </div>
                         ))
                     ) : (
                         <div style={{textAlign: 'center', padding: '1rem', border: '1px dashed var(--border)', borderRadius: '15px', opacity: 0.6}}>
                             <p style={{fontSize: '0.8rem', margin: '0 0 0.5rem 0'}}>No health plans</p>
-                            <button className="btn-primary-mini" onClick={() => { setSelectedEventDate(new Date().toISOString().split('T')[0]); setIsEventModalOpen(true); }} style={{fontSize: '0.7rem', padding: '0.4rem 0.8rem'}}>+ ADD PLAN</button>
+                            <button className="btn-primary-mini" onClick={() => openNewEventModal()} style={{fontSize: '0.7rem', padding: '0.4rem 0.8rem'}}>+ ADD PLAN</button>
                         </div>
                     )}
                 </div>
           </section>
 
           <section className="emergency-card-aside">
-              <h3>EMERGENCY</h3>
-              <p className="contact-name">{patient.emergency_contact_name || 'Contact N/A'}</p>
-              <p className="contact-phone">{patient.emergency_contact_phone || 'N/A'}</p>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
+                <h3 style={{margin: 0}}>EMERGENCY</h3>
+                {!patient.emergency_contact_phone && (
+                  <span className="material-icons-round" style={{color: '#ef4444', fontSize: '1.1rem'}}>priority_high</span>
+                )}
+              </div>
+              {patient.emergency_contact_phone ? (
+                <>
+                  <p className="contact-name">{patient.emergency_contact_name || 'Contact N/A'}</p>
+                  <p className="contact-phone">{patient.emergency_contact_phone}</p>
+                </>
+              ) : (
+                <div style={{marginTop: '0.5rem'}}>
+                  <p style={{fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0 0 0.8rem 0'}}>No Emergency Contact Set</p>
+                  <button 
+                    onClick={() => setActiveTab('profile')}
+                    style={{
+                      width: '100%',
+                      padding: '0.6rem',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#ef4444',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      borderRadius: '10px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span className="material-icons-round" style={{fontSize: '1rem'}}>add_circle</span>
+                    ADD CONTACT
+                  </button>
+                </div>
+              )}
           </section>
         </aside>
       )}
@@ -1433,8 +1547,8 @@ function App() {
                     <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
                         <span className="material-icons-round" style={{color: 'var(--primary)', fontSize: '2rem'}}>event</span>
                         <div>
-                            <h2 style={{margin: 0}}>New Health Plan</h2>
-                            <p style={{fontSize: '0.85rem', opacity: 0.7}}>Schedule an upcoming event</p>
+                            <h2 style={{margin: 0}}>{isEditingEvent ? 'Edit Health Plan' : 'New Health Plan'}</h2>
+                            <p style={{fontSize: '0.85rem', opacity: 0.7}}>{isEditingEvent ? 'Modify your scheduled event' : 'Schedule an upcoming event'}</p>
                         </div>
                     </div>
                 </div>
@@ -1453,6 +1567,10 @@ function App() {
                   <label>Date</label>
                 </div>
                 <div className="input-group filled">
+                  <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} />
+                  <label>Time</label>
+                </div>
+                <div className="input-group filled">
                   <select value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value})} style={{width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', marginTop: '0.5rem'}}>
                     <option value="Appointment">Medical Appointment</option>
                     <option value="Exercise">Exercise/Workout</option>
@@ -1469,7 +1587,7 @@ function App() {
                   <textarea placeholder=" " rows="3" value={newEvent.description} onChange={e => setNewEvent({...newEvent, description: e.target.value})} style={{width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-card)', resize: 'none'}} />
                   <label>Notes/Details</label>
                 </div>
-                <button className="btn-primary" style={{ width: '100%', marginTop: '1.5rem', padding: '1rem' }} onClick={handleAddEvent}>Create Plan</button>
+                <button className="btn-primary" style={{ width: '100%', marginTop: '1.5rem', padding: '1rem' }} onClick={handleAddEvent}>{isEditingEvent ? 'Update Plan' : 'Create Plan'}</button>
             </div>
           </div>
         </div>
