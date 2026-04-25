@@ -66,6 +66,8 @@ function App() {
   const [isAddMedModalOpen, setIsAddMedModalOpen] = useState(false);
   const [historyMed, setHistoryMed] = useState(null);
   const [historyRecords, setHistoryRecords] = useState([]);
+  const [isAnalysisHistoryModalOpen, setIsAnalysisHistoryModalOpen] = useState(false);
+  const [analysisHistoryRecords, setAnalysisHistoryRecords] = useState([]);
   const [cycleLogs, setCycleLogs] = useState([]);
   const [cycleContext, setCycleContext] = useState(null);
   const [showEmergencyCountdown, setShowEmergencyCountdown] = useState(false);
@@ -399,6 +401,20 @@ function App() {
     .then(res => res.json())
     .then(setHistoryRecords)
     .catch(err => console.error("History error:", err));
+  };
+
+  const fetchAnalysisHistory = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API_BASE_URL}/analysis-history`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(res => res.json())
+    .then(data => {
+        setAnalysisHistoryRecords(Array.isArray(data) ? data : []);
+        setIsAnalysisHistoryModalOpen(true);
+    })
+    .catch(err => console.error("Fetch analysis history error:", err));
   };
 
   const handleDeleteMed = (medId) => {
@@ -842,6 +858,13 @@ function App() {
                                 <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Update your current status</p>
                             </div>
                         </div>
+                        <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
+                            <span className="material-icons-round">history</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Analysis History</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Review past symptom checks</p>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
@@ -935,7 +958,10 @@ function App() {
                 <div className="main-stats-col">
                   {analysis ? (
                     <div className="stat-card analysis-card-full">
-                      <h3>AI Analysis Results</h3>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                        <h3>AI Analysis Results</h3>
+                        <button className="btn-primary-mini" onClick={() => fetchAnalysisHistory()} style={{background: 'var(--bg-main)', color: 'var(--primary)', border: '1px solid var(--border)'}}>View History</button>
+                      </div>
                       <div className="analysis-results fade-in">
                         {analysis.status === "Analyzing..." ? (
                           <AnalysisLoading />
@@ -1532,6 +1558,70 @@ function App() {
                             <span className="material-icons-round">search</span>
                             Continue Search
                         </button>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* Analysis History Modal */}
+      {isAnalysisHistoryModalOpen && (
+        <div className="modal-overlay fade-in" onClick={() => setIsAnalysisHistoryModalOpen(false)}>
+            <div className="modal-content glass-modal" onClick={e => e.stopPropagation()} style={{maxWidth: '600px', width: '90%'}}>
+                <div className="modal-header">
+                    <div className="header-title-group">
+                        <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
+                            <span className="material-icons-round" style={{color: 'var(--primary)', fontSize: '2rem'}}>history</span>
+                            <div>
+                                <h2 style={{margin: 0}}>Analysis History</h2>
+                                <p style={{fontSize: '0.85rem', opacity: 0.7}}>Review your past symptom assessments</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button className="close-btn" onClick={() => setIsAnalysisHistoryModalOpen(false)}>
+                        <span className="material-icons-round">close</span>
+                    </button>
+                </div>
+                
+                <div className="history-list custom-scrollbar" style={{marginTop: '1.5rem', maxHeight: '500px', overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                    {analysisHistoryRecords.length > 0 ? analysisHistoryRecords.map((record, idx) => {
+                        const date = new Date(record.timestamp);
+                        return (
+                            <div key={idx} className="stat-card" style={{padding: '1.2rem', margin: 0, animationDelay: `${idx * 0.05}s`}}>
+                                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.8rem'}}>
+                                    <div>
+                                        <h4 style={{fontSize: '1.1rem', margin: '0 0 0.3rem 0', color: 'var(--text-main)'}}>{record.top_condition || "Assessment"}</h4>
+                                        <span style={{fontSize: '0.8rem', color: 'var(--text-muted)'}}>{date.toLocaleString()}</span>
+                                    </div>
+                                    <span className={`risk-badge ${record.risk_level?.toLowerCase() || 'medium'}`} style={{fontSize: '0.75rem'}}>
+                                        {record.risk_level} Risk
+                                    </span>
+                                </div>
+                                
+                                {record.symptoms && record.symptoms.length > 0 && (
+                                    <div style={{marginBottom: '0.8rem'}}>
+                                        <div style={{fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '0.4rem'}}>Reported Symptoms</div>
+                                        <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.4rem'}}>
+                                            {record.symptoms.map((s, i) => (
+                                                <span key={i} style={{fontSize: '0.75rem', background: 'var(--bg-main)', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid var(--border)'}}>{s}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {record.explanation && (
+                                    <div style={{fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.5', background: 'var(--bg-main)', padding: '0.8rem', borderRadius: '8px', borderLeft: '3px solid var(--primary)'}}>
+                                        {record.explanation}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }) : (
+                        <div style={{textAlign: 'center', padding: '3rem 0', opacity: 0.5}}>
+                            <span className="material-icons-round" style={{fontSize: '3.5rem', marginBottom: '1rem', color: 'var(--primary)'}}>history_toggle_off</span>
+                            <h3>No History Found</h3>
+                            <p>You haven't performed any symptom analyses yet.</p>
+                        </div>
                     )}
                 </div>
             </div>
