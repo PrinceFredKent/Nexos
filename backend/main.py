@@ -4,7 +4,13 @@ from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
 import json
+import sys
+import os
+import webbrowser
+import threading
 from sqlalchemy.orm import Session
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from auth_service import get_password_hash, verify_password, create_access_token, get_current_user
 from database import engine, get_db, Base
@@ -28,6 +34,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# PyInstaller creates a temporary folder and stores path in _MEIPASS
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+FRONTEND_DIR = os.path.join(BASE_DIR, "dist")
 
 class UserSignup(BaseModel):
     username: str
@@ -125,9 +139,7 @@ class IntakeRecord(BaseModel):
     class Config:
         from_attributes = True
 
-@app.get("/")
-def read_root():
-    return {"message": "Welcome to the AI Health Assistant API"}
+# Root route is handled at the bottom now
 
 
 @app.get("/status")
@@ -535,5 +547,31 @@ async def delete_event(event_id: int, username: str = Depends(get_current_user),
     db.commit()
     return {"status": "deleted"}
 
+# --- Frontend Serving & Catch-All Route ---
+
+if os.path.exists(FRONTEND_DIR) and os.path.isdir(FRONTEND_DIR):
+    # Mount assets folder
+    assets_dir = os.path.join(FRONTEND_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+        
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        # Serve the requested file if it exists, otherwise serve index.html (for client-side routing)
+        file_path = os.path.join(FRONTEND_DIR, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+else:
+    @app.get("/")
+    def read_root():
+        return {"message": "Welcome to the AI Health Assistant API (Frontend not built)"}
+
+def open_browser():
+    webbrowser.open_new('http://127.0.0.1:8000')
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    if getattr(sys, 'frozen', False):
+        # Open browser shortly after server starts when running as exe
+        threading.Timer(1.5, open_browser).start()
+    uvicorn.run(app, host="127.0.0.1", port=8000)

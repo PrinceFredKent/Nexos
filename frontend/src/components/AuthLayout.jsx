@@ -8,6 +8,7 @@ const AuthLayout = ({ children, reverse = false, step = 1, image }) => {
           <img src={image} alt="Auth Background" />
           <div className="image-overlay">
             <div className="auth-branding">
+              <img src="/logo.png" alt="Nexos Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem', objectFit: 'contain' }} />
               <h2 className="auth-branding-title">NEXOS</h2>
               <p className="auth-branding-tagline">Unified Intelligence. Personal Wellness.</p>
             </div>

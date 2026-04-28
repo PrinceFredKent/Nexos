@@ -358,7 +358,7 @@ function App() {
 
   const handleDeleteEvent = (id) => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    fetch(`http://localhost:8000/events/${id}`, {
+    fetch(`${API_BASE_URL}/events/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -383,7 +383,7 @@ function App() {
 
   const handleTakeMed = (medId, slot = "General") => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    fetch(`http://localhost:8000/medications/${medId}/take?slot=${slot}`, {
+    fetch(`${API_BASE_URL}/medications/${medId}/take?slot=${slot}`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -395,7 +395,7 @@ function App() {
   const fetchHistory = (med) => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     setHistoryMed(med);
-    fetch(`http://localhost:8000/medications/${med.id}/history`, {
+    fetch(`${API_BASE_URL}/medications/${med.id}/history`, {
         headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())
@@ -419,7 +419,7 @@ function App() {
 
   const handleDeleteMed = (medId) => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    fetch(`http://localhost:8000/medications/${medId}`, {
+    fetch(`${API_BASE_URL}/medications/${medId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -714,7 +714,7 @@ function App() {
         <div className="logo-container">
             <div className="logo-wrapper">
                 <div className="logo-icon">
-                    <span className="material-icons-round">health_and_safety</span>
+                    <img src="/logo.png" alt="Nexos Logo" style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '6px' }} />
                 </div>
                 <div className="logo-text">Nexos</div>
             </div>
