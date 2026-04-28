@@ -68,7 +68,6 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
           chronic_conditions: formData.chronicConditions,
           emergency_contact_name: formData.emergencyName,
           emergency_contact_phone: formData.emergencyPhone,
-          emergency_contact_phone: formData.emergencyPhone,
           role: 'patient'
         })
       });
