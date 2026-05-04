@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -8,32 +8,60 @@ import sys
 import os
 import webbrowser
 import threading
-from sqlalchemy.orm import Session
+import logging
+from sqlalchemy.orm import Session, joinedload
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from auth_service import get_password_hash, verify_password, create_access_token, get_current_user
-from database import engine, get_db, Base
+from database import engine, get_db, Base, cloud_engine
 from models.user import User as DBUser
 from models.medication import Medication as DBMedication, MedicationIntake as DBIntake
 from models.cycle import CycleLog as DBCycleLog
 from models.symptom_log import SymptomLog as DBSymptomLog
 from models.appointment import Appointment as DBAppointment
+from models.sync_meta import SyncMeta  # noqa: F401 — registers table with Base
+from sync_service import (
+    get_sync_status, estimate_pending_push,
+    initial_pull_credentials, initial_pull_all, run_sync
+)
 from datetime import datetime, date
 
-# Create database tables
+log = logging.getLogger("nexos")
+
+# Create all local SQLite tables (instant — no network)
 Base.metadata.create_all(bind=engine)
+
+# Background sync scheduler
+_scheduler = AsyncIOScheduler()
 
 app = FastAPI(title="AI Health Assistant API")
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development; refine for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Start periodic cloud sync on app launch."""
+    interval = int(os.environ.get("SYNC_INTERVAL_MINUTES", "5"))
+    if interval > 0 and cloud_engine:
+        _scheduler.add_job(run_sync, "interval", minutes=interval, id="periodic_sync")
+        _scheduler.start()
+        log.info(f"Sync scheduler started — interval: {interval} min")
+    else:
+        log.info("Sync scheduler disabled (no cloud engine or interval=0).")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if _scheduler.running:
+        _scheduler.shutdown(wait=False)
 
 # PyInstaller creates a temporary folder and stores path in _MEIPASS
 if getattr(sys, 'frozen', False):
@@ -146,6 +174,39 @@ class IntakeRecord(BaseModel):
 def get_status():
     return {"status": "online", "mode": "patient-assistant"}
 
+
+# ─── Sync Status & Control ─────────────────────────────────────────────
+
+@app.get("/sync-status")
+async def sync_status_endpoint():
+    """Full sync state: last sync time, pending rows, cloud reachability."""
+    data = get_sync_status()
+    if not data["is_syncing"]:
+        data["pending_push"] = estimate_pending_push()
+    data["sync_interval_minutes"] = int(os.environ.get("SYNC_INTERVAL_MINUTES", "5"))
+    data["cloud_configured"] = cloud_engine is not None
+    return data
+
+
+@app.get("/sync-progress")
+async def sync_progress_endpoint():
+    """Lightweight poll for the frontend toast progress bar on new-device first launch."""
+    s = get_sync_status()
+    return {
+        "progress": s["initial_pull_progress"],
+        "status_msg": s["initial_pull_status"],
+        "done": s["initial_pull_done"],
+    }
+
+
+@app.post("/sync-now")
+async def sync_now(username: str = Depends(get_current_user)):
+    """Manually trigger an immediate bidirectional sync."""
+    if not cloud_engine:
+        return {"status": "no_cloud", "message": "Cloud database not configured"}
+    result = await run_sync()
+    return result or {"pushed": 0, "pulled": 0}
+
 class RecommendationRequest(BaseModel):
     name: str
     age: int
@@ -207,20 +268,38 @@ async def signup(user: UserSignup, db: Session = Depends(get_db)):
     }
 
 @app.post("/login")
-async def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    # Find user by email
+async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # Step 1: Check local SQLite first — instant, no network latency
     user = db.query(DBUser).filter(DBUser.email == credentials.email).first()
-            
+    is_new_device = False
+
+    # Step 2: Not found locally? Try pulling credentials from Supabase only
+    if not user and cloud_engine:
+        cloud_data = await initial_pull_credentials(credentials.email)
+        if cloud_data:
+            # Upsert the user row into local SQLite so future logins are instant
+            valid_cols = {c.key for c in DBUser.__table__.columns}
+            filtered = {k: v for k, v in cloud_data.items() if k in valid_cols}
+            user = db.merge(DBUser(**filtered))
+            db.commit()
+            db.refresh(user)
+            is_new_device = True
+
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    
-    # Create access token
+
     access_token = create_access_token(data={"sub": user.username})
+
+    # Step 3: New device — stream remaining data in background while user enters app
+    if is_new_device:
+        background_tasks.add_task(initial_pull_all, user.username)
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "username": user.username,
-        "role": "patient"
+        "role": "patient",
+        "is_new_device": is_new_device,
     }
 
 @app.post("/analyze-symptoms")
@@ -390,18 +469,19 @@ async def get_medications(username: str = Depends(get_current_user), db: Session
     user = db.query(DBUser).filter(DBUser.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     today = date.today()
-    meds_with_intakes = []
-    
-    for med in user.medications:
-        taken_today = []
-        for i in med.intakes:
-            if i.taken_at.date() == today:
-                 taken_today.append(i.slot)
-        
-        # Create a dictionary compatible with MedicationResponse
-        med_dict = {
+
+    # Single JOIN query — eliminates N+1 (one query instead of one per medication)
+    meds = (
+        db.query(DBMedication)
+        .options(joinedload(DBMedication.intakes))
+        .filter(DBMedication.user_id == user.id)
+        .all()
+    )
+
+    return [
+        {
             "id": med.id,
             "name": med.name,
             "dosage": med.dosage,
@@ -411,11 +491,10 @@ async def get_medications(username: str = Depends(get_current_user), db: Session
             "stock": med.stock,
             "total_stock": med.total_stock,
             "last_taken": med.last_taken,
-            "taken_today": taken_today
+            "taken_today": [i.slot for i in med.intakes if i.taken_at.date() == today],
         }
-        meds_with_intakes.append(med_dict)
-        
-    return meds_with_intakes
+        for med in meds
+    ]
 
 @app.post("/medications", response_model=MedicationResponse)
 async def create_medication(med: MedicationCreate, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -574,4 +653,4 @@ if __name__ == "__main__":
     if getattr(sys, 'frozen', False):
         # Open browser shortly after server starts when running as exe
         threading.Timer(1.5, open_browser).start()
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

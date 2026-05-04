@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { API_BASE_URL } from './config';
 import './styles/main.css';
 import Login from './components/Login';
@@ -92,6 +92,13 @@ function App() {
   const [closingDropdown, setClosingDropdown] = useState(null);
   const [isClosingDetail, setIsClosingDetail] = useState(false);
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
+
+  // ── Sync state ────────────────────────────────────────────────────────────
+  const [syncProgress, setSyncProgress] = useState(null);   // 0-100 during initial pull
+  const [syncStatusMsg, setSyncStatusMsg] = useState('');   // toast label
+  const [showSyncToast, setShowSyncToast] = useState(false); // show progressive toast
+  const [syncLastAt, setSyncLastAt] = useState(null);        // ISO string of last sync
+  const [syncCloudOk, setSyncCloudOk] = useState(null);      // null=unknown, true/false
 
   // Dropdown Refs for Click-Outside logic
   const searchRef = useRef(null);
@@ -215,7 +222,7 @@ function App() {
       setCountdownTimer(5);
   };
 
-  // Fetch patient data on load if authenticated
+  // Fetch patient data on load — single /patient-info call, parallel sub-fetches
   React.useEffect(() => {
     if (isAuthenticated) {
         const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -226,42 +233,37 @@ function App() {
                 if (!res.ok) throw new Error('Unauthorized');
                 return res.json();
             })
-            .then(setPatient)
+            .then(patientData => {
+                setPatient(patientData);
+                // All secondary fetches run in parallel — no sequential waiting
+                const fetches = [fetchMeds(), fetchEvents()];
+                if (patientData?.gender?.toLowerCase() === 'female') {
+                    fetches.push(fetchCycleLogs());
+                }
+                return Promise.all(fetches);
+            })
             .catch(err => {
-                console.error("Auth error:", err);
+                console.error('Auth error:', err);
                 handleLogout();
             });
-
-        fetchMeds();
-        fetchEvents();
-
-        // Fetch cycle logs for female users after patient data loads
-        fetch(`${API_BASE_URL}/patient-info`, { headers })
-          .then(r => r.ok ? r.json() : null)
-          .then(patientRes => {
-            if (patientRes && patientRes.gender && patientRes.gender.toLowerCase() === 'female') {
-              fetchCycleLogs();
-            }
-          })
-          .catch(() => null);
     }
   }, [isAuthenticated]);
 
   const fetchMeds = () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) return;
-    fetch(`${API_BASE_URL}/medications`, { 
-        headers: { 'Authorization': `Bearer ${token}` } 
+    if (!token) return Promise.resolve();
+    return fetch(`${API_BASE_URL}/medications`, {
+        headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())
     .then(setMeds)
-    .catch(err => console.error("Fetch meds error:", err));
+    .catch(err => console.error('Fetch meds error:', err));
   };
 
   const fetchCycleLogs = () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) return;
-    fetch(`${API_BASE_URL}/cycle-logs`, {
+    if (!token) return Promise.resolve();
+    return fetch(`${API_BASE_URL}/cycle-logs`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())
@@ -293,13 +295,13 @@ function App() {
 
   const fetchEvents = () => {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    if (!token) return;
-    fetch(`${API_BASE_URL}/events`, {
+    if (!token) return Promise.resolve();
+    return fetch(`${API_BASE_URL}/events`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())
     .then(data => setUserEvents(Array.isArray(data) ? data : []))
-    .catch(err => console.error("Fetch events error:", err));
+    .catch(err => console.error('Fetch events error:', err));
   };
 
   const handleAddEvent = () => {
@@ -480,7 +482,7 @@ function App() {
     setNotifications([]);
   };
 
-  const handleLoginSuccess = (token, username, rememberMe = true) => {
+  const handleLoginSuccess = (token, username, rememberMe = true, role = 'patient', isNewDevice = false) => {
     if (rememberMe) {
         localStorage.setItem('token', token);
     } else {
@@ -489,6 +491,12 @@ function App() {
     localStorage.setItem('username', username);
     setUserRole('patient');
     setIsAuthenticated(true);
+    // New device: show progressive sync toast while background pull runs
+    if (isNewDevice) {
+        setShowSyncToast(true);
+        setSyncProgress(0);
+        setSyncStatusMsg('Preparing your data...');
+    }
   };
 
   const calculateAge = (birthDate) => {
@@ -503,21 +511,63 @@ function App() {
     return age;
   };
 
-  const getCurrentCycleDay = () => {
+  // Memoised cycle day — only recalculates when cycleLogs changes, not on every render
+  const currentCycleDay = useMemo(() => {
     if (!cycleLogs || cycleLogs.length === 0) return null;
     const sorted = [...cycleLogs].sort((a, b) => new Date(b.period_start) - new Date(a.period_start));
     const latest = sorted[0];
-    const today = new Date(); today.setHours(0,0,0,0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const start = new Date(latest.period_start);
-    const day = Math.round((today - start) / (1000*60*60*24)) + 1;
-    
-    // Fallback to 28 if cycle_length missing
+    const day = Math.round((today - start) / (1000 * 60 * 60 * 24)) + 1;
     const cycleLen = latest.cycle_length || 28;
-    if (day > 0 && day <= cycleLen + 5) {
-        return day;
-    }
+    if (day > 0 && day <= cycleLen + 5) return day;
     return null;
-  };
+  }, [cycleLogs]);
+
+  // Poll /sync-progress while sync toast is visible (new-device first launch)
+  React.useEffect(() => {
+    if (!showSyncToast) return;
+    const poll = setInterval(async () => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) return;
+      try {
+        const res = await fetch(`${API_BASE_URL}/sync-progress`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.progress != null) {
+          setSyncProgress(data.progress);
+          setSyncStatusMsg(data.status_msg || '');
+        }
+        if (data.done) {
+          setSyncProgress(100);
+          setSyncStatusMsg('All data synced!');
+          fetchMeds(); fetchEvents();
+          setTimeout(() => setShowSyncToast(false), 3000);
+          clearInterval(poll);
+        }
+      } catch (e) { /* silent — offline is fine */ }
+    }, 1500);
+    return () => clearInterval(poll);
+  }, [showSyncToast]);
+
+  // Poll /sync-status every 60 s for the cloud badge in the header
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    const fetchStatus = () => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) return;
+      fetch(`${API_BASE_URL}/sync-status`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(r => r.json())
+      .then(d => { setSyncLastAt(d.last_sync_at); setSyncCloudOk(d.cloud_reachable); })
+      .catch(() => setSyncCloudOk(false));
+    };
+    fetchStatus();
+    const iv = setInterval(fetchStatus, 60000);
+    return () => clearInterval(iv);
+  }, [isAuthenticated]);
 
   const handleSearchAction = (action) => {
     if (action.type === 'page') setActiveTab(action.value);
@@ -889,6 +939,21 @@ function App() {
                 onClick={() => setActiveTab('settings')}
                 title="Settings"
               >settings</span>
+            </div>
+
+            {/* Cloud sync badge */}
+            <div
+              title={syncLastAt ? `Last synced: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Not yet synced — click to sync now'}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              onClick={() => {
+                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+              }}
+            >
+              <span
+                className="material-icons-round"
+                style={{ fontSize: '1.3rem', color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'var(--text-muted)', transition: 'color 0.3s' }}
+              >{syncCloudOk === false ? 'cloud_off' : 'cloud_done'}</span>
             </div>
           </div>
         </header>
@@ -1786,14 +1851,57 @@ function App() {
         <div
           className={`cycle-fab ${activeTab === 'cycle' ? 'active' : ''}`}
           onClick={() => setActiveTab('cycle')}
-          title={getCurrentCycleDay() ? `Day ${getCurrentCycleDay()} of cycle` : "Track Cycle"}
+          title={currentCycleDay ? `Day ${currentCycleDay} of cycle` : 'Track Cycle'}
         >
           <div className="cycle-fab-btn">
             <span className="material-icons-round">favorite</span>
           </div>
           <span className="cycle-fab-label">
-            {getCurrentCycleDay() ? `Day ${getCurrentCycleDay()}` : "My Cycle"}
+            {currentCycleDay ? `Day ${currentCycleDay}` : 'My Cycle'}
           </span>
+        </div>
+      )}
+
+      {/* ── Sync Progress Toast (new-device first launch) ── */}
+      {showSyncToast && (
+        <div style={{
+          position: 'fixed', bottom: '5.5rem', right: '1.2rem', zIndex: 9999,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: '18px', padding: '1rem 1.2rem', minWidth: '290px', maxWidth: '340px',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.18)', backdropFilter: 'blur(24px)',
+          display: 'flex', flexDirection: 'column', gap: '0.6rem',
+          animation: 'slide-in-top 0.35s ease'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span
+                className="material-icons-round"
+                style={{ color: 'var(--primary)', fontSize: '1.2rem',
+                  animation: syncProgress < 100 ? 'spin 1.5s linear infinite' : 'none' }}
+              >sync</span>
+              <strong style={{ fontSize: '0.88rem' }}>
+                {syncProgress >= 100 ? '✓ All data synced!' : 'Syncing your data'}
+              </strong>
+            </div>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--primary)' }}>
+              {syncProgress ?? 0}%
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ background: 'var(--bg-main)', borderRadius: '50px', height: '6px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: '50px',
+              background: 'linear-gradient(90deg, var(--primary), #818cf8)',
+              width: `${syncProgress ?? 0}%`, transition: 'width 0.6s ease'
+            }} />
+          </div>
+
+          {syncStatusMsg && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+              {syncStatusMsg}
+            </p>
+          )}
         </div>
       )}
 

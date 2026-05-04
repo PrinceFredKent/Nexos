@@ -14,6 +14,8 @@ class Appointment(Base):
     appointment_date = Column(DateTime)
     type = Column(String, default="Appointment")  # Appointment, Exercise, Lab, etc.
     status = Column(String, default="Upcoming")
+    last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    synced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

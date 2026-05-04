@@ -16,6 +16,8 @@ class Medication(Base):
     stock = Column(Integer, default=30)
     total_stock = Column(Integer, default=30)
     last_taken = Column(DateTime, nullable=True) # To track daily intake
+    last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    synced_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="medications")
     intakes = relationship("MedicationIntake", back_populates="medication", cascade="all, delete-orphan")

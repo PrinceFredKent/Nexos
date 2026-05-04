@@ -21,7 +21,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
 
       const data = await response.json();
       if (response.ok) {
-        onLoginSuccess(data.access_token, data.username, rememberMe, data.role);
+        onLoginSuccess(data.access_token, data.username, rememberMe, data.role, data.is_new_device || false);
       } else {
         setError(data.detail || 'Login failed');
       }

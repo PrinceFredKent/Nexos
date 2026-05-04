@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, Date, text
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import Base
 
 class User(Base):
@@ -7,7 +8,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)  # index ensures fast login lookups
     hashed_password = Column(String)
     phone = Column(String)
     birth_date = Column(Date, nullable=True)
@@ -21,6 +22,8 @@ class User(Base):
     emergency_contact_name = Column(String, nullable=True)
     emergency_contact_phone = Column(String, nullable=True)
     profile_picture = Column(Text, nullable=True)
+    last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    synced_at = Column(DateTime, nullable=True)
 
     medications = relationship("Medication", back_populates="user", cascade="all, delete-orphan")
     cycle_logs = relationship("CycleLog", back_populates="user", cascade="all, delete-orphan", order_by="CycleLog.period_start")

@@ -13,5 +13,7 @@ class SymptomLog(Base):
     risk_level = Column(String)
     explanation = Column(Text)
     timestamp = Column(DateTime, default=datetime.utcnow)
+    last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    synced_at = Column(DateTime, nullable=True)
 
     user = relationship("User", backref="symptom_logs")

@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
+from datetime import datetime
 
 class CycleLog(Base):
     __tablename__ = "cycle_logs"
@@ -11,5 +12,7 @@ class CycleLog(Base):
     period_end = Column(Date, nullable=True)
     cycle_length = Column(Integer, default=28, nullable=True)
     notes = Column(Text, nullable=True)
+    last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    synced_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="cycle_logs")
