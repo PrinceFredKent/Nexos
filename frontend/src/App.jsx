@@ -83,7 +83,7 @@ function App() {
   
   // Header Functionality State
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeDropdown, setActiveDropdown] = useState(null); // 'search', 'notifications', 'actions'
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'search', 'notifications', 'actions', 'mobileMenu'
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'info', title: 'Welcome to Nexos', text: 'All systems are active. Stay healthy!', read: false },
     { id: 2, type: 'reminder', title: 'Medication Schedule', text: 'Your Morning dose of multivitamin is coming up.', read: false }
@@ -104,6 +104,7 @@ function App() {
   const searchRef = useRef(null);
   const notificationsRef = useRef(null);
   const actionsRef = useRef(null);
+  const mobileMenuRef = useRef(null);
 
   // Transition Handlers
   const closeDropdown = () => {
@@ -141,8 +142,9 @@ function App() {
         const isClickInSearch = searchRef.current && searchRef.current.contains(event.target);
         const isClickInNotif = notificationsRef.current && notificationsRef.current.contains(event.target);
         const isClickInActions = actionsRef.current && actionsRef.current.contains(event.target);
+        const isClickInMobileMenu = mobileMenuRef.current && mobileMenuRef.current.contains(event.target);
         
-        if (!isClickInSearch && !isClickInNotif && !isClickInActions) {
+        if (!isClickInSearch && !isClickInNotif && !isClickInActions && !isClickInMobileMenu) {
             closeDropdown();
             setIsMobileSearchExpanded(false);
         }
@@ -762,7 +764,7 @@ function App() {
   return (
     <div className="app-layout">
       {/* Sidebar */}
-      <aside className="sidebar expanded">
+      <aside className={`sidebar expanded ${activeDropdown ? 'blur-content' : ''}`}>
         <div className="logo-container">
             <div className="logo-wrapper">
                 <div className="logo-icon">
@@ -888,7 +890,7 @@ function App() {
                 )}
             </div>
 
-            <div style={{ position: 'relative' }} ref={actionsRef}>
+            <div style={{ position: 'relative' }} ref={actionsRef} className="desktop-only">
                 <span 
                     className="material-icons-round" 
                     style={{cursor: 'pointer', color: activeDropdown === 'actions' ? 'var(--primary)' : 'inherit'}}
@@ -932,7 +934,7 @@ function App() {
                 )}
             </div>
 
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} className="desktop-only">
               <span
                 className="material-icons-round"
                 style={{cursor: 'pointer', color: activeTab === 'settings' ? 'var(--primary)' : 'inherit'}}
@@ -941,8 +943,9 @@ function App() {
               >settings</span>
             </div>
 
-            {/* Cloud sync badge */}
+            {/* Cloud sync badge - Desktop only */}
             <div
+              className="desktop-only"
               title={syncLastAt ? `Last synced: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Not yet synced — click to sync now'}
               style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
               onClick={() => {
@@ -955,12 +958,86 @@ function App() {
                 style={{ fontSize: '1.3rem', color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'var(--text-muted)', transition: 'color 0.3s' }}
               >{syncCloudOk === false ? 'cloud_off' : 'cloud_done'}</span>
             </div>
+
+            {/* Consolidated Mobile Menu - Mobile only */}
+            <div style={{ position: 'relative' }} ref={mobileMenuRef} className="mobile-only">
+                <span 
+                    className="material-icons-round" 
+                    style={{cursor: 'pointer', color: activeDropdown === 'mobileMenu' ? 'var(--primary)' : 'inherit', fontSize: '1.6rem'}}
+                    onClick={() => toggleDropdown('mobileMenu')}
+                >settings</span>
+                
+                {activeDropdown === 'mobileMenu' && (
+                    <div className={`header-dropdown-panel mobile-menu-panel origin-top-right ${closingDropdown === 'mobileMenu' ? 'is-closing' : ''}`}>
+                        <div className="dropdown-header">
+                            <h4>Menu & Tools</h4>
+                        </div>
+                        
+                        <div className="menu-group-label">Quick Tools</div>
+                        <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
+                            <span className="material-icons-round">add_box</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Add Medication</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Record a new prescription</p>
+                            </div>
+                        </div>
+                        <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
+                            <span className="material-icons-round">emergency</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Medical Identity</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
+                            <span className="material-icons-round">history</span>
+                            <div>
+                                <h5 style={{margin: 0}}>Analysis History</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Review past symptom checks</p>
+                            </div>
+                        </div>
+                        
+                        <div className="menu-group-label">System</div>
+                        <div className="action-menu-item" onClick={() => {
+                            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                            if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                            closeDropdown();
+                        }}>
+                            <span className="material-icons-round" style={{ color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'inherit' }}>
+                                {syncCloudOk === false ? 'cloud_off' : 'cloud_done'}
+                            </span>
+                            <div>
+                                <h5 style={{margin: 0}}>Sync Data</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>{syncLastAt ? `Last: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Click to sync now'}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="action-menu-item" onClick={() => { setActiveTab('settings'); closeDropdown(); }}>
+                            <span className="material-icons-round">settings</span>
+                            <div>
+                                <h5 style={{margin: 0}}>App Settings</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Theme and account preferences</p>
+                            </div>
+                        </div>
+                        
+                        <div className="menu-divider"></div>
+                        
+                        <div className="action-menu-item logout-item" onClick={() => { handleLogout(); closeDropdown(); }}>
+                            <span className="material-icons-round" style={{color: '#ef4444'}}>logout</span>
+                            <div>
+                                <h5 style={{margin: 0, color: '#ef4444'}}>Logout</h5>
+                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Sign out of your account</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
           </div>
         </header>
 
         {/* Dashboard Content Container */}
 
-        <div className="dashboard-content">
+        <div className={`dashboard-content ${activeDropdown ? 'blur-content' : ''}`}>
 
           {activeTab === 'symptoms' && (
             <div className="symptoms-section slide-in-top">
