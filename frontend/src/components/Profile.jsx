@@ -136,115 +136,120 @@ const Profile = ({ patient, onUpdate }) => {
       {message && <div className={`profile-message ${message.includes('Error') ? 'error' : 'success'} fade-in`}>{message}</div>}
 
       <div className="profile-grid">
-        <div className="profile-card-group vitals-group">
-          <h3>Personal Vitals</h3>
-          <div className="vitals-grid">
-            {vitals.map(v => (
-              <div key={v.name} className="vital-card-small glass-card">
-                <div className="vital-icon-box">
-                    <span className="material-icons-round">{v.icon}</span>
+        <div className="profile-main-column">
+          <div className="profile-card-group vitals-group">
+            <h3><span className="material-icons-round">analytics</span> Personal Vitals</h3>
+            <div className="vitals-grid">
+              {vitals.map(v => (
+                <div key={v.name} className="vital-card-small glass-card">
+                  <div className="vital-icon-box">
+                      <span className="material-icons-round">{v.icon}</span>
+                  </div>
+                  <div className="vital-info">
+                      <label>{v.label}</label>
+                      {isEditing ? (
+                        <input 
+                          type={v.type} 
+                          name={v.name} 
+                          value={editData[v.name] || ''} 
+                          onChange={handleChange}
+                          className="profile-input"
+                          readOnly={v.readonly}
+                          style={v.readonly ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+                        />
+                      ) : (
+                        <span className="vital-value">{v.value || 'N/A'} <small>{v.unit}</small></span>
+                      )}
+                  </div>
                 </div>
-                <div className="vital-info">
-                    <label>{v.label}</label>
-                    {isEditing ? (
-                      <input 
-                        type={v.type} 
-                        name={v.name} 
-                        value={editData[v.name] || ''} 
-                        onChange={handleChange}
-                        className="profile-input"
-                        readOnly={v.readonly}
-                        style={v.readonly ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
-                      />
-                    ) : (
-                      <span className="vital-value">{v.value || 'N/A'} <small>{v.unit}</small></span>
-                    )}
+              ))}
+            </div>
+          </div>
+
+          <div className="profile-card-group contact-group">
+            <h3><span className="material-icons-round">manage_accounts</span> Account & Contact</h3>
+            <div className="glass-card full-width p-4 horizontal-flex">
+                <div className="detail-row">
+                    <span className="material-icons-round">alternate_email</span>
+                    <div className="detail-text">
+                        <label>Email Address</label>
+                        {isEditing ? (
+                          <input type="email" name="email" value={editData.email || ''} onChange={handleChange} className="profile-input" />
+                        ) : (
+                          <p>{patient.email || 'No email provided'}</p>
+                        )}
+                    </div>
                 </div>
-              </div>
-            ))}
+                <div className="detail-row">
+                    <span className="material-icons-round">phone_enabled</span>
+                    <div className="detail-text">
+                        <label>Phone Number</label>
+                        {isEditing ? (
+                          <input type="tel" name="phone" value={editData.phone || ''} onChange={handleChange} className="profile-input" />
+                        ) : (
+                          <p>{patient.phone || 'No phone provided'}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
           </div>
         </div>
 
-        <div className="profile-card-group medical-group">
-          <h3>Medical History</h3>
-          <div className="glass-card full-width p-4">
-              <div className="detail-row">
-                  <span className="material-icons-round">warning</span>
-                  <div className="detail-text">
-                      <label>Allergies</label>
-                      {isEditing ? (
-                        <textarea name="allergies" value={editData.allergies || ''} onChange={handleChange} className="profile-textarea" />
-                      ) : (
-                        <p>{patient.allergies || 'No allergies listed'}</p>
-                      )}
-                  </div>
-              </div>
-              <div className="detail-row">
-                  <span className="material-icons-round">history</span>
-                  <div className="detail-text">
-                      <label>Chronic Conditions</label>
-                      {isEditing ? (
-                        <textarea name="chronic_conditions" value={editData.chronic_conditions || ''} onChange={handleChange} className="profile-textarea" />
-                      ) : (
-                        <p>{patient.chronic_conditions || 'None reported'}</p>
-                      )}
-                  </div>
-              </div>
+        <div className="profile-side-column">
+          <div className="profile-card-group medical-group">
+            <h3><span className="material-icons-round">history</span> Medical History</h3>
+            <div className="glass-card full-width p-4">
+                <div className="detail-row">
+                    <span className="material-icons-round">warning</span>
+                    <div className="detail-text">
+                        <label>Allergies</label>
+                        {isEditing ? (
+                          <textarea name="allergies" value={editData.allergies || ''} onChange={handleChange} className="profile-textarea" />
+                        ) : (
+                          <p>{patient.allergies || 'No allergies listed'}</p>
+                        )}
+                    </div>
+                </div>
+                <div className="detail-row">
+                    <span className="material-icons-round">history</span>
+                    <div className="detail-text">
+                        <label>Chronic Conditions</label>
+                        {isEditing ? (
+                          <textarea name="chronic_conditions" value={editData.chronic_conditions || ''} onChange={handleChange} className="profile-textarea" />
+                        ) : (
+                          <p>{patient.chronic_conditions || 'None reported'}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
           </div>
-        </div>
 
-        <div className="profile-card-group emergency-group">
-          <h3>Emergency Contact</h3>
-          <div className="glass-card full-width p-4 emergency-bg">
-              <div className="detail-row">
-                  <span className="material-icons-round">contact_phone</span>
-                  <div className="detail-text">
-                      <label>Contact Person</label>
-                      {isEditing ? (
-                        <input name="emergency_contact_name" value={editData.emergency_contact_name || ''} onChange={handleChange} className="profile-input" />
-                      ) : (
-                        <p className="font-bold">{patient.emergency_contact_name || 'Not set'}</p>
-                      )}
-                  </div>
-              </div>
-              <div className="detail-row">
-                  <span className="material-icons-round">phone</span>
-                  <div className="detail-text">
-                      <label>Phone Number</label>
-                      {isEditing ? (
-                        <input name="emergency_contact_phone" value={editData.emergency_contact_phone || ''} onChange={handleChange} className="profile-input" />
-                      ) : (
-                        <p>{patient.emergency_contact_phone || 'N/A'}</p>
-                      )}
-                  </div>
-              </div>
-          </div>
-        </div>
-        <div className="profile-card-group contact-group">
-          <h3>Account & Contact</h3>
-          <div className="glass-card full-width p-4">
-              <div className="detail-row">
-                  <span className="material-icons-round">alternate_email</span>
-                  <div className="detail-text">
-                      <label>Email Address</label>
-                      {isEditing ? (
-                        <input type="email" name="email" value={editData.email || ''} onChange={handleChange} className="profile-input" />
-                      ) : (
-                        <p>{patient.email || 'No email provided'}</p>
-                      )}
-                  </div>
-              </div>
-              <div className="detail-row">
-                  <span className="material-icons-round">phone_enabled</span>
-                  <div className="detail-text">
-                      <label>Phone Number</label>
-                      {isEditing ? (
-                        <input type="tel" name="phone" value={editData.phone || ''} onChange={handleChange} className="profile-input" />
-                      ) : (
-                        <p>{patient.phone || 'No phone provided'}</p>
-                      )}
-                  </div>
-              </div>
+          <div className="profile-card-group emergency-group">
+            <h3><span className="material-icons-round">contact_emergency</span> Emergency Contact</h3>
+            <div className="glass-card full-width p-4 emergency-bg">
+                <div className="detail-row">
+                    <span className="material-icons-round">contact_phone</span>
+                    <div className="detail-text">
+                        <label>Contact Person</label>
+                        {isEditing ? (
+                          <input name="emergency_contact_name" value={editData.emergency_contact_name || ''} onChange={handleChange} className="profile-input" />
+                        ) : (
+                          <p className="font-bold">{patient.emergency_contact_name || 'Not set'}</p>
+                        )}
+                    </div>
+                </div>
+                <div className="detail-row">
+                    <span className="material-icons-round">phone</span>
+                    <div className="detail-text">
+                        <label>Phone Number</label>
+                        {isEditing ? (
+                          <input name="emergency_contact_phone" value={editData.emergency_contact_phone || ''} onChange={handleChange} className="profile-input" />
+                        ) : (
+                          <p>{patient.emergency_contact_phone || 'N/A'}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
           </div>
         </div>
       </div>

@@ -91,6 +91,7 @@ function App() {
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [closingDropdown, setClosingDropdown] = useState(null);
   const [isClosingDetail, setIsClosingDetail] = useState(false);
+  const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
 
   // Dropdown Refs for Click-Outside logic
   const searchRef = useRef(null);
@@ -136,6 +137,7 @@ function App() {
         
         if (!isClickInSearch && !isClickInNotif && !isClickInActions) {
             closeDropdown();
+            setIsMobileSearchExpanded(false);
         }
     };
 
@@ -757,31 +759,42 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content fade-in">
-        <header className="top-bar">
-          <div style={{ position: 'relative' }} ref={searchRef}>
-              <input 
-                type="text" 
-                className="search-box" 
-                placeholder={
-                    activeTab === 'symptoms' ? "Search for symptoms, tips..." :
-                    activeTab === 'meds' ? "Search for medications, dosing..." :
-                    activeTab === 'planner' ? "Search for events, plans..." :
-                    "Search for health records..."
-                } 
-                value={searchTerm}
-                onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    if (e.target.value) setActiveDropdown('search');
-                    else closeDropdown();
-                }}
-              />
+        <header className={`top-bar ${isMobileSearchExpanded ? 'search-active' : ''}`}>
+          <div className="mobile-branding">
+              <img src="/logo.png" alt="Nexos Logo" className="mobile-logo" />
+              <span className="mobile-app-name">Nexos</span>
+          </div>
+
+          <div className={`search-wrapper ${isMobileSearchExpanded ? 'expanded' : ''}`} ref={searchRef}>
+              <div className="search-input-container">
+                  <span className="material-icons-round mobile-search-icon" onClick={() => setIsMobileSearchExpanded(!isMobileSearchExpanded)}>
+                    search
+                  </span>
+                  <input 
+                    type="text" 
+                    className="search-box" 
+                    placeholder={
+                        activeTab === 'symptoms' ? "Search for symptoms, tips..." :
+                        activeTab === 'meds' ? "Search for medications, dosing..." :
+                        activeTab === 'planner' ? "Search for events, plans..." :
+                        "Search for health records..."
+                    } 
+                    value={searchTerm}
+                    onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        if (e.target.value) setActiveDropdown('search');
+                        else closeDropdown();
+                    }}
+                    onFocus={() => setIsMobileSearchExpanded(true)}
+                  />
+              </div>
               {activeDropdown === 'search' && searchTerm && (
                   <div className={`header-dropdown-panel search-results-panel origin-top-left ${closingDropdown === 'search' ? 'is-closing' : ''}`}>
                       {getSearchResults().length > 0 ? getSearchResults().map((res, i) => (
                           <div 
                             key={i} 
                             className={`search-result-item ${res.isGeneral ? 'health-library-item' : ''}`}
-                            onClick={() => handleSearchAction(res)}
+                            onClick={() => { handleSearchAction(res); setIsMobileSearchExpanded(false); }}
                           >
                               <div className="result-icon"><span className="material-icons-round">{res.icon}</span></div>
                               <div className="result-content">

@@ -14,8 +14,21 @@ if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
     
-    # Create engine for PostgreSQL (or other cloud DBs)
-    engine = create_engine(DATABASE_URL)
+    # Create engine for PostgreSQL with optimized connection pooling
+    # This prevents the 'loading forever' issue by dropping stale connections and keeping them alive over long distances.
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,      # Verify connection is alive before using it
+        pool_recycle=300,        # Recycle connections every 5 minutes
+        pool_size=10,            # Max number of persistent connections
+        max_overflow=20,         # Allow up to 20 overflow connections during spikes
+        connect_args={
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5
+        }
+    )
 else:
     # Fallback to local SQLite if no cloud database is configured yet
     print("WARNING: No DATABASE_URL found in environment. Falling back to local SQLite for development.")
