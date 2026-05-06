@@ -3,6 +3,7 @@ import { API_BASE_URL } from './config';
 import './styles/main.css';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import WelcomeScreen from './components/WelcomeScreen';
 import AddMedicationModal from './components/AddMedicationModal';
 import Profile from './components/Profile';
 import Settings from './components/Settings';
@@ -47,6 +48,7 @@ const AnalysisLoading = () => (
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('nexos_theme') || 'system');
   const [isAuthenticated, setIsAuthenticated] = useState(!!(localStorage.getItem('token') || sessionStorage.getItem('token')));
+  const [showWelcome, setShowWelcome] = useState(!localStorage.getItem('token') && !sessionStorage.getItem('token'));
   const [userRole, setUserRole] = useState('patient'); // Always patient now
   const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
   const [activeTab, setActiveTab] = useState('symptoms');
@@ -680,19 +682,26 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="view-transition" key={authView}>
-        {authView === 'login' ? (
-          <Login 
-            onSwitch={() => setAuthView('signup')} 
-            onLoginSuccess={handleLoginSuccess}
-          />
-        ) : (
-          <Signup 
-            onSwitch={() => setAuthView('login')} 
-            onSignupAutoLogin={handleLoginSuccess}
-          />
+      <>
+        {showWelcome && (
+          <WelcomeScreen onProceed={() => setShowWelcome(false)} />
         )}
-      </div>
+        {!showWelcome && (
+          <div className="view-transition" key={authView}>
+            {authView === 'login' ? (
+              <Login 
+                onSwitch={() => setAuthView('signup')} 
+                onLoginSuccess={handleLoginSuccess}
+              />
+            ) : (
+              <Signup 
+                onSwitch={() => setAuthView('login')} 
+                onSignupAutoLogin={handleLoginSuccess}
+              />
+            )}
+          </div>
+        )}
+      </>
     );
   }
 
