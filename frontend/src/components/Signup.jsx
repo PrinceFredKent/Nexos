@@ -133,23 +133,6 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
     <div onClick={closeDropdowns}>
     <AuthLayout reverse={step === 2} step={step} image={currentImage}>
       <div className="auth-form">
-        {step < 4 && (
-          <div className="step-ring-indicator" aria-label={`Step ${step} of 3`}>
-            <svg width="52" height="52" viewBox="0 0 52 52">
-              <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3.5"/>
-              <circle
-                cx="26" cy="26" r="22" fill="none"
-                stroke="var(--auth-accent)" strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 22}`}
-                strokeDashoffset={`${2 * Math.PI * 22 * (1 - step / 3)}`}
-                style={{ transform: 'rotate(-90deg)', transformOrigin: '26px 26px', transition: 'stroke-dashoffset 0.6s cubic-bezier(0.65,0,0.35,1)' }}
-              />
-              <text x="26" y="26" textAnchor="middle" dominantBaseline="central" fill="var(--auth-accent)" fontSize="13" fontWeight="800" fontFamily="Outfit, sans-serif">{step}/3</text>
-            </svg>
-          </div>
-        )}
-
         <h2>{step === 1 ? 'Join NEXOS' : (step === 2 ? 'Health Profile' : (step === 3 ? 'Safety First' : 'Account Created!'))}</h2>
         <p>
             {step === 1 ? 'Start your journey to smarter health' : 
@@ -321,6 +304,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
             </div>
         )}
       </div>
+
     </AuthLayout>
     </div>
   );
