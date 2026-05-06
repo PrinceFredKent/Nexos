@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { API_BASE_URL } from '../config';
-
+import '../styles/profile_elite.css';
 
 const Profile = ({ patient, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ ...patient });
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState('');
 
   const handleChange = (e) => {
@@ -61,6 +62,31 @@ const Profile = ({ patient, onUpdate }) => {
     }
   };
 
+  const handleSync = async () => {
+    setIsSyncing(true);
+    setMessage('');
+    const token = localStorage.getItem('token');
+    
+    try {
+      // Simulate/Trigger a manual sync refetch
+      const response = await fetch(`${API_BASE_URL}/patient/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        onUpdate(data);
+        setMessage('Health Data Synced!');
+        setTimeout(() => setMessage(''), 3000);
+      }
+    } catch (err) {
+      console.error("Sync error:", err);
+    } finally {
+      // Keep animation for a beat to feel 'substantial'
+      setTimeout(() => setIsSyncing(false), 1200);
+    }
+  };
+
   const calculateAge = (birthDate) => {
     if (!birthDate) return 'N/A';
     const birth = new Date(birthDate);
@@ -73,191 +99,188 @@ const Profile = ({ patient, onUpdate }) => {
     return age;
   };
 
-  const vitals = [
-    { label: 'Birth Date', value: patient.birth_date, unit: '', name: 'birth_date', type: 'date', icon: 'cake' },
-    { label: 'Age', value: calculateAge(patient.birth_date), unit: 'years', name: 'age', type: 'number', icon: 'event', readonly: true },
-    { label: 'Gender', value: patient.gender, unit: '', name: 'gender', type: 'text', icon: 'person' },
-    { label: 'Weight', value: patient.weight, unit: 'kg', name: 'weight', type: 'text', icon: 'monitor_weight' },
-    { label: 'Height', value: patient.height, unit: 'cm', name: 'height', type: 'text', icon: 'height' },
-    { label: 'Blood Type', value: patient.blood_type, unit: '', name: 'blood_type', type: 'text', icon: 'water_drop' }
-  ];
-
   return (
-    <div className="profile-container fade-in">
-      <div className="profile-header-premium">
-        <div className="profile-hero">
-            <div className="profile-avatar-large" style={{ position: 'relative' }}>
-                {(isEditing ? editData.profile_picture : patient.profile_picture) ? (
-                    <img 
-                        src={isEditing ? editData.profile_picture : patient.profile_picture} 
-                        alt="Profile" 
-                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
-                    />
-                ) : (
-                    <span className="material-icons-round">account_circle</span>
-                )}
-                
-                {isEditing && (
-                    <div 
-                        style={{
-                            position: 'absolute', bottom: '0', right: '0', 
-                            background: 'var(--primary)', color: 'white', 
-                            borderRadius: '50%', width: '36px', height: '36px', 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                            cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                        }} 
-                        onClick={() => document.getElementById('profilePicInput').click()}
-                    >
-                        <span className="material-icons-round" style={{ fontSize: '20px', color: '#ffffff', zIndex: 10 }}>camera_alt</span>
-                    </div>
-                )}
-                <input 
-                    type="file" 
-                    id="profilePicInput" 
-                    style={{ display: 'none' }} 
-                    accept="image/*" 
-                    onChange={handleImageChange} 
-                />
-            </div>
-            <div className="profile-title">
-                <h2>{patient.username}</h2>
-                <p className="account-type"><span className="material-icons-round">verified</span> Verified Patient</p>
-            </div>
+    <div className="profile-elite-wrapper fade-in">
+      {/* ── Hero Header ── */}
+      <div className="profile-hero-elite">
+        {/* Background Photo */}
+        {(isEditing ? editData.profile_picture : patient.profile_picture) && (
+          <img 
+            src={isEditing ? editData.profile_picture : patient.profile_picture} 
+            className="profile-hero-image"
+            alt="Profile Background" 
+          />
+        )}
+        
+        {/* Shadow Overlay */}
+        <div className="profile-hero-overlay"></div>
+
+        {/* Hero Content (Foreground) */}
+        <div className="profile-hero-content">
+          <h2 className="profile-name-elite">{patient.username}</h2>
+          <div className="profile-badge-elite">
+            <span className="material-icons-round">verified</span>
+            Verified Patient
+          </div>
+          
+          {isEditing && (
+            <button 
+              className="btn-primary" 
+              style={{ marginTop: '1.5rem', padding: '0.6rem 1.2rem', fontSize: '0.8rem', borderRadius: '50px' }}
+              onClick={() => document.getElementById('profilePicInput').click()}
+            >
+              <span className="material-icons-round" style={{ fontSize: '18px', marginRight: '8px' }}>camera_alt</span>
+              Change Photo
+            </button>
+          )}
         </div>
-        <button 
-          className={`btn-profile-edit ${isEditing ? 'cancel' : ''}`} 
-          onClick={() => isEditing ? setIsEditing(false) : setIsEditing(true)}
-        >
-          <span className="material-icons-round">{isEditing ? 'close' : 'edit'}</span>
-          {isEditing ? 'Cancel' : 'Edit Profile'}
-        </button>
+
+        <input 
+          type="file" id="profilePicInput" style={{ display: 'none' }} 
+          accept="image/*" onChange={handleImageChange} 
+        />
+
+        {/* ── Action Bubbles ── */}
+        <div className="profile-actions-elite">
+          <div className="action-bubble" onClick={() => setIsEditing(!isEditing)} title={isEditing ? "Cancel" : "Edit Profile"}>
+            <span className="material-icons-round">{isEditing ? 'close' : 'edit'}</span>
+          </div>
+          <div className={`action-bubble primary ${isSyncing ? 'syncing' : ''}`} onClick={handleSync} title="Sync Health Data">
+            <span className="material-icons-round">sync</span>
+          </div>
+          <div className="action-bubble" title="Download Health Report">
+            <span className="material-icons-round">file_download</span>
+          </div>
+        </div>
       </div>
 
-      {message && <div className={`profile-message ${message.includes('Error') ? 'error' : 'success'} fade-in`}>{message}</div>}
+      {message && (
+        <div style={{ margin: '3rem 1.5rem 0', textAlign: 'center', color: message.includes('Error') ? '#ff4d4d' : '#4ade80', fontWeight: 'bold' }}>
+          {message}
+        </div>
+      )}
 
-      <div className="profile-grid">
-        <div className="profile-main-column">
-          <div className="profile-card-group vitals-group">
-            <h3><span className="material-icons-round">analytics</span> Personal Vitals</h3>
-            <div className="vitals-grid">
-              {vitals.map(v => (
-                <div key={v.name} className="vital-card-small glass-card">
-                  <div className="vital-icon-box">
-                      <span className="material-icons-round">{v.icon}</span>
-                  </div>
-                  <div className="vital-info">
-                      <label>{v.label}</label>
-                      {isEditing ? (
-                        <input 
-                          type={v.type} 
-                          name={v.name} 
-                          value={editData[v.name] || ''} 
-                          onChange={handleChange}
-                          className="profile-input"
-                          readOnly={v.readonly}
-                          style={v.readonly ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
-                        />
-                      ) : (
-                        <span className="vital-value">{v.value || 'N/A'} <small>{v.unit}</small></span>
-                      )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* ── Vitals Stats ── */}
+      <div className="profile-stats-elite">
+        <div className="stat-chip-elite">
+          <span className="material-icons-round">cake</span>
+          <span className="stat-value">{calculateAge(patient.birth_date)}</span>
+          <span className="stat-label">Age</span>
+        </div>
+        <div className="stat-chip-elite">
+          <span className="material-icons-round">water_drop</span>
+          <span className="stat-value">{patient.blood_type || 'N/A'}</span>
+          <span className="stat-label">Type</span>
+        </div>
+        <div className="stat-chip-elite">
+          <span className="material-icons-round">monitor_weight</span>
+          <span className="stat-value">{patient.weight || '--'} <small>kg</small></span>
+          <span className="stat-label">Weight</span>
+        </div>
+      </div>
 
-          <div className="profile-card-group contact-group">
-            <h3><span className="material-icons-round">manage_accounts</span> Account & Contact</h3>
-            <div className="glass-card full-width p-4 horizontal-flex">
-                <div className="detail-row">
-                    <span className="material-icons-round">alternate_email</span>
-                    <div className="detail-text">
-                        <label>Email Address</label>
-                        {isEditing ? (
-                          <input type="email" name="email" value={editData.email || ''} onChange={handleChange} className="profile-input" />
-                        ) : (
-                          <p>{patient.email || 'No email provided'}</p>
-                        )}
-                    </div>
-                </div>
-                <div className="detail-row">
-                    <span className="material-icons-round">phone_enabled</span>
-                    <div className="detail-text">
-                        <label>Phone Number</label>
-                        {isEditing ? (
-                          <input type="tel" name="phone" value={editData.phone || ''} onChange={handleChange} className="profile-input" />
-                        ) : (
-                          <p>{patient.phone || 'No phone provided'}</p>
-                        )}
-                    </div>
-                </div>
-            </div>
+      {/* ── Personal Details ── */}
+      <div className="profile-section-elite">
+        <div className="section-header-elite">
+          <h3><span className="material-icons-round">person_outline</span> Identity</h3>
+        </div>
+        
+        <div className="info-row-elite">
+          <div className="info-icon-elite"><span className="material-icons-round">alternate_email</span></div>
+          <div className="info-content-elite">
+            <label>Email Address</label>
+            {isEditing ? (
+              <input type="email" name="email" value={editData.email || ''} onChange={handleChange} className="profile-input-elite" />
+            ) : (
+              <p>{patient.email || 'No email provided'}</p>
+            )}
           </div>
         </div>
 
-        <div className="profile-side-column">
-          <div className="profile-card-group medical-group">
-            <h3><span className="material-icons-round">history</span> Medical History</h3>
-            <div className="glass-card full-width p-4">
-                <div className="detail-row">
-                    <span className="material-icons-round">warning</span>
-                    <div className="detail-text">
-                        <label>Allergies</label>
-                        {isEditing ? (
-                          <textarea name="allergies" value={editData.allergies || ''} onChange={handleChange} className="profile-textarea" />
-                        ) : (
-                          <p>{patient.allergies || 'No allergies listed'}</p>
-                        )}
-                    </div>
-                </div>
-                <div className="detail-row">
-                    <span className="material-icons-round">history</span>
-                    <div className="detail-text">
-                        <label>Chronic Conditions</label>
-                        {isEditing ? (
-                          <textarea name="chronic_conditions" value={editData.chronic_conditions || ''} onChange={handleChange} className="profile-textarea" />
-                        ) : (
-                          <p>{patient.chronic_conditions || 'None reported'}</p>
-                        )}
-                    </div>
-                </div>
-            </div>
+        <div className="info-row-elite">
+          <div className="info-icon-elite"><span className="material-icons-round">phone</span></div>
+          <div className="info-content-elite">
+            <label>Phone Number</label>
+            {isEditing ? (
+              <input type="tel" name="phone" value={editData.phone || ''} onChange={handleChange} className="profile-input-elite" />
+            ) : (
+              <p>{patient.phone || 'N/A'}</p>
+            )}
           </div>
+        </div>
 
-          <div className="profile-card-group emergency-group">
-            <h3><span className="material-icons-round">contact_emergency</span> Emergency Contact</h3>
-            <div className="glass-card full-width p-4 emergency-bg">
-                <div className="detail-row">
-                    <span className="material-icons-round">contact_phone</span>
-                    <div className="detail-text">
-                        <label>Contact Person</label>
-                        {isEditing ? (
-                          <input name="emergency_contact_name" value={editData.emergency_contact_name || ''} onChange={handleChange} className="profile-input" />
-                        ) : (
-                          <p className="font-bold">{patient.emergency_contact_name || 'Not set'}</p>
-                        )}
-                    </div>
-                </div>
-                <div className="detail-row">
-                    <span className="material-icons-round">phone</span>
-                    <div className="detail-text">
-                        <label>Phone Number</label>
-                        {isEditing ? (
-                          <input name="emergency_contact_phone" value={editData.emergency_contact_phone || ''} onChange={handleChange} className="profile-input" />
-                        ) : (
-                          <p>{patient.emergency_contact_phone || 'N/A'}</p>
-                        )}
-                    </div>
-                </div>
-            </div>
+        <div className="info-row-elite">
+          <div className="info-icon-elite"><span className="material-icons-round">calendar_today</span></div>
+          <div className="info-content-elite">
+            <label>Birth Date</label>
+            {isEditing ? (
+              <input type="date" name="birth_date" value={editData.birth_date || ''} onChange={handleChange} className="profile-input-elite" />
+            ) : (
+              <p>{patient.birth_date || 'Not set'}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Medical History ── */}
+      <div className="profile-section-elite">
+        <div className="section-header-elite">
+          <h3><span className="material-icons-round">history</span> Medical Info</h3>
+        </div>
+
+        <div className="info-row-elite">
+          <div className="info-icon-elite"><span className="material-icons-round">warning</span></div>
+          <div className="info-content-elite">
+            <label>Allergies & Conditions</label>
+            {isEditing ? (
+              <textarea name="allergies" value={editData.allergies || ''} onChange={handleChange} className="profile-input-elite" style={{ minHeight: '80px' }} />
+            ) : (
+              <p>{patient.allergies || 'No allergies listed'}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Emergency ── */}
+      <div className="profile-section-elite emergency-elite">
+        <div className="section-header-elite">
+          <h3><span className="material-icons-round">contact_emergency</span> Emergency Contact</h3>
+        </div>
+
+        <div className="info-row-elite">
+          <div className="info-icon-elite"><span className="material-icons-round">account_box</span></div>
+          <div className="info-content-elite">
+            <label>Contact Name</label>
+            {isEditing ? (
+              <input name="emergency_contact_name" value={editData.emergency_contact_name || ''} onChange={handleChange} className="profile-input-elite" />
+            ) : (
+              <p>{patient.emergency_contact_name || 'Not set'}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="info-row-elite">
+          <div className="info-icon-elite"><span className="material-icons-round">call</span></div>
+          <div className="info-content-elite">
+            <label>Contact Phone</label>
+            {isEditing ? (
+              <input name="emergency_contact_phone" value={editData.emergency_contact_phone || ''} onChange={handleChange} className="profile-input-elite" />
+            ) : (
+              <p>{patient.emergency_contact_phone || 'N/A'}</p>
+            )}
           </div>
         </div>
       </div>
 
       {isEditing && (
-        <div className="profile-actions-bottom slide-in-top">
-          <button className="btn-primary large" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <span className="spinner"></span> : 'Save Profile Changes'}
+        <div className="profile-save-bar">
+          <button 
+            className="btn-primary" 
+            style={{ width: '100%', borderRadius: '20px', padding: '1.2rem', fontSize: '1rem', fontWeight: '800' }} 
+            onClick={handleSave} 
+            disabled={isSaving}
+          >
+            {isSaving ? 'Syncing Profile...' : 'Save Profile Changes'}
           </button>
         </div>
       )}
