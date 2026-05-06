@@ -679,16 +679,20 @@ function App() {
   }, [isAuthenticated, meds]);
 
   if (!isAuthenticated) {
-    return authView === 'login' ? (
-      <Login 
-        onSwitch={() => setAuthView('signup')} 
-        onLoginSuccess={handleLoginSuccess}
-      />
-    ) : (
-      <Signup 
-        onSwitch={() => setAuthView('login')} 
-        onSignupAutoLogin={handleLoginSuccess}
-      />
+    return (
+      <div className="view-transition" key={authView}>
+        {authView === 'login' ? (
+          <Login 
+            onSwitch={() => setAuthView('signup')} 
+            onLoginSuccess={handleLoginSuccess}
+          />
+        ) : (
+          <Signup 
+            onSwitch={() => setAuthView('login')} 
+            onSignupAutoLogin={handleLoginSuccess}
+          />
+        )}
+      </div>
     );
   }
 

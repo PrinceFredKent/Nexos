@@ -66,10 +66,10 @@ async def shutdown_event():
 # PyInstaller creates a temporary folder and stores path in _MEIPASS
 if getattr(sys, 'frozen', False):
     BASE_DIR = sys._MEIPASS
+    FRONTEND_DIR = os.path.join(BASE_DIR, "dist")
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-FRONTEND_DIR = os.path.join(BASE_DIR, "dist")
+    FRONTEND_DIR = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
 
 class UserSignup(BaseModel):
     username: str
@@ -629,19 +629,37 @@ async def delete_event(event_id: int, username: str = Depends(get_current_user),
 # --- Frontend Serving & Catch-All Route ---
 
 if os.path.exists(FRONTEND_DIR) and os.path.isdir(FRONTEND_DIR):
-    # Mount assets folder
+    log.info(f"Serving frontend from: {FRONTEND_DIR}")
+    
+    # Mount assets folder for standard static serving
     assets_dir = os.path.join(FRONTEND_DIR, "assets")
     if os.path.exists(assets_dir):
         app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-        
+        log.info("Mounted /assets directory")
+
     @app.get("/{full_path:path}")
     async def serve_frontend(full_path: str):
-        # Serve the requested file if it exists, otherwise serve index.html (for client-side routing)
-        file_path = os.path.join(FRONTEND_DIR, full_path)
+        # 1. Handle root or empty path
+        if not full_path or full_path == "/":
+            return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+            
+        # 2. Check if the file exists in the frontend dist directory
+        # (Remove leading slash if present for os.path.join)
+        clean_path = full_path.lstrip("/")
+        file_path = os.path.join(FRONTEND_DIR, clean_path)
+        
         if os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
+            
+        # 3. SPA Routing: fallback to index.html for unknown paths
+        # This allows React Router to handle the URL
+        index_path = os.path.join(FRONTEND_DIR, "index.html")
+        if os.path.isfile(index_path):
+            return FileResponse(index_path)
+            
+        return {"error": "Frontend not found"}
 else:
+    log.warning(f"Frontend directory NOT found at: {FRONTEND_DIR}")
     @app.get("/")
     def read_root():
         return {"message": "Welcome to the AI Health Assistant API (Frontend not built)"}
