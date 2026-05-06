@@ -170,10 +170,12 @@ body.dark-theme .action-bubble {
 
 /* ── Vitals/Stats Row ── */
 .profile-stats-elite {
-  margin: 4.5rem 1.5rem 2rem;
+  margin: 3.5rem 1.5rem 1.5rem; /* Increased top margin to fix overlap */
   display: flex;
   justify-content: space-between;
   gap: 1rem;
+  position: relative;
+  z-index: 20;
 }
 
 .stat-chip-elite {
@@ -350,7 +352,60 @@ body.dark-theme .profile-input-elite:focus {
   border: 1px solid rgba(67, 97, 238, 0.2);
 }
 
-@keyframes slideUp {
-  from { transform: translateY(100px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* ── Desktop Refinements (Screens > 1024px) ── */
+@media (min-width: 1025px) {
+  .profile-elite-wrapper {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    grid-template-areas: 
+      "hero content"
+      "stats content";
+    padding: 2.5rem;
+    gap: 2rem;
+    max-width: 1500px;
+    margin: 0 auto;
+    align-items: start;
+  }
+
+  .profile-hero-elite {
+    grid-area: hero;
+    width: 100%;
+    height: 480px; /* Reduced from 600px for better fit */
+    border-radius: 40px;
+    padding-bottom: 4rem;
+  }
+
+  .profile-stats-elite {
+    grid-area: stats;
+    margin: 0;
+    flex-direction: column;
+    width: 100%;
+    gap: 1rem;
+  }
+
+  .stat-chip-elite {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 1.25rem 1.5rem;
+    width: 100%;
+    gap: 1.5rem;
+  }
+
+  .profile-content-scroll-elite {
+    grid-area: content;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: 5rem;
+  }
+
+  .profile-section-elite {
+    margin: 0;
+  }
+
+  .profile-save-bar {
+    left: 480px;
+    bottom: 3rem;
+  }
 }
+
