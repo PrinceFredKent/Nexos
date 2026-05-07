@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { API_BASE_URL } from '../config';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import '../styles/profile_elite.css';
 
-const Profile = ({ patient, onUpdate }) => {
+const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistory = [] }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({ ...patient });
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [message, setMessage] = useState('');
 
   const handleChange = (e) => {
@@ -87,6 +90,146 @@ const Profile = ({ patient, onUpdate }) => {
     }
   };
 
+  const handleDownloadReport = () => {
+    setIsDownloading(true);
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // ── Header Banner ──
+    doc.setFillColor(67, 97, 238);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setFontSize(24);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Nexos Health Report', 14, 26);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(200, 210, 255);
+    doc.text(`Official Medical Summary • ${new Date().toLocaleDateString()}`, 14, 33);
+    
+    // ── Meta Info (Right Aligned) ──
+    doc.setFontSize(9);
+    doc.text(`Patient ID: #NX-2026`, pageWidth - 14, 20, { align: 'right' });
+    doc.text(`Doc Ref: ${Math.random().toString(36).substr(2, 9).toUpperCase()}`, pageWidth - 14, 25, { align: 'right' });
+    
+    let currentY = 55;
+
+    // ── Patient Identity ──
+    doc.setFontSize(14);
+    doc.setTextColor(67, 97, 238);
+    doc.text('Patient Identity', 14, currentY);
+    doc.setDrawColor(67, 97, 238);
+    doc.setLineWidth(0.5);
+    doc.line(14, currentY + 2, 55, currentY + 2);
+    
+    autoTable(doc, {
+      startY: currentY + 8,
+      body: [
+        ['Full Name', patient.full_name || patient.username],
+        ['Email Address', patient.email || 'N/A'],
+        ['Phone Number', patient.phone || 'N/A'],
+        ['Date of Birth', patient.birth_date || 'N/A'],
+        ['Current Age', `${calculateAge(patient.birth_date)} years`],
+        ['Gender', patient.gender || 'Not Specified']
+      ],
+      theme: 'plain',
+      styles: { fontSize: 9, cellPadding: 2.5 },
+      columnStyles: { 0: { fontStyle: 'bold', textColor: [100, 100, 100], width: 40 } }
+    });
+    
+    currentY = doc.lastAutoTable.finalY + 15;
+
+    // ── Vitals & Biometrics ──
+    doc.setFontSize(14);
+    doc.setTextColor(67, 97, 238);
+    doc.text('Vitals & Biometrics', 14, currentY);
+    doc.line(14, currentY + 2, 65, currentY + 2);
+    
+    autoTable(doc, {
+      startY: currentY + 8,
+      head: [['Metric', 'Value Status']],
+      body: [
+        ['Blood Type', patient.blood_type || 'Unknown'],
+        ['Weight', patient.weight ? `${patient.weight}kg` : 'N/A'],
+        ['Height', patient.height ? `${patient.height}cm` : 'N/A'],
+        ['Allergies', patient.allergies || 'No allergies recorded']
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [67, 97, 238], fontSize: 10 },
+      styles: { fontSize: 9, cellPadding: 3 }
+    });
+    
+    currentY = doc.lastAutoTable.finalY + 15;
+
+    // ── Medications ──
+    doc.setFontSize(14);
+    doc.setTextColor(67, 97, 238);
+    doc.text('Medication Regimen', 14, currentY);
+    doc.line(14, currentY + 2, 65, currentY + 2);
+    
+    if (meds.length > 0) {
+      autoTable(doc, {
+        startY: currentY + 8,
+        head: [['Medication', 'Dosage', 'Frequency', 'Stock']],
+        body: meds.map(m => [m.name, m.dosage, m.frequency, `${m.stock} doses`]),
+        headStyles: { fillColor: [67, 97, 238], fontSize: 10 },
+        styles: { fontSize: 9, cellPadding: 3 }
+      });
+      currentY = doc.lastAutoTable.finalY + 15;
+    } else {
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text('No active medications currently on record.', 14, currentY + 12);
+      currentY += 22;
+    }
+    
+    // ── Upcoming Health Plans ──
+    if (currentY > 230) { doc.addPage(); currentY = 25; }
+    doc.setFontSize(14);
+    doc.setTextColor(67, 97, 238);
+    doc.text('Upcoming Health Plans', 14, currentY);
+    doc.line(14, currentY + 2, 75, currentY + 2);
+    
+    if (userEvents.length > 0) {
+      autoTable(doc, {
+        startY: currentY + 8,
+        head: [['Plan/Event', 'Scheduled Date', 'Type', 'Location']],
+        body: userEvents.map(e => [
+          e.title, 
+          new Date(e.appointment_date).toLocaleDateString(),
+          e.type,
+          e.location || 'N/A'
+        ]),
+        headStyles: { fillColor: [67, 97, 238], fontSize: 10 },
+        styles: { fontSize: 9, cellPadding: 3 }
+      });
+    } else {
+      doc.setFontSize(10);
+      doc.setTextColor(150);
+      doc.text('No upcoming health plans scheduled.', 14, currentY + 12);
+    }
+
+    // ── Footer ──
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.setDrawColor(240);
+      doc.line(14, 280, pageWidth - 14, 280);
+      doc.text(`Page ${i} of ${pageCount} — Nexos Elite Medical Summary`, 14, 287);
+      doc.text(`Nexos AI Health Assistant • Privacy Protected`, pageWidth - 14, 287, { align: 'right' });
+    }
+    
+    doc.save(`Nexos_Health_Report_${patient.username}_${new Date().toISOString().split('T')[0]}.pdf`);
+    
+    setMessage('Professional PDF report downloaded!');
+    setTimeout(() => {
+      setMessage('');
+      setIsDownloading(false);
+    }, 3000);
+  };
+
   const calculateAge = (birthDate) => {
     if (!birthDate) return 'N/A';
     const birth = new Date(birthDate);
@@ -148,8 +291,8 @@ const Profile = ({ patient, onUpdate }) => {
           <div className={`action-bubble primary ${isSyncing ? 'syncing' : ''}`} onClick={handleSync} title="Sync Health Data">
             <span className="material-icons-round">sync</span>
           </div>
-          <div className="action-bubble" title="Download Health Report">
-            <span className="material-icons-round">file_download</span>
+          <div className={`action-bubble ${isDownloading ? 'downloading' : ''}`} onClick={handleDownloadReport} title="Download Health Report">
+            <span className="material-icons-round">{isDownloading ? 'hourglass_top' : 'file_download'}</span>
           </div>
         </div>
       </div>

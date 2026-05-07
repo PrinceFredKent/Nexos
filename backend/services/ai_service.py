@@ -33,7 +33,7 @@ LOCAL_CONDITION_REGISTRY = {
     "Malaria": {
         "symptoms": ["Fever", "Chills", "Sweating", "Headache", "Body aches", "Nausea", "Vomiting", "Fatigue", "Weakness"],
         "explanation": "Your symptoms pattern is strongly suggestive of Malaria, which is highly prevalent in tropical regions like Uganda.",
-        "action_steps": ["Visit the nearest lab for a Malaria test (RDT or Microscopy)", "Consult a healthcare worker at Mengo Hospital or similar for medication", "Rest and take plenty of fluids"],
+        "action_steps": ["Visit the nearest lab for a Malaria test (RDT or Microscopy)", "Consult a healthcare worker at a hospital or similar for medication", "Rest and take plenty of fluids"],
         "is_emergency": False,
         "required_any": ["Fever", "Chills"]
     },
@@ -331,8 +331,23 @@ async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = No
         "safe_wording": "⚠️ AI Analysis is currently operating in regional optimization mode. Please consult a professional for critical concerns.",
         "action_steps": top["data"]["action_steps"],
         "possibilities": [
-            {"condition": top["condition"], "match_percentage": top["percentage"]},
-            {"condition": second["condition"], "match_percentage": second["percentage"]} if second else {"condition": "General Health Concern", "match_percentage": 20}
+            {
+                "condition": top["condition"], 
+                "match_percentage": top["percentage"],
+                "explanation": top["data"]["explanation"],
+                "action_steps": top["data"]["action_steps"]
+            },
+            {
+                "condition": second["condition"], 
+                "match_percentage": second["percentage"],
+                "explanation": second["data"]["explanation"],
+                "action_steps": second["data"]["action_steps"]
+            } if second else {
+                "condition": "General Health Concern", 
+                "match_percentage": 20,
+                "explanation": "Your symptoms are general and could be related to various minor conditions.",
+                "action_steps": ["Rest", "Stay hydrated"]
+            }
         ]
     }
 

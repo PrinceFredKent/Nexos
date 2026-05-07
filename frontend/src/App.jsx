@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { API_BASE_URL } from './config';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import './styles/main.css';
 import Login from './components/Login';
 import Signup from './components/Signup';
@@ -9,6 +11,7 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import CycleTracker from './components/CycleTracker';
 import Emergency from './components/Emergency';
+import Dashboard from './components/Dashboard';
 // import DoctorDashboard from './components/DoctorDashboard'; // Removed
 
 const COMMON_SYMPTOMS = [
@@ -104,6 +107,7 @@ function App() {
 
   // Dropdown Refs for Click-Outside logic
   const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
   const notificationsRef = useRef(null);
   const actionsRef = useRef(null);
   const mobileMenuRef = useRef(null);
@@ -138,6 +142,112 @@ function App() {
     }, 280);
   };
 
+  const handleDownloadAnalysisHistory = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // ── Premium Header ──
+    doc.setFillColor(67, 97, 238);
+    doc.rect(0, 0, pageWidth, 45, 'F');
+    
+    // Subtle Icon/Logo Circle
+    doc.setFillColor(255, 255, 255, 0.1);
+    doc.circle(25, 22, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('N', 23, 24);
+
+    doc.setFontSize(22);
+    doc.text('AI Health Analysis History', 42, 24);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(200, 210, 255);
+    doc.text(`Comprehensive Symptom Assessment Records • ${new Date().toLocaleDateString()}`, 42, 31);
+    
+    let currentY = 60;
+    
+    analysisHistoryRecords.forEach((record, index) => {
+        // Page break if near bottom
+        if (currentY > 230) {
+            doc.addPage();
+            currentY = 30;
+        }
+        
+        const dateStr = new Date(record.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        
+        // Record Header (Condition Name)
+        doc.setFontSize(15);
+        doc.setTextColor(67, 97, 238);
+        doc.setFont(undefined, 'bold');
+        doc.text(record.top_condition || "Health Assessment", 14, currentY);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(140);
+        doc.setFont(undefined, 'normal');
+        doc.text(dateStr, pageWidth - 14, currentY, { align: 'right' });
+        
+        // Risk Badge (Improved)
+        const riskLevel = record.risk_level || 'Medium';
+        const riskColor = riskLevel === 'High' ? [239, 68, 68] : riskLevel === 'Low' ? [34, 197, 94] : [245, 158, 11];
+        
+        doc.setFillColor(...riskColor);
+        doc.roundedRect(14, currentY + 4, 28, 6, 1.5, 1.5, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'bold');
+        doc.text(`${riskLevel} Risk`, 16, currentY + 8.2);
+        
+        currentY += 16;
+        
+        // Data Section (Symptoms & Analysis)
+        autoTable(doc, {
+            startY: currentY,
+            body: [
+                ['Reported Symptoms', record.symptoms?.join(', ') || 'N/A'],
+                ['Clinical Analysis', record.explanation || 'N/A']
+            ],
+            theme: 'plain',
+            styles: { 
+                fontSize: 9, 
+                cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+                overflow: 'linebreak',
+                lineColor: [240, 240, 240],
+                lineWidth: 0.1
+            },
+            columnStyles: { 
+                0: { fontStyle: 'bold', width: 40, textColor: [100, 100, 100] },
+                1: { textColor: [50, 50, 50], lineHeight: 1.4 }
+            },
+            margin: { left: 14, right: 14 }
+        });
+        
+        currentY = doc.lastAutoTable.finalY + 18;
+        
+        // Separator (Subtle)
+        if (index < analysisHistoryRecords.length - 1) {
+            doc.setDrawColor(245);
+            doc.setLineWidth(0.5);
+            doc.line(14, currentY - 10, pageWidth - 14, currentY - 10);
+        }
+    });
+
+    // Footer
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(180);
+        doc.setDrawColor(240);
+        doc.line(14, 282, pageWidth - 14, 282);
+        doc.text(`Page ${i} of ${pageCount} — Nexos AI Health History (Official Document)`, 14, 288);
+        doc.text(`Nexos Healthcare Systems • Secure Document`, pageWidth - 14, 288, { align: 'right' });
+    }
+    
+    doc.save(`Nexos_AI_Analysis_History_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   // Click-Outside Dismissal Effect
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -155,6 +265,15 @@ function App() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [activeDropdown]);
+
+  // Focus search input when expanded on mobile
+  useEffect(() => {
+    if (isMobileSearchExpanded && searchInputRef.current) {
+        setTimeout(() => {
+            searchInputRef.current.focus();
+        }, 150);
+    }
+  }, [isMobileSearchExpanded]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -838,6 +957,7 @@ function App() {
                   <input 
                     type="text" 
                     className="search-box" 
+                    ref={searchInputRef}
                     placeholder={
                         activeTab === 'symptoms' ? "Search for symptoms, tips..." :
                         activeTab === 'meds' ? "Search for medications, dosing..." :
@@ -850,7 +970,7 @@ function App() {
                         if (e.target.value) setActiveDropdown('search');
                         else closeDropdown();
                     }}
-                    onFocus={() => setIsMobileSearchExpanded(true)}
+                    onFocus={() => { if (window.innerWidth <= 768) setIsMobileSearchExpanded(true); }}
                   />
               </div>
               {activeDropdown === 'search' && searchTerm && (
@@ -1053,148 +1173,21 @@ function App() {
         <div className={`dashboard-content ${activeDropdown ? 'blur-content' : ''}`}>
 
           {activeTab === 'symptoms' && (
-            <div className="symptoms-section slide-in-top">
-              <div className={`modern-symptom-checker glass-card ${isCheckerCollapsed ? 'collapsed' : ''}`}>
-                  <div className="checker-header-modern" onClick={() => isCheckerCollapsed && setIsCheckerCollapsed(false)} style={{cursor: isCheckerCollapsed ? 'pointer' : 'default'}}>
-                      <div className="ai-icon-pulse" style={{width: isCheckerCollapsed ? 45 : 60, height: isCheckerCollapsed ? 45 : 60, transition: 'all 0.3s'}}>
-                          <span className="material-icons-round" style={{fontSize: isCheckerCollapsed ? '1.5rem' : '2rem', transition: 'all 0.3s'}}>psychology</span>
-                      </div>
-                      <div style={{flex: 1}}>
-                          <h2 style={{fontSize: isCheckerCollapsed ? '1.3rem' : '1.8rem', margin: '0 0 0.2rem 0', transition: 'all 0.3s'}}>How are you feeling today?</h2>
-                          {!isCheckerCollapsed && <p style={{margin: 0, color: 'var(--text-muted)'}}>Describe your symptoms or select from common indicators below.</p>}
-                          {isCheckerCollapsed && (selectedSymptoms.length > 0 || customSymptom.trim()) && (
-                              <div className="collapsed-symptom-list" style={{margin: '0.4rem 0 0 0'}}>
-                                  {selectedSymptoms.map((s, idx) => <span key={idx} className="collapsed-symptom-tag">{s}</span>)}
-                                  {customSymptom.trim() && <span className="collapsed-symptom-tag">{customSymptom}</span>}
-                              </div>
-                          )}
-                      </div>
-                      {isCheckerCollapsed ? (
-                          <span className="material-icons-round text-muted" style={{fontSize: '1.5rem'}}>expand_more</span>
-                      ) : (
-                          (selectedSymptoms.length > 0 || customSymptom.trim() !== '') && (
-                             <span className="material-icons-round text-muted" style={{cursor: 'pointer', fontSize: '1.5rem'}} onClick={(e) => { e.stopPropagation(); setIsCheckerCollapsed(true); }}>expand_less</span>
-                          )
-                      )}
-                  </div>
-                  
-                  <div className="checker-body-modern">
-                      {selectedSymptoms.length > 0 && (
-                          <div className="selected-tags">
-                              {selectedSymptoms.map((s, idx) => (
-                                  <span key={idx} className="modern-tag">
-                                      {s} 
-                                      <span className="material-icons-round remove-tag" onClick={() => toggleSymptom(s)}>close</span>
-                                  </span>
-                              ))}
-                          </div>
-                      )}
-                      
-                      <div className="modern-input-wrapper">
-                          <span className="material-icons-round search-icon">search</span>
-                          
-                          <input 
-                              type="text" 
-                              placeholder={selectedSymptoms.length > 0 ? "Any other symptoms?" : "e.g., headache, mild fever, back pain..."}
-                              className="modern-symptom-input"
-                              value={customSymptom}
-                              onChange={(e) => setCustomSymptom(e.target.value)}
-                          />
-                          
-                          <button className="btn-modern-analyze" onClick={handleAnalyze}>
-                              <span className="material-icons-round">auto_awesome</span>
-                              Analyze
-                          </button>
-                      </div>
-
-                      {availableChips.filter(s => !selectedSymptoms.includes(s)).length > 0 && (
-                          <div className="modern-suggestions">
-                              <span className="suggestions-label">Suggestions:</span>
-                              <div className="horizontal-chips custom-scrollbar">
-                                  {availableChips.filter(s => !selectedSymptoms.includes(s)).map((s, idx) => (
-                                      <div key={idx} className="modern-chip" onClick={() => toggleSymptom(s)}>
-                                          <span className="material-icons-round">add</span> {s}
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
-
-              <div className="dashboard-grid-main" style={{display: 'block', marginTop: '2.5rem'}}>
-                <div className="main-stats-col">
-                  {analysis ? (
-                    <div className="stat-card analysis-card-full">
-                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                        <h3>AI Analysis Results</h3>
-                        <button className="btn-primary-mini" onClick={() => fetchAnalysisHistory()} style={{background: 'var(--bg-main)', color: 'var(--primary)', border: '1px solid var(--border)'}}>View History</button>
-                      </div>
-                      <div className="analysis-results fade-in">
-                        {analysis.status === "Analyzing..." ? (
-                          <AnalysisLoading />
-                        ) : (!analysis.status || analysis.status === "Error" || analysis.status === "Empty") ? (
-                          <div className="analysis-text" style={{marginTop: '1.5rem'}}>
-                            <strong>Status: {analysis.status || "Error"}</strong>
-                            <p style={{marginTop: '0.5rem', color: 'var(--text-muted)'}}>{analysis.results || analysis.detail || analysis.analysis || "An unexpected error occurred."}</p>
-                          </div>
-                        ) : (
-                          <div className="full-analysis-view" style={{marginTop: '1rem'}}>
-                            <div className="result-header" style={{borderLeft: `4px solid ${analysis.risk_level === 'High' ? '#ef4444' : analysis.risk_level === 'Medium' ? '#f59e0b' : '#22c55e'}`}}>
-                              <div className="result-title-row">
-                                <div className="top-condition-highlight">
-                                  <span className="label">Most Likely Condition</span>
-                                  <h2 className="top-condition-name">{analysis.top_condition || "Assessment"}</h2>
-                                </div>
-                                <span className={`risk-badge ${analysis.risk_level?.toLowerCase() || 'medium'}`}>
-                                  {analysis.risk_level} Risk
-                                </span>
-                              </div>
-                              <p style={{fontSize: '1rem', lineHeight: '1.6', color: 'var(--text-muted)', marginTop: '0.5rem'}}>{analysis.explanation}</p>
-                            </div>
-                            
-                            <div className="analysis-grid-row" style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem'}}>
-                              {analysis.possibilities && analysis.possibilities.length > 0 && (
-                                <div className="result-section">
-                                  <h4>Potential Conditions</h4>
-                                  <div className="possibility-list">
-                                    {analysis.possibilities.map((p, idx) => (
-                                      <div key={idx} className="match-bar-container">
-                                        <div className="match-text">
-                                          <span>{p.condition}</span>
-                                          <strong>{p.match_percentage}%</strong>
-                                        </div>
-                                        <div className="match-bar-bg"><div className="match-bar-fill" style={{width: `${p.match_percentage}%`}}></div></div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              <div className="result-section">
-                                <h4>Action Steps</h4>
-                                <ul className="action-steps-list">
-                                  {Array.isArray(analysis.action_steps) ? analysis.action_steps.map((step, idx) => (
-                                    <li key={idx}>{step}</li>
-                                  )) : <li>Monitor symptoms and stay hydrated.</li>}
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="welcome-placeholder-card fade-in glass-card" style={{padding: '3rem', textAlign: 'center'}}>
-                      <div className="placeholder-icon" style={{width: '70px', height: '70px', background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem'}}>
-                        <span className="material-icons-round" style={{fontSize: '2.5rem'}}>psychology</span>
-                      </div>
-                      <h3>Your Health Intelligence</h3>
-                      <p style={{maxWidth: '400px', margin: '0 auto', color: 'var(--text-muted)'}}>Select symptoms above to generate a preliminary AI assessment of your current health state.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <Dashboard 
+              patient={patient}
+              meds={meds}
+              userEvents={userEvents}
+              analysis={analysis}
+              handleAnalyze={handleAnalyze}
+              selectedSymptoms={selectedSymptoms}
+              toggleSymptom={toggleSymptom}
+              availableChips={availableChips}
+              customSymptom={customSymptom}
+              setCustomSymptom={setCustomSymptom}
+              setActiveTab={setActiveTab}
+              isCheckerCollapsed={isCheckerCollapsed}
+              setIsCheckerCollapsed={setIsCheckerCollapsed}
+            />
           )}
 
           {activeTab === 'planner' && (
@@ -1454,6 +1447,9 @@ function App() {
             <Profile 
               patient={patient} 
               onUpdate={(updatedUser) => setPatient(updatedUser)} 
+              meds={meds}
+              userEvents={userEvents}
+              analysisHistory={analysisHistoryRecords}
             />
           )}
 
@@ -1746,9 +1742,19 @@ function App() {
                             </div>
                         </div>
                     </div>
-                    <button className="close-btn" onClick={() => setIsAnalysisHistoryModalOpen(false)}>
-                        <span className="material-icons-round">close</span>
-                    </button>
+                    <div style={{display: 'flex', gap: '0.8rem'}}>
+                        <button 
+                            className="btn-primary-mini" 
+                            onClick={handleDownloadAnalysisHistory}
+                            style={{padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(67, 97, 238, 0.1)', color: 'var(--primary)', border: '1px solid var(--primary-glow)'}}
+                        >
+                            <span className="material-icons-round" style={{fontSize: '1.2rem'}}>file_download</span>
+                            Export PDF
+                        </button>
+                        <button className="close-btn" onClick={() => setIsAnalysisHistoryModalOpen(false)}>
+                            <span className="material-icons-round">close</span>
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="history-list custom-scrollbar" style={{marginTop: '1.5rem', maxHeight: '500px', overflowY: 'auto', paddingRight: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1rem'}}>
