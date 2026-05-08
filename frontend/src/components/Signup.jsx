@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
 import AuthLayout from './AuthLayout';
 import signup1 from '../assets/img/signup1.jpg';
 import signup2 from '../assets/img/signup2.jpg';
 import signup3 from '../assets/img/signup3.jpg';
 
-const Signup = ({ onSwitch, onSignupAutoLogin }) => {
-  const [step, setStep] = useState(1);
+const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingProfile = false }) => {
+  const [step, setStep] = useState(startingStep);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -33,6 +33,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
   const [error, setError] = useState('');
   const [signupResult, setSignupResult] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null); // 'gender' | 'bloodType' | null
+  const [googleData, setGoogleData] = useState(null); 
 
   // Close dropdowns when clicking outside
   const closeDropdowns = () => setOpenDropdown(null);
@@ -73,12 +74,18 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
 
   const handleNext = () => {
     if (step === 1) {
-        if (!formData.username || !formData.phone || !formData.password) {
+        if (!formData.username || !formData.phone || (!formData.password && !googleData)) {
             setError('Name, Phone and Password are required');
             return;
         }
-        if (formData.password !== formData.confirmPassword) {
+        if (!googleData && formData.password !== formData.confirmPassword) {
             setError('Passwords do not match');
+            return;
+        }
+    }
+    if (step === 2 && isCompletingProfile) {
+        if (!formData.phone) {
+            setError('Phone Number is required to complete your profile.');
             return;
         }
     }
@@ -87,41 +94,149 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
   };
 
   const handleSignup = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
+    if (isCompletingProfile && !formData.phone) {
+        setError('Phone Number is required.');
+        setStep(2);
+        return;
+    }
+
+    const endpoint = isCompletingProfile ? `${API_BASE_URL}/update-profile` : `${API_BASE_URL}/signup`;
+    const method = isCompletingProfile ? 'PATCH' : 'POST';
+    const token = localStorage.getItem('token');
+
+    // Build payload — different shapes for signup vs profile completion
+    let payload;
+    if (isCompletingProfile) {
+      // Only send fields that UserUpdate accepts; strip empty strings so we don't overwrite with blanks
+      const raw = {
+        phone: formData.phone,
+        birth_date: formData.birthDate || null,
+        gender: formData.gender,
+        blood_type: formData.bloodType,
+        weight: formData.weight || null,
+        height: formData.height || null,
+        allergies: formData.allergies || null,
+        chronic_conditions: formData.chronicConditions || null,
+        emergency_contact_name: formData.emergencyName || null,
+        emergency_contact_phone: formData.emergencyPhone || null,
+      };
+      // Remove null/empty values so backend exclude_unset skips them correctly
+      payload = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== null && v !== ''));
+    } else {
+      payload = {
+        username: formData.username,
+        email: formData.email || null,
+        phone: formData.phone,
+        password: formData.password || "oauth_managed_account",
+        birth_date: formData.birthDate || null,
+        gender: formData.gender,
+        blood_type: formData.bloodType,
+        weight: formData.weight,
+        height: formData.height,
+        allergies: formData.allergies,
+        chronic_conditions: formData.chronicConditions,
+        emergency_contact_name: formData.emergencyName,
+        emergency_contact_phone: formData.emergencyPhone,
+        profile_picture: googleData?.profile_picture || null,
+        google_id: googleData?.google_id || null,
+        role: 'patient'
+      };
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email || null,
-          phone: formData.phone,
-          password: formData.password,
-          birth_date: formData.birthDate || null,
-          gender: formData.gender,
-          blood_type: formData.bloodType,
-          weight: formData.weight,
-          height: formData.height,
-          allergies: formData.allergies,
-          chronic_conditions: formData.chronicConditions,
-          emergency_contact_name: formData.emergencyName,
-          emergency_contact_phone: formData.emergencyPhone,
-          role: 'patient'
-        })
+      const response = await fetch(endpoint, {
+        method: method,
+        headers: { 
+            'Content-Type': 'application/json',
+            ...(isCompletingProfile && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
       if (response.ok) {
-        setSignupResult(data);
-        setStep(4); // Move to Success Step
+        if (isCompletingProfile) {
+            onSignupAutoLogin(token, data.username || formData.username, true, 'patient', false, data.email);
+        } else {
+            onSignupAutoLogin(data.access_token, data.username, true, data.role, false, data.email || formData.email);
+        }
       } else {
-        setError(data.detail || 'Signup failed');
+        const errorDetail = data.detail;
+        if (typeof errorDetail === 'string') {
+            setError(errorDetail);
+        } else if (Array.isArray(errorDetail)) {
+            // FastAPI validation error list
+            setError(errorDetail[0]?.msg || 'Validation failed. Please check your inputs.');
+        } else {
+            setError('Update failed. Please try again.');
+        }
       }
     } catch (err) {
       console.error("Signup error:", err);
       setError('Connection error: Is the backend running on port 8000?');
     }
   };
+
+  const handleGoogleCallback = async (response) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/google-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: response.credential })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (data.is_new_user) {
+            setGoogleData({
+                email: data.email,
+                username: data.full_name,
+                profile_picture: data.profile_picture,
+                google_id: data.google_id
+            });
+            setFormData(prev => ({
+                ...prev,
+                username: data.full_name,
+                email: data.email
+            }));
+            setError('');
+            // Move to step 1 to confirm name/phone
+            setStep(1); 
+        } else {
+            onSignupAutoLogin(data.access_token, data.username, true, data.role, data.is_new_device || false, data.email);
+        }
+      } else {
+        setError(data.detail || 'Google Signup failed');
+      }
+    } catch (err) {
+      setError('Connection error during Google signup');
+    }
+  };
+
+  useEffect(() => {
+    /* global google */
+    /* Google Login Temporarily Disabled
+    if (window.google) {
+      google.accounts.id.initialize({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "1080363277355-12nq3rf5nou0pn1sb9g6racb3ioaua8l.apps.googleusercontent.com",
+        callback: handleGoogleCallback
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById("googleBtnSignup"),
+        { 
+          theme: "filled_blue", 
+          size: "large", 
+          width: "100%", 
+          text: "signup_with",
+          shape: "pill"
+        }
+      );
+    }
+    */
+  }, []);
 
   const currentImage = step === 4 ? signup3 : (step === 1 ? signup1 : (step === 2 ? signup2 : signup3));
   const progressWidth = (step / 3) * 100 > 100 ? 100 : (step / 3) * 100;
@@ -131,13 +246,14 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
 
   return (
     <div onClick={closeDropdowns}>
-    <AuthLayout reverse={step === 2} step={step} image={currentImage}>
+    <AuthLayout reverse={false} step={step} image={currentImage}>
       <div className="auth-form">
-        <h2>{step === 1 ? 'Join NEXOS' : (step === 2 ? 'Health Profile' : (step === 3 ? 'Safety First' : 'Account Created!'))}</h2>
+        <h2>{isCompletingProfile ? 'Complete Profile' : (step === 1 ? 'Create Elite Account' : (step === 2 ? 'Clinical Vitals' : (step === 3 ? 'Emergency Protocol' : 'Identity Verified!')))}</h2>
         <p>
-            {step === 1 ? 'Start your journey to smarter health' : 
-            (step === 2 ? 'Tell us about your vitals' : 
-            (step === 3 ? 'In case of emergency, who should we call?' : `Welcome, ${formData.username}! Your health journey begins now.`))}
+            {isCompletingProfile ? 'Some essential health metrics are missing from your profile. Please complete them to ensure accurate AI analysis.' : 
+            (step === 1 ? 'Initialize your clinical-grade health profile and join NEXOS.' : 
+            (step === 2 ? 'Provide your baseline vitals for AI-driven health monitoring.' : 
+            (step === 3 ? 'Establish emergency contact protocols for immediate response.' : `Welcome to the NEXOS network, ${formData.username}. Your intelligence-driven wellness journey starts now.`)))}
         </p>
 
 
@@ -203,19 +319,13 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
             </div>
             <button className="btn-primary" onClick={handleNext}>Continue</button>
 
+            {/* Google Login Temporarily Disabled
             <div className="divider"><span>Or Create with</span></div>
 
             <div className="social-auth">
-              <div className="social-btn google-full" title="Sign up with Google">
-                <svg width="20" height="20" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                <span>Create with Google</span>
-              </div>
+                <div id="googleBtnSignup" style={{width: '100%', display: 'flex', justifyContent: 'center'}}></div>
             </div>
+            */}
           </div>
         )}
 
@@ -225,6 +335,13 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
               <input type="date" id="birthDate" placeholder=" " value={formData.birthDate} onChange={(e) => setFormData({...formData, birthDate: e.target.value})} />
               <label htmlFor="birthDate">Birth Date</label>
             </div>
+
+            {isCompletingProfile && (
+              <div className={`input-group ${formData.phone ? 'filled' : ''}`}>
+                <input type="tel" id="phone_comp" placeholder=" " value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                <label htmlFor="phone_comp">Phone Number</label>
+              </div>
+            )}
             
             <div style={{display: 'flex', gap: '1rem'}}>
                 <CustomSelect
@@ -255,8 +372,10 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
                 </div>
             </div>
             <div style={{display: 'flex', gap: '1rem'}}>
-                <button className="btn-secondary" style={{flex: 1}} onClick={() => setStep(1)}>Back</button>
-                <button className="btn-primary" style={{flex: 2}} onClick={handleNext}>Next: Safety</button>
+                {!isCompletingProfile && (
+                    <button className="btn-secondary" style={{flex: 1}} onClick={() => setStep(1)}>Back</button>
+                )}
+                <button className="btn-primary" style={{flex: isCompletingProfile ? 1 : 2}} onClick={handleNext}>Next: Safety</button>
             </div>
           </div>
         )}
@@ -300,7 +419,11 @@ const Signup = ({ onSwitch, onSignupAutoLogin }) => {
 
         {step !== 4 && (
             <div className="auth-footer">
-              Already a NEXOS member? <span className="auth-link" onClick={onSwitch}>Login</span>
+              {isCompletingProfile ? (
+                <>Wrong account? <span className="auth-link" onClick={() => { localStorage.removeItem('token'); sessionStorage.removeItem('token'); window.location.reload(); }}>Logout</span></>
+              ) : (
+                <>Already a NEXOS member? <span className="auth-link" onClick={onSwitch}>Login</span></>
+              )}
             </div>
         )}
       </div>

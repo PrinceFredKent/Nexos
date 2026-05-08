@@ -57,6 +57,12 @@
   filter: brightness(1) blur(0px);
 }
 
+@media (min-width: 1025px) {
+  .welcome-bg-slide {
+    display: none; /* Hide full-screen slides on desktop in favor of cards */
+  }
+}
+
 @keyframes cinematicKenBurns {
   0%   { transform: scale(1) translate(0, 0) rotate(0deg); }
   100% { transform: scale(1.18) translate(-2%, -1%) rotate(0.5deg); }
@@ -133,6 +139,28 @@
   opacity: 1;
 }
 
+@media (min-width: 1025px) {
+  .welcome-logo-wrap {
+    left: 4rem;
+    top: 2.5rem !important;
+    transform: none !important;
+    flex-direction: row;
+    gap: 0.8rem;
+    align-items: center;
+  }
+  
+  .welcome-logo-bubble {
+    width: 42px;
+    height: 42px;
+    padding: 7px;
+  }
+  
+  .welcome-brand {
+    font-size: 1.2rem;
+    letter-spacing: 6px;
+  }
+}
+
 .welcome-logo-bubble {
   width: 84px;
   height: 84px;
@@ -199,6 +227,12 @@
 .welcome-screen.phase-full .welcome-content {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (min-width: 1025px) {
+  .welcome-content {
+    display: none; /* Hide mobile-centric content on desktop */
+  }
 }
 
 .welcome-headline {
@@ -317,4 +351,241 @@
 
 @keyframes shimmer {
   to { background-position: 200% center; }
+}
+/* ── Desktop Welcome Styles ── */
+.welcome-desktop-wrap {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  padding: 4rem;
+  align-items: center;
+  justify-content: flex-start;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1025px) {
+  .welcome-desktop-wrap {
+    display: flex;
+    padding-top: max(6rem, 8vh); /* Keep safe distance from logo but shrink on small screens */
+    padding-bottom: max(2rem, 4vh);
+    align-items: center;
+    overflow: hidden; /* Enforce single landing page, no scroll */
+  }
+}
+
+.desktop-hero-section {
+  max-width: 1440px;
+  width: 100%;
+  margin: auto; /* auto centers in flex container safely */
+  padding: 0 4vw; /* responsive padding instead of fixed 5rem */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4vw;
+}
+
+.desktop-hero-left {
+  flex: 1.2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0; /* allows text to wrap properly in flex container */
+}
+
+.desktop-badge {
+  background: rgba(67, 97, 238, 0.15);
+  color: #818cf8;
+  padding: 0.5rem 1.2rem;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-block;
+  border: 1px solid rgba(67, 97, 238, 0.2);
+  backdrop-filter: blur(10px);
+  margin-bottom: 1.5rem;
+}
+
+.desktop-headline {
+  font-size: clamp(2.8rem, 4.5vw, 4.8rem);
+  font-weight: 900;
+  color: white;
+  line-height: 1.15;
+  letter-spacing: -1px;
+  margin: 0 0 1.5rem 0;
+}
+
+.desktop-headline span {
+  display: block;
+  background: linear-gradient(to right, #ffffff, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-top: 0.2rem;
+}
+
+.desktop-subline {
+  font-size: clamp(1rem, 1.2vw, 1.2rem);
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 600px;
+  line-height: 1.6;
+  margin-bottom: min(3rem, 4vh);
+}
+
+.desktop-feature-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: min(4rem, 5vh);
+}
+
+.feature-card-mini {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1.5rem;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 180px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.feature-card-mini:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-5px);
+  border-color: rgba(67, 97, 238, 0.3);
+}
+
+.feature-card-mini .material-icons-round {
+  color: #4361ee;
+  font-size: 2rem;
+}
+
+.feature-card-mini p {
+  margin: 0;
+  font-weight: 600;
+  color: white;
+  font-size: 0.95rem;
+}
+
+.btn-get-started-desktop {
+  background: #4361ee;
+  color: white;
+  padding: 0.5rem 0.5rem 0.5rem 2.5rem;
+  border-radius: 50px;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(67, 97, 238, 0.4);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  width: fit-content;
+  margin-top: 1rem;
+}
+
+.btn-get-started-desktop:hover {
+  background: #3a0ca3;
+  transform: scale(1.02);
+  box-shadow: 0 15px 40px rgba(67, 97, 238, 0.5);
+}
+
+.btn-get-started-desktop .btn-icon {
+  width: 50px;
+  height: 50px;
+  background: white;
+  color: #4361ee;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Animations ── */
+.fade-in-up {
+  animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Desktop Hero Right (Card Stack) ── */
+.desktop-hero-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  perspective: 1000px;
+}
+
+.image-card-stack {
+  position: relative;
+  width: min(480px, 35vw);
+  height: min(620px, 65vh);
+}
+
+.image-card-item {
+  position: absolute;
+  inset: 0;
+  border-radius: 40px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  opacity: 0;
+  transform: translateX(40px) scale(0.9);
+  transition: all 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.image-card-item.active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.card-glass-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(5, 12, 26, 0.8), transparent);
+}
+
+.stack-decoration-ring {
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 120px;
+  height: 120px;
+  border: 1px solid rgba(67, 97, 238, 0.3);
+  border-radius: 50%;
+  animation: spin 20s linear infinite;
+}
+
+.stack-decoration-dots {
+  position: absolute;
+  bottom: -40px;
+  left: -40px;
+  width: 100px;
+  height: 100px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 2px, transparent 2px);
+  background-size: 20px 20px;
+  z-index: -1;
+}
+
+.fade-in-right {
+  animation: fadeInRight 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(60px); }
+  to { opacity: 1; transform: translateX(0); }
 }

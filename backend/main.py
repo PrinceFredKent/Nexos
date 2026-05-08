@@ -15,6 +15,8 @@ from fastapi.responses import FileResponse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from auth_service import get_password_hash, verify_password, create_access_token, get_current_user
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from database import engine, get_db, Base, cloud_engine
 from models.user import User as DBUser
 from models.medication import Medication as DBMedication, MedicationIntake as DBIntake
@@ -26,7 +28,9 @@ from sync_service import (
     get_sync_status, estimate_pending_push,
     initial_pull_credentials, initial_pull_all, run_sync
 )
-from datetime import datetime, date
+from services.email_service import send_otp_email, send_welcome_email, send_password_reset_email
+import random
+from datetime import datetime, date, timedelta
 
 log = logging.getLogger("nexos")
 
@@ -87,6 +91,7 @@ class UserSignup(BaseModel):
     emergency_contact_phone: Optional[str] = None
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
+    google_id: Optional[str] = None
 
 class UserUpdate(BaseModel):
     age: Optional[int] = None
@@ -100,13 +105,34 @@ class UserUpdate(BaseModel):
     emergency_contact_phone: Optional[str] = None
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
+    username: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: str
     password: str
 
+class GoogleLogin(BaseModel):
+    credential: str
+
+class VerifyOTP(BaseModel):
+    email: str
+    otp_code: str
+
 class PasswordChange(BaseModel):
     current_password: str
+    new_password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class VerifyPasswordOTPRequest(BaseModel):
+    email: str
+    otp_code: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    otp_code: str
     new_password: str
 
 class Symptom(BaseModel):
@@ -221,7 +247,7 @@ async def recommend_medication(req: RecommendationRequest):
 from services.ai_service import get_symptom_analysis, get_suggested_symptoms
 
 @app.post("/signup")
-async def signup(user: UserSignup, db: Session = Depends(get_db)):
+async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(DBUser).filter(DBUser.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -238,8 +264,8 @@ async def signup(user: UserSignup, db: Session = Depends(get_db)):
     new_user = DBUser(
         username=user.username,
         email=user.email,
-        hashed_password=hashed_password,
         phone=user.phone,
+        hashed_password=hashed_password,
         age=user.age,
         gender=user.gender,
         blood_type=user.blood_type,
@@ -250,21 +276,45 @@ async def signup(user: UserSignup, db: Session = Depends(get_db)):
         emergency_contact_name=user.emergency_contact_name,
         emergency_contact_phone=user.emergency_contact_phone,
         profile_picture=user.profile_picture,
-        birth_date=user.birth_date
+        birth_date=user.birth_date,
+        google_id=user.google_id
     )
+    
+    # If Google ID is provided, auto-verify
+    if user.google_id:
+        new_user.is_verified = 1
     
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    # Create access token for immediate login
-    access_token = create_access_token(data={"sub": new_user.username})
+    if new_user.is_verified:
+        # Send Welcome Email immediately if verified (Google signup)
+        background_tasks.add_task(send_welcome_email, new_user.email, new_user.username)
+        access_token = create_access_token(data={"sub": new_user.username})
+        return {
+            "message": "Welcome to Nexos! Registration complete.",
+            "access_token": access_token,
+            "token_type": "bearer",
+            "username": new_user.username,
+            "is_verified": True,
+            "is_new_device": True
+        }
+
+    # Generate OTP for email signups
+    otp = f"{random.randint(100000, 999999)}"
+    new_user.otp_code = otp
+    new_user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    db.commit()
+    
+    # Send email (async background task)
+    background_tasks.add_task(send_otp_email, new_user.email, new_user.username, otp)
     
     return {
-        "message": "User created successfully", 
+        "message": "Account created. Please verify your email.", 
         "username": new_user.username,
-        "access_token": access_token,
-        "token_type": "bearer"
+        "email": new_user.email,
+        "is_verified": False
     }
 
 @app.post("/login")
@@ -288,6 +338,22 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    if not user.is_verified:
+        # Re-send OTP if not verified
+        otp = f"{random.randint(100000, 999999)}"
+        user.otp_code = otp
+        user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+        db.commit()
+        background_tasks.add_task(send_otp_email, user.email, user.username, otp)
+        
+        return {
+            "access_token": None,
+            "username": user.username,
+            "email": user.email,
+            "is_verified": False,
+            "detail": "Account not verified. Code sent."
+        }
+
     access_token = create_access_token(data={"sub": user.username})
 
     # Step 3: New device — stream remaining data in background while user enters app
@@ -301,6 +367,160 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
         "role": "patient",
         "is_new_device": is_new_device,
     }
+
+# @app.post("/google-login")
+# async def google_login(data: GoogleLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+#     try:
+#         # Verify the Google ID token
+#         id_info = id_token.verify_oauth2_token(
+#             data.credential, 
+#             google_requests.Request(), 
+#             os.environ.get("GOOGLE_CLIENT_ID")
+#         )
+# 
+#         email = id_info.get('email')
+#         google_id = id_info.get('sub')
+#         name = id_info.get('name', email.split('@')[0])
+#         picture = id_info.get('picture')
+# 
+#         if not email:
+#             raise HTTPException(status_code=400, detail="Email not provided by Google")
+# 
+#         # Step 1: Check if user exists by google_id
+#         user = db.query(DBUser).filter(DBUser.google_id == google_id).first()
+# 
+#         # Step 2: If not, check by email
+#         if not user:
+#             user = db.query(DBUser).filter(DBUser.email == email).first()
+#             if user:
+#                 # Link existing email account to Google
+#                 user.google_id = google_id
+#                 user.is_verified = 1
+#                 if not user.profile_picture:
+#                     user.profile_picture = picture
+#                 db.commit()
+#                 db.refresh(user)
+# 
+#         # Step 3: Handle new vs existing user
+#         if not user:
+#             # First time Google user - don't create account yet, return info for registration flow
+#             return {
+#                 "is_new_user": True,
+#                 "email": email,
+#                 "full_name": name,
+#                 "profile_picture": picture,
+#                 "google_id": google_id
+#             }
+# 
+#         # Existing user - return token
+#         access_token = create_access_token(data={"sub": user.username})
+#         return {
+#             "access_token": access_token,
+#             "token_type": "bearer",
+#             "username": user.username,
+#             "role": "patient",
+#             "is_new_device": True, # Ensure sync
+#             "email": user.email
+#         }
+# 
+#     except ValueError:
+#         # Invalid token
+#         raise HTTPException(status_code=401, detail="Invalid Google token")
+#     except Exception as e:
+#         log.error(f"Google login error: {str(e)}")
+#         raise HTTPException(status_code=500, detail="Internal server error during Google login")
+
+@app.post("/verify-otp")
+async def verify_otp(data: VerifyOTP, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.email == data.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.otp_code != data.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    
+    if datetime.utcnow() > user.otp_expiry:
+        raise HTTPException(status_code=400, detail="Code expired")
+    
+    user.is_verified = 1
+    user.otp_code = None
+    user.otp_expiry = None
+    db.commit()
+    
+    # Send Welcome Email
+    background_tasks.add_task(send_welcome_email, user.email, user.username)
+    
+    access_token = create_access_token(data={"sub": user.username})
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "username": user.username,
+        "role": "patient",
+        "is_new_device": True, # Trigger sync for new verified users
+        "message": "Verification successful. Welcome to Nexos!"
+    }
+
+@app.post("/resend-otp")
+async def resend_otp(email_data: dict, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    email = email_data.get("email")
+    user = db.query(DBUser).filter(DBUser.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    db.commit()
+    
+    background_tasks.add_task(send_otp_email, user.email, user.username, otp)
+    return {"message": "Verification code resent"}
+
+@app.post("/forgot-password")
+async def forgot_password(req: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.email == req.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found with this email address")
+
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    db.commit()
+
+    background_tasks.add_task(send_password_reset_email, user.email, user.username, otp)
+    return {"message": "Password reset code sent"}
+
+@app.post("/verify-password-otp")
+async def verify_password_otp(req: VerifyPasswordOTPRequest, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.email == req.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.otp_code != req.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    
+    if user.otp_expiry is None or datetime.utcnow() > user.otp_expiry:
+        raise HTTPException(status_code=400, detail="Code expired")
+        
+    return {"message": "Code verified"}
+
+@app.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.email == req.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.otp_code != req.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    
+    if user.otp_expiry is None or datetime.utcnow() > user.otp_expiry:
+        raise HTTPException(status_code=400, detail="Code expired")
+        
+    user.hashed_password = get_password_hash(req.new_password)
+    user.otp_code = None
+    user.otp_expiry = None
+    db.commit()
+    
+    return {"message": "Password has been reset successfully"}
 
 @app.post("/analyze-symptoms")
 async def analyze_symptoms(request: SymptomAnalysisRequest, username: Optional[str] = None, db: Session = Depends(get_db)):
@@ -457,12 +677,44 @@ async def update_profile(update: UserUpdate, username: str = Depends(get_current
         
     # Update only provided fields
     update_data = update.dict(exclude_unset=True)
+    new_username = update_data.get("username")
+    
+    # Check if new username is already taken
+    if new_username and new_username != user.username:
+        existing = db.query(DBUser).filter(DBUser.username == new_username).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already taken")
+
     for key, value in update_data.items():
         setattr(user, key, value)
         
     db.commit()
     db.refresh(user)
-    return user
+    
+    # Return full updated profile so frontend can immediately hydrate state
+    response_data = {
+        "message": "Profile updated",
+        "username": user.username,
+        "email": user.email,
+        "phone": user.phone,
+        "age": user.age,
+        "gender": user.gender,
+        "blood_type": user.blood_type,
+        "weight": user.weight,
+        "height": user.height,
+        "allergies": user.allergies,
+        "chronic_conditions": user.chronic_conditions,
+        "emergency_contact_name": user.emergency_contact_name,
+        "emergency_contact_phone": user.emergency_contact_phone,
+        "profile_picture": user.profile_picture,
+        "birth_date": str(user.birth_date) if user.birth_date else None,
+    }
+    
+    # If username changed, issue a new token
+    if new_username:
+        response_data["access_token"] = create_access_token(data={"sub": user.username})
+        
+    return response_data
 
 @app.get("/medications")
 async def get_medications(username: str = Depends(get_current_user), db: Session = Depends(get_db)):

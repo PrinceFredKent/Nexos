@@ -151,6 +151,59 @@ const WelcomeScreen = ({ onProceed }) => {
           </span>
         </div>
       </div>
+
+      {/* ── Desktop Content ── */}
+      <div className="welcome-desktop-wrap">
+        <div className="desktop-hero-section">
+          <div className="desktop-hero-left">
+            <h1 className="desktop-headline fade-in-up">Your Health,<br/><span>Intelligently Unified.</span></h1>
+            <p className="desktop-subline fade-in-up delay-1">
+              Nexos synthesizes your vitals, symptoms, and medications into a unified clinical dashboard. 
+              Experience the next generation of personalized healthcare.
+            </p>
+            
+            <div className="desktop-feature-grid fade-in-up delay-2">
+              <div className="feature-card-mini">
+                <span className="material-icons-round">biotech</span>
+                <p>AI Symptom Analysis</p>
+              </div>
+              <div className="feature-card-mini">
+                <span className="material-icons-round">medication_liquid</span>
+                <p>Smart Reminders</p>
+              </div>
+              <div className="feature-card-mini">
+                <span className="material-icons-round">security</span>
+                <p>Privacy Protected</p>
+              </div>
+            </div>
+
+            <button className="btn-get-started-desktop fade-in-up delay-3" onClick={onProceed}>
+              <span>Enter Dashboard</span>
+              <div className="btn-icon">
+                <span className="material-icons-round">arrow_forward</span>
+              </div>
+            </button>
+          </div>
+
+          <div className="desktop-hero-right">
+            <div className="image-card-stack fade-in-right">
+              {SLIDES.map((src, i) => (
+                <div
+                  key={i}
+                  className={`image-card-item ${i === imgIndex ? 'active' : ''}`}
+                  style={{ backgroundImage: `url(${src})`, zIndex: i === imgIndex ? 5 : 1 }}
+                >
+                  <div className="card-glass-overlay"></div>
+                </div>
+              ))}
+              
+              {/* Decorative elements */}
+              <div className="stack-decoration-ring"></div>
+              <div className="stack-decoration-dots"></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

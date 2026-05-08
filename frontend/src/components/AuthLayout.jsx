@@ -1,6 +1,22 @@
+import React, { useState, useEffect } from 'react';
 import '../styles/auth.css';
 
+const TAGLINES = [
+  "Unified Intelligence. Personal Wellness.",
+  "Clinical-Grade AI Diagnostics.",
+  "Secure. Private. Intelligent.",
+  "Your Health, Intelligently Unified."
+];
+
 const AuthLayout = ({ children, reverse = false, step = 0, image }) => {
+  const [taglineIndex, setTaglineIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTaglineIndex((prev) => (prev + 1) % TAGLINES.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
   return (
     <div className="auth-container">
       <div className={`auth-card ${reverse ? 'reverse' : ''} step-${step}`}>
@@ -8,9 +24,13 @@ const AuthLayout = ({ children, reverse = false, step = 0, image }) => {
           <img src={image} alt="Auth Background" />
           <div className="image-overlay">
             <div className="auth-branding">
-              <img src="/logo.png" alt="Nexos Logo" style={{ width: '60px', height: '60px', marginBottom: '1rem', objectFit: 'contain' }} />
+              <div className="auth-logo-icon">
+                <img src="/logo.png" alt="Nexos Logo" />
+              </div>
               <h2 className="auth-branding-title">NEXOS</h2>
-              <p className="auth-branding-tagline">Unified Intelligence. Personal Wellness.</p>
+              <div className="tagline-container">
+                <p className="auth-branding-tagline" key={taglineIndex}>{TAGLINES[taglineIndex]}</p>
+              </div>
             </div>
 
             {/* Progress Ring — Only shows if step is provided (1, 2, or 3) */}

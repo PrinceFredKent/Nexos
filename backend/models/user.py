@@ -22,6 +22,10 @@ class User(Base):
     emergency_contact_name = Column(String, nullable=True)
     emergency_contact_phone = Column(String, nullable=True)
     profile_picture = Column(Text, nullable=True)
+    google_id = Column(String, unique=True, index=True, nullable=True)
+    is_verified = Column(Integer, default=0) # 0 = False, 1 = True (SQLite/Postgres compatibility)
+    otp_code = Column(String, nullable=True)
+    otp_expiry = Column(DateTime, nullable=True)
     last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
     synced_at = Column(DateTime, nullable=True)
 

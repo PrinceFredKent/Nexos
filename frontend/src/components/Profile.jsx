@@ -49,8 +49,21 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
       });
       
       if (response.ok) {
-        const updated = await response.json();
-        onUpdate(updated);
+        const data = await response.json();
+        // If a new token was returned (due to username change), update it
+        if (data.access_token) {
+          localStorage.setItem('token', data.access_token);
+          // Also update the username in storage if it exists
+          if (localStorage.getItem('username')) {
+            localStorage.setItem('username', data.username);
+          }
+        }
+        
+        // Update the patient object (onUpdate usually just triggers a state refresh)
+        // Since we might have more fields now, we should re-fetch or use the return data
+        // For simplicity, we just trigger the callback
+        onUpdate({ ...patient, ...editData, username: data.username });
+        
         setIsEditing(false);
         setMessage('Profile updated successfully!');
         setTimeout(() => setMessage(''), 3000);
@@ -329,6 +342,18 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
             <h3><span className="material-icons-round">person_outline</span> Identity</h3>
           </div>
           
+          <div className="info-row-elite">
+            <div className="info-icon-elite"><span className="material-icons-round">account_circle</span></div>
+            <div className="info-content-elite">
+              <label>User Name</label>
+              {isEditing ? (
+                <input type="text" name="username" value={editData.username || ''} onChange={handleChange} className="profile-input-elite" />
+              ) : (
+                <p>{patient.username}</p>
+              )}
+            </div>
+          </div>
+
           <div className="info-row-elite">
             <div className="info-icon-elite"><span className="material-icons-round">alternate_email</span></div>
             <div className="info-content-elite">

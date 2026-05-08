@@ -12,6 +12,8 @@ import Settings from './components/Settings';
 import CycleTracker from './components/CycleTracker';
 import Emergency from './components/Emergency';
 import Dashboard from './components/Dashboard';
+import VerifyAccount from './components/VerifyAccount';
+import ForgotPassword from './components/ForgotPassword';
 // import DoctorDashboard from './components/DoctorDashboard'; // Removed
 
 const COMMON_SYMPTOMS = [
@@ -51,7 +53,7 @@ const AnalysisLoading = () => (
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('nexos_theme') || 'system');
   const [isAuthenticated, setIsAuthenticated] = useState(!!(localStorage.getItem('token') || sessionStorage.getItem('token')));
-  const [showWelcome, setShowWelcome] = useState(!localStorage.getItem('token') && !sessionStorage.getItem('token'));
+  const [showWelcome, setShowWelcome] = useState(!localStorage.getItem('token') && !sessionStorage.getItem('token') && window.innerWidth < 1025);
   const [userRole, setUserRole] = useState('patient'); // Always patient now
   const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
   const [activeTab, setActiveTab] = useState('symptoms');
@@ -104,6 +106,9 @@ function App() {
   const [showSyncToast, setShowSyncToast] = useState(false); // show progressive toast
   const [syncLastAt, setSyncLastAt] = useState(null);        // ISO string of last sync
   const [syncCloudOk, setSyncCloudOk] = useState(null);      // null=unknown, true/false
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
   // Dropdown Refs for Click-Outside logic
   const searchRef = useRef(null);
@@ -266,6 +271,18 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [activeDropdown]);
 
+  // Bypass Welcome Screen on Desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1025 && showWelcome) {
+        setShowWelcome(false);
+      }
+    };
+    handleResize(); // Check on mount
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [showWelcome]);
+
   // Focus search input when expanded on mobile
   useEffect(() => {
     if (isMobileSearchExpanded && searchInputRef.current) {
@@ -345,30 +362,49 @@ function App() {
       setCountdownTimer(5);
   };
 
-  // Fetch patient data on load — single /patient-info call, parallel sub-fetches
+  const fetchPatientData = () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    const headers = { 'Authorization': `Bearer ${token}` };
+
+    return fetch(`${API_BASE_URL}/patient-info`, { headers })
+        .then(res => {
+            if (!res.ok) throw new Error('Unauthorized');
+            return res.json();
+        })
+        .then(patientData => {
+            setPatient(patientData);
+            
+            // Safety: Check if essential vitals are missing (e.g., from an old account or partial Google signup)
+            const isIncomplete = !patientData.gender || 
+                               patientData.gender === 'Not Specified' || 
+                               !patientData.blood_type || 
+                               patientData.blood_type === 'Unknown' ||
+                               !patientData.phone;
+            
+            if (isIncomplete) {
+                setIsProfileIncomplete(true);
+            } else {
+                setIsProfileIncomplete(false);
+            }
+
+            // All secondary fetches run in parallel
+            fetchMeds();
+            fetchEvents();
+            if (patientData?.gender?.toLowerCase() === 'female') {
+                fetchCycleLogs();
+            }
+        })
+        .catch(err => {
+            console.error('Auth error:', err);
+            handleLogout();
+        });
+  };
+
+  // Fetch patient data on load
   React.useEffect(() => {
     if (isAuthenticated) {
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        const headers = { 'Authorization': `Bearer ${token}` };
-
-        fetch(`${API_BASE_URL}/patient-info`, { headers })
-            .then(res => {
-                if (!res.ok) throw new Error('Unauthorized');
-                return res.json();
-            })
-            .then(patientData => {
-                setPatient(patientData);
-                // All secondary fetches run in parallel — no sequential waiting
-                const fetches = [fetchMeds(), fetchEvents()];
-                if (patientData?.gender?.toLowerCase() === 'female') {
-                    fetches.push(fetchCycleLogs());
-                }
-                return Promise.all(fetches);
-            })
-            .catch(err => {
-                console.error('Auth error:', err);
-                handleLogout();
-            });
+        fetchPatientData();
     }
   }, [isAuthenticated]);
 
@@ -605,7 +641,14 @@ function App() {
     setNotifications([]);
   };
 
-  const handleLoginSuccess = (token, username, rememberMe = true, role = 'patient', isNewDevice = false) => {
+  const handleLoginSuccess = (token, username, rememberMe = true, role = 'patient', isNewDevice = false, email = '') => {
+    if (!token) {
+        // Verification needed
+        setVerificationEmail(email);
+        setShowVerification(true);
+        return;
+    }
+    
     if (rememberMe) {
         localStorage.setItem('token', token);
     } else {
@@ -614,6 +657,7 @@ function App() {
     localStorage.setItem('username', username);
     setUserRole('patient');
     setIsAuthenticated(true);
+    setShowVerification(false);
     // New device: show progressive sync toast while background pull runs
     if (isNewDevice) {
         setShowSyncToast(true);
@@ -804,23 +848,47 @@ function App() {
       <>
         {showWelcome && (
           <WelcomeScreen onProceed={() => setShowWelcome(false)} />
-        )}
-        {!showWelcome && (
+        ) }
+        {showVerification ? (
+          <VerifyAccount 
+            email={verificationEmail} 
+            onVerificationSuccess={handleLoginSuccess}
+            onBackToLogin={() => setShowVerification(false)}
+          />
+        ) : !showWelcome && (
           <div className="view-transition" key={authView}>
-            {authView === 'login' ? (
+            {authView === 'login' && (
               <Login 
-                onSwitch={() => setAuthView('signup')} 
-                onLoginSuccess={handleLoginSuccess}
+                onSwitch={(view) => setAuthView(view || 'signup')} 
+                onLoginSuccess={(token, user, rem, role, dev, email) => handleLoginSuccess(token, user, rem, role, dev, email)}
               />
-            ) : (
+            )}
+            {authView === 'signup' && (
               <Signup 
                 onSwitch={() => setAuthView('login')} 
-                onSignupAutoLogin={handleLoginSuccess}
+                onSignupAutoLogin={(token, user, rem, role, dev, email) => handleLoginSuccess(token, user, rem, role, dev, email)}
+              />
+            )}
+            {authView === 'forgot-password' && (
+              <ForgotPassword 
+                onSwitch={() => setAuthView('login')} 
               />
             )}
           </div>
         )}
       </>
+    );
+  }
+
+  if (isProfileIncomplete) {
+    return (
+      <Signup 
+        startingStep={2}
+        isCompletingProfile={true}
+        onSignupAutoLogin={() => {
+          fetchPatientData(); // Re-fetch to clear incomplete state and update patient info
+        }}
+      />
     );
   }
 
