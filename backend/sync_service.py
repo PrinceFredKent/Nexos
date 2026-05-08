@@ -276,7 +276,7 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
         ("users", ["id", "username", "email", "hashed_password", "phone", "birth_date",
                    "age", "gender", "blood_type", "weight", "height", "allergies",
                    "chronic_conditions", "emergency_contact_name", "emergency_contact_phone",
-                   "profile_picture", "last_modified"]),
+                   "profile_picture", "google_id", "is_verified", "otp_code", "otp_expiry", "last_modified"]),
         ("medications", ["id", "user_id", "name", "dosage", "frequency", "time",
                          "icon", "stock", "total_stock", "last_taken", "last_modified"]),
         ("cycle_logs", ["id", "user_id", "period_start", "period_end", "cycle_length",
@@ -285,7 +285,7 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
                           "appointment_date", "type", "status", "created_at", "last_modified"]),
         ("symptom_logs", ["id", "user_id", "symptoms", "top_condition", "risk_level",
                           "explanation", "timestamp", "last_modified"]),
-        ("medication_intakes", ["id", "medication_id", "slot", "taken_at"]),
+        ("medication_intakes", ["id", "medication_id", "slot", "taken_at", "last_modified"]),
     ]
 
     total_pushed = 0

@@ -200,3 +200,55 @@ async def send_password_reset_email(email: str, username: str, otp_code: str):
     log.info(f"Password Reset Code for {email}: {otp_code}")
     await _send_real_email(email, subject, html_content)
     return True
+
+def get_security_verification_email_template(otp_code: str, username: str):
+    """Returns a premium, polished HTML template for security verification (password change)."""
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            body {{ font-family: 'Outfit', 'Inter', sans-serif; background-color: #050c1a; margin: 0; padding: 0; color: #ffffff; }}
+            .container {{ max-width: 600px; margin: 40px auto; background: #0a1931; border-radius: 32px; overflow: hidden; border: 1px solid rgba(67, 97, 238, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }}
+            .header {{ background: linear-gradient(135deg, #4361ee, #4ea8de); padding: 40px 20px; text-align: center; }}
+            .content {{ padding: 40px; text-align: center; }}
+            h1 {{ font-size: 28px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }}
+            p {{ font-size: 16px; line-height: 1.6; color: #94a3b8; margin-bottom: 32px; }}
+            .otp-container {{ background: rgba(67, 97, 238, 0.1); border: 2px dashed #4361ee; border-radius: 16px; padding: 24px; display: inline-block; margin-bottom: 32px; }}
+            .otp-code {{ font-size: 42px; font-weight: 900; letter-spacing: 8px; color: #4361ee; margin: 0; }}
+            .footer {{ padding: 32px; text-align: center; font-size: 12px; color: #4b5563; border-top: 1px solid rgba(255, 255, 255, 0.05); }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: white;">NEXOS</div>
+            </div>
+            <div class="content">
+                <h1>Security Verification</h1>
+                <p>Hello <strong>{username}</strong>,<br>A request was made to change your NEXOS account password. Use the verification code below to authorize this change.</p>
+                
+                <div class="otp-container">
+                    <div class="otp-code">{otp_code}</div>
+                </div>
+                
+                <p>This code will expire in 10 minutes. If you did not request this change, please update your security settings immediately.</p>
+            </div>
+            <div class="footer">
+                &copy; 2026 NEXOS Health Intelligence. All rights reserved.<br>
+                Protected by Nexos Elite Security Protocol.
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+async def send_security_otp_email(email: str, username: str, otp_code: str):
+    """Sends the security verification OTP email."""
+    html_content = get_security_verification_email_template(otp_code, username)
+    subject = f"NEXOS - Security Verification Code: {otp_code}"
+    log.info(f"Security OTP Code for {email}: {otp_code}")
+    await _send_real_email(email, subject, html_content)
+    return True

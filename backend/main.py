@@ -28,7 +28,10 @@ from sync_service import (
     get_sync_status, estimate_pending_push,
     initial_pull_credentials, initial_pull_all, run_sync
 )
-from services.email_service import send_otp_email, send_welcome_email, send_password_reset_email
+from services.email_service import (
+    send_otp_email, send_welcome_email, 
+    send_password_reset_email, send_security_otp_email
+)
 import random
 from datetime import datetime, date, timedelta
 
@@ -119,9 +122,12 @@ class VerifyOTP(BaseModel):
     email: str
     otp_code: str
 
-class PasswordChange(BaseModel):
+class PasswordChangeRequest(BaseModel):
     current_password: str
+
+class PasswordChange(BaseModel):
     new_password: str
+    otp_code: str
 
 class ForgotPasswordRequest(BaseModel):
     email: str
@@ -291,6 +297,7 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     if new_user.is_verified:
         # Send Welcome Email immediately if verified (Google signup)
         background_tasks.add_task(send_welcome_email, new_user.email, new_user.username)
+        background_tasks.add_task(run_sync)
         access_token = create_access_token(data={"sub": new_user.username})
         return {
             "message": "Welcome to Nexos! Registration complete.",
@@ -309,6 +316,7 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     
     # Send email (async background task)
     background_tasks.add_task(send_otp_email, new_user.email, new_user.username, otp)
+    background_tasks.add_task(run_sync)
     
     return {
         "message": "Account created. Please verify your email.", 
@@ -449,6 +457,7 @@ async def verify_otp(data: VerifyOTP, db: Session = Depends(get_db)):
     
     # Send Welcome Email
     background_tasks.add_task(send_welcome_email, user.email, user.username)
+    background_tasks.add_task(run_sync)
     
     access_token = create_access_token(data={"sub": user.username})
     return {
@@ -656,21 +665,56 @@ async def get_patient_info(username: str = Depends(get_current_user), db: Sessio
     }
     return user_data
 
+@app.post("/request-password-change-otp")
+async def request_password_change_otp(req: PasswordChangeRequest, background_tasks: BackgroundTasks, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if not verify_password(req.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+    
+    otp = f"{random.randint(100000, 999999)}"
+    user.otp_code = otp
+    user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    db.commit()
+    
+    background_tasks.add_task(send_security_otp_email, user.email, user.username, otp)
+    return {"message": "Verification code sent to your email"}
+
 @app.post("/change-password")
 async def change_password(passwords: PasswordChange, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    if not verify_password(passwords.current_password, user.hashed_password):
-        raise HTTPException(status_code=400, detail="Incorrect current password")
+    if user.otp_code != passwords.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    
+    if user.otp_expiry is None or datetime.utcnow() > user.otp_expiry:
+        raise HTTPException(status_code=400, detail="Code expired")
     
     user.hashed_password = get_password_hash(passwords.new_password)
+    user.otp_code = None
+    user.otp_expiry = None
     db.commit()
     return {"message": "Password updated successfully"}
 
+@app.delete("/delete-account")
+async def delete_account(username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # In a real app, you might want to cascade delete or soft delete
+    # For this implementation, we'll perform a full delete of the user
+    # SQLAlchemy relationship cascade should handle related data if configured
+    db.delete(user)
+    db.commit()
+    return {"message": "Account deleted successfully"}
+
 @app.patch("/update-profile")
-async def update_profile(update: UserUpdate, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+async def update_profile(update: UserUpdate, background_tasks: BackgroundTasks, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -690,6 +734,9 @@ async def update_profile(update: UserUpdate, username: str = Depends(get_current
         
     db.commit()
     db.refresh(user)
+    
+    # Run sync to push updated profile
+    background_tasks.add_task(run_sync)
     
     # Return full updated profile so frontend can immediately hydrate state
     response_data = {
@@ -732,6 +779,17 @@ async def get_medications(username: str = Depends(get_current_user), db: Session
         .all()
     )
 
+    def get_date(dt):
+        if dt is None: return None
+        if hasattr(dt, 'date'): return dt.date()
+        if isinstance(dt, str):
+            try:
+                # Common SQLite/ISO formats
+                return datetime.fromisoformat(dt.replace('Z', '+00:00')).date()
+            except:
+                return None
+        return None
+
     return [
         {
             "id": med.id,
@@ -743,7 +801,7 @@ async def get_medications(username: str = Depends(get_current_user), db: Session
             "stock": med.stock,
             "total_stock": med.total_stock,
             "last_taken": med.last_taken,
-            "taken_today": [i.slot for i in med.intakes if i.taken_at.date() == today],
+            "taken_today": [i.slot for i in med.intakes if get_date(i.taken_at) == today],
         }
         for med in meds
     ]
@@ -782,8 +840,15 @@ async def take_medication(med_id: int, slot: str = "General", username: str = De
     
     # Verify the user hasn't already taken this slot today
     for intake in med.intakes:
-         if intake.slot == slot and intake.taken_at.date() == today:
-             return {"message": f"Dose for {slot} already recorded today", "stock": med.stock, "last_taken": med.last_taken}
+        intake_date = intake.taken_at.date() if hasattr(intake.taken_at, 'date') else None
+        if not intake_date and isinstance(intake.taken_at, str):
+            try:
+                intake_date = datetime.fromisoformat(intake.taken_at.replace('Z', '+00:00')).date()
+            except:
+                pass
+        
+        if intake.slot == slot and intake_date == today:
+            return {"message": f"Dose for {slot} already recorded today", "stock": med.stock, "last_taken": med.last_taken}
              
     med.last_taken = now
     

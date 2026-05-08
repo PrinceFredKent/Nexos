@@ -29,5 +29,7 @@ class MedicationIntake(Base):
     medication_id = Column(Integer, ForeignKey("medications.id"))
     slot = Column(String) # 'Morning', 'Noon', 'Evening', 'Bedtime'
     taken_at = Column(DateTime, default=datetime.utcnow)
+    last_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    synced_at = Column(DateTime, nullable=True)
 
     medication = relationship("Medication", back_populates="intakes")

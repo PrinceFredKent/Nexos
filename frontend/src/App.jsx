@@ -415,7 +415,15 @@ function App() {
         headers: { 'Authorization': `Bearer ${token}` }
     })
     .then(res => res.json())
-    .then(setMeds)
+    .then(data => {
+        if (Array.isArray(data)) {
+            setMeds(data);
+        } else {
+            console.error('Fetch meds error: Expected array but got', data);
+            // Optionally set to empty array to recover from crash state
+            setMeds([]);
+        }
+    })
     .catch(err => console.error('Fetch meds error:', err));
   };
 

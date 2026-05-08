@@ -45,16 +45,19 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
     : '';
 
   
-  // Account Security State
   const [passwords, setPasswords] = useState({
     current_password: '',
     new_password: '',
-    confirm_password: ''
+    confirm_password: '',
+    otp_code: ''
   });
+  const [passwordStep, setPasswordStep] = useState(1); // 1: Input, 2: OTP
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Theme and notification persistence is now handled by App.jsx or locally
 
@@ -77,7 +80,7 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handlePasswordChange = async () => {
+  const handleRequestOTP = async () => {
     setMessage('');
     
     if (!passwords.current_password || !passwords.new_password || !passwords.confirm_password) {
@@ -99,6 +102,44 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
     const token = localStorage.getItem('token');
     
     try {
+      const response = await fetch(`${API_BASE_URL}/request-password-change-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: passwords.current_password
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setPasswordStep(2);
+        setMessage('Verification code sent to your email.');
+      } else {
+        setMessage(`Error: ${data.detail || 'Could not verify current password'}`);
+      }
+    } catch (err) {
+      setMessage('Error: Connection failed');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    setMessage('');
+    
+    if (!passwords.otp_code) {
+      setMessage('Error: Verification code is required');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    const token = localStorage.getItem('token');
+    
+    try {
       const response = await fetch(`${API_BASE_URL}/change-password`, {
         method: 'POST',
         headers: {
@@ -106,8 +147,8 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          current_password: passwords.current_password,
-          new_password: passwords.new_password
+          new_password: passwords.new_password,
+          otp_code: passwords.otp_code
         })
       });
       
@@ -115,7 +156,8 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
       
       if (response.ok) {
         setMessage('Password updated successfully!');
-        setPasswords({ current_password: '', new_password: '', confirm_password: '' });
+        setPasswords({ current_password: '', new_password: '', confirm_password: '', otp_code: '' });
+        setPasswordStep(1);
       } else {
         setMessage(`Error: ${data.detail || 'Could not update password'}`);
       }
@@ -124,6 +166,33 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
     } finally {
       setIsUpdatingPassword(false);
       setTimeout(() => setMessage(''), 4000);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/delete-account`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        localStorage.clear();
+        window.location.href = '/'; // Force reload to login
+      } else {
+        const data = await response.json();
+        setMessage(`Error: ${data.detail || 'Could not delete account'}`);
+        setShowDeleteConfirm(false);
+      }
+    } catch (err) {
+      setMessage('Error: Connection failed');
+    } finally {
+      setIsDeleting(false);
     }
   };
   
@@ -146,94 +215,192 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
 
         {activeSegment === 'account' && (
           <div className={`settings-panel glass-card ${animationClass}`}>
-            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '1.8rem', color: 'var(--primary)', margin: 0 }}>Account Security</h2>
-              <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Manage your password and security protocols.</p>
+            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ fontSize: '1.8rem', color: 'var(--primary)', margin: 0 }}>Account Security</h2>
+                <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Manage your password and security protocols.</p>
+              </div>
+              <div style={{ padding: '10px', background: 'rgba(67, 97, 238, 0.1)', borderRadius: '12px', color: 'var(--primary)' }}>
+                <span className="material-icons-round" style={{ fontSize: '2rem' }}>verified_user</span>
+              </div>
             </div>
             
             <div className="setting-group" style={{ marginBottom: '2.5rem' }}>
-              <h4>Change Password</h4>
-              <div className="password-input-group">
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type={showCurrent ? "text" : "password"} 
-                    placeholder="Current Password" 
-                    value={passwords.current_password}
-                    onChange={e => setPasswords({...passwords, current_password: e.target.value})}
-                    autoComplete="current-password"
-                    style={{ padding: '1.1rem', paddingRight: '3.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' }} 
-                  />
-                  <button 
-                    type="button" 
-                    className="password-toggle"
-                    onClick={() => setShowCurrent(!showCurrent)}
-                    tabIndex="-1"
-                  >
-                    <span className="material-icons-round">{showCurrent ? 'visibility_off' : 'visibility'}</span>
-                  </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                  {passwordStep}
                 </div>
-
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type={showNew ? "text" : "password"} 
-                    placeholder="New Password" 
-                    value={passwords.new_password}
-                    onChange={e => setPasswords({...passwords, new_password: e.target.value})}
-                    autoComplete="new-password"
-                    style={{ padding: '1.1rem', paddingRight: '3.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' }} 
-                  />
-                  <button 
-                    type="button" 
-                    className="password-toggle"
-                    onClick={() => setShowNew(!showNew)}
-                    tabIndex="-1"
-                  >
-                    <span className="material-icons-round">{showNew ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type={showConfirm ? "text" : "password"} 
-                    placeholder="Confirm New Password" 
-                    value={passwords.confirm_password}
-                    onChange={e => setPasswords({...passwords, confirm_password: e.target.value})}
-                    autoComplete="new-password"
-                    style={{ padding: '1.1rem', paddingRight: '3.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' }} 
-                  />
-                  <button 
-                    type="button" 
-                    className="password-toggle"
-                    onClick={() => setShowConfirm(!showConfirm)}
-                    tabIndex="-1"
-                  >
-                    <span className="material-icons-round">{showConfirm ? 'visibility_off' : 'visibility'}</span>
-                  </button>
-                </div>
-                <button 
-                  className="btn-primary" 
-                  onClick={handlePasswordChange}
-                  disabled={isUpdatingPassword}
-                  style={{ alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.8rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  {isUpdatingPassword ? <span className="spinner"></span> : <span className="material-icons-round">password</span>}
-                  Update Password
-                </button>
+                <h4 style={{ margin: 0 }}>{passwordStep === 1 ? 'Change Password' : 'Verify Your Identity'}</h4>
               </div>
+
+              {passwordStep === 1 ? (
+                <div className="password-input-group">
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type={showCurrent ? "text" : "password"} 
+                      placeholder="Current Password" 
+                      value={passwords.current_password}
+                      onChange={e => setPasswords({...passwords, current_password: e.target.value})}
+                      autoComplete="current-password"
+                      style={{ padding: '1.1rem', paddingLeft: '3.2rem', paddingRight: '3.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' }} 
+                    />
+                    <span className="material-icons-round" style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.2rem' }}>lock_open</span>
+                    <button 
+                      type="button" 
+                      className="password-toggle"
+                      onClick={() => setShowCurrent(!showCurrent)}
+                      tabIndex="-1"
+                    >
+                      <span className="material-icons-round">{showCurrent ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type={showNew ? "text" : "password"} 
+                      placeholder="New Password" 
+                      value={passwords.new_password}
+                      onChange={e => setPasswords({...passwords, new_password: e.target.value})}
+                      autoComplete="new-password"
+                      style={{ padding: '1.1rem', paddingLeft: '3.2rem', paddingRight: '3.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' }} 
+                    />
+                    <span className="material-icons-round" style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.2rem' }}>password</span>
+                    <button 
+                      type="button" 
+                      className="password-toggle"
+                      onClick={() => setShowNew(!showNew)}
+                      tabIndex="-1"
+                    >
+                      <span className="material-icons-round">{showNew ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type={showConfirm ? "text" : "password"} 
+                      placeholder="Confirm New Password" 
+                      value={passwords.confirm_password}
+                      onChange={e => setPasswords({...passwords, confirm_password: e.target.value})}
+                      autoComplete="new-password"
+                      style={{ padding: '1.1rem', paddingLeft: '3.2rem', paddingRight: '3.5rem', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-main)', width: '100%', boxSizing: 'border-box' }} 
+                    />
+                    <span className="material-icons-round" style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '1.2rem' }}>gpp_good</span>
+                    <button 
+                      type="button" 
+                      className="password-toggle"
+                      onClick={() => setShowConfirm(!showConfirm)}
+                      tabIndex="-1"
+                    >
+                      <span className="material-icons-round">{showConfirm ? 'visibility_off' : 'visibility'}</span>
+                    </button>
+                  </div>
+                  <button 
+                    className="btn-primary" 
+                    onClick={handleRequestOTP}
+                    disabled={isUpdatingPassword}
+                    style={{ alignSelf: 'flex-start', marginTop: '0.5rem', padding: '0.8rem 1.8rem', display: 'flex', alignItems: 'center', gap: '0.8rem', borderRadius: '12px' }}
+                  >
+                    {isUpdatingPassword ? <span className="spinner"></span> : <span className="material-icons-round">email</span>}
+                    {isUpdatingPassword ? 'Verifying...' : 'Request Verification Code'}
+                  </button>
+                </div>
+              ) : (
+                <div className="otp-verification-flow fade-in">
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+                    Enter the 6-digit code sent to <strong>{patient.email}</strong> to confirm your password change.
+                  </p>
+                  <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Enter OTP Code" 
+                      value={passwords.otp_code}
+                      onChange={e => setPasswords({...passwords, otp_code: e.target.value.replace(/\D/g, '').slice(0, 6)})}
+                      maxLength={6}
+                      style={{ 
+                        padding: '1.2rem', 
+                        fontSize: '1.5rem', 
+                        letterSpacing: '0.5rem', 
+                        textAlign: 'center', 
+                        borderRadius: '16px', 
+                        border: '2px solid var(--primary)', 
+                        background: 'rgba(67, 97, 238, 0.05)', 
+                        color: 'var(--primary)', 
+                        width: '100%', 
+                        fontWeight: 'bold',
+                        boxSizing: 'border-box'
+                      }} 
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button 
+                      className="btn-primary" 
+                      onClick={handlePasswordChange}
+                      disabled={isUpdatingPassword || passwords.otp_code.length !== 6}
+                      style={{ flex: 2, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', borderRadius: '12px' }}
+                    >
+                      {isUpdatingPassword ? <span className="spinner"></span> : <span className="material-icons-round">check_circle</span>}
+                      Confirm Password Change
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => setPasswordStep(1)}
+                      style={{ flex: 1, padding: '1rem', borderRadius: '12px', background: 'var(--bg-main)', border: '1px solid var(--border)', color: 'var(--text-main)' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="setting-group" style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '1.5rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-              <h4 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span className="material-icons-round">warning</span> Danger Zone
+            <div className="setting-group danger-zone-premium" style={{ 
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(239, 68, 68, 0.1) 100%)', 
+              padding: '2rem', 
+              borderRadius: '24px', 
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, transform: 'rotate(15deg)' }}>
+                <span className="material-icons-round" style={{ fontSize: '8rem', color: '#ef4444' }}>delete_forever</span>
+              </div>
+              
+              <h4 style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.8rem', margin: '0 0 1rem 0', fontSize: '1.2rem' }}>
+                <span className="material-icons-round">report_problem</span> Danger Zone
               </h4>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: '0.5rem 0 1rem 0' }}>Once you delete your account, there is no going back. Please be certain.</p>
-              <button 
-                onClick={() => alert("As a safety measure, Account Deletion must be done through patient support.")}
-                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.8rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-              >
-                <span className="material-icons-round" style={{fontSize: '1.1rem'}}>delete_forever</span>
-                Delete Account
-              </button>
+              <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', margin: '0 0 1.5rem 0', maxWidth: '80%' }}>
+                Once you delete your account, all your health records, clinical insights, and history will be permanently removed. This action cannot be undone.
+              </p>
+              
+              {!showDeleteConfirm ? (
+                <button 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  style={{ background: '#ef4444', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '14px', cursor: 'pointer', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.8rem', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)', transition: 'all 0.2s' }}
+                >
+                  <span className="material-icons-round" style={{fontSize: '1.2rem'}}>delete_forever</span>
+                  Delete My Account
+                </button>
+              ) : (
+                <div className="delete-confirmation-box fade-in" style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '2px solid #ef4444' }}>
+                  <h5 style={{ color: '#0f172a', margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Are you absolutely sure?</h5>
+                  <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.5rem' }}>This will permanently erase your Nexos identity. You will be logged out immediately.</p>
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button 
+                      onClick={handleDeleteAccount}
+                      disabled={isDeleting}
+                      style={{ flex: 1, background: '#ef4444', color: 'white', border: 'none', padding: '0.8rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {isDeleting ? 'Deleting...' : 'Yes, Delete Permanently'}
+                    </button>
+                    <button 
+                      onClick={() => setShowDeleteConfirm(false)}
+                      style={{ flex: 1, background: '#f1f5f9', color: '#475569', border: 'none', padding: '0.8rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

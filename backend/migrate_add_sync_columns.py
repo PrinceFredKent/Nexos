@@ -23,12 +23,20 @@ if not DATABASE_URL:
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Use Session Pooler (port 6543) for DDL operations to prevent hanging on Transaction Pooler
+if ":5432/" in DATABASE_URL and "pooler.supabase.com" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace(":5432/", ":6543/")
+
 engine = create_engine(DATABASE_URL, connect_args={"connect_timeout": 15})
 
 MIGRATIONS = [
     # ── users ──
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_modified TIMESTAMP DEFAULT NOW();",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP;",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR UNIQUE;",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified INTEGER DEFAULT 0;",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_code VARCHAR;",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;",
     "CREATE INDEX IF NOT EXISTS ix_users_email ON users(email);",
 
     # ── medications ──
@@ -70,17 +78,17 @@ MIGRATIONS = [
 def run():
     print(f"\nConnecting to Supabase...")
     try:
-        # Use AUTOCOMMIT so a failure in one statement doesn't abort the entire block
-        with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-            for i, sql in enumerate(MIGRATIONS, 1):
-                stmt = sql.strip()
-                preview = stmt.split("\n")[0][:70]
-                try:
-                    conn.execute(text(stmt))
-                    print(f"  [{i}/{len(MIGRATIONS)}] OK  {preview}")
-                except Exception as e:
-                    print(f"  [{i}/{len(MIGRATIONS)}] SKIP  {preview}")
-                    print(f"         Reason: {e}")
+        with engine.connect() as conn:
+            with conn.begin():
+                for i, sql in enumerate(MIGRATIONS, 1):
+                    stmt = sql.strip()
+                    preview = stmt.split("\n")[0][:70]
+                    try:
+                        conn.execute(text(stmt))
+                        print(f"  [{i}/{len(MIGRATIONS)}] OK  {preview}")
+                    except Exception as e:
+                        print(f"  [{i}/{len(MIGRATIONS)}] SKIP  {preview}")
+                        print(f"         Reason: {e}")
         print("\n✓ Migration complete. Your Supabase database is ready for sync.\n")
     except Exception as e:
         print(f"\n✗ Connection failed: {e}\n")
