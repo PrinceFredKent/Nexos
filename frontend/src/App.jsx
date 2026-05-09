@@ -99,6 +99,7 @@ function App() {
   const [closingDropdown, setClosingDropdown] = useState(null);
   const [isClosingDetail, setIsClosingDetail] = useState(false);
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
+  const [isPlannerTypeExpanded, setIsPlannerTypeExpanded] = useState(false);
 
   // ── Sync state ────────────────────────────────────────────────────────────
   const [syncProgress, setSyncProgress] = useState(null);   // 0-100 during initial pull
@@ -1910,14 +1911,68 @@ function App() {
                   <input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} />
                   <label>Time</label>
                 </div>
-                <div className="input-group filled">
-                  <select value={newEvent.type} onChange={e => setNewEvent({...newEvent, type: e.target.value})} style={{width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)', marginTop: '0.5rem'}}>
-                    <option value="Appointment">Medical Appointment</option>
-                    <option value="Exercise">Exercise/Workout</option>
-                    <option value="Lab Test">Lab Test</option>
-                    <option value="Medication">Medication Start</option>
-                    <option value="Other">Other Plan</option>
-                  </select>
+                <div className={`planner-type-extender ${isPlannerTypeExpanded ? 'expanded' : ''}`}>
+                  <div className="extender-header" onClick={() => setIsPlannerTypeExpanded(!isPlannerTypeExpanded)}>
+                    <div className="type-option-content">
+                      <div className="type-option-icon">
+                        <span className="material-icons-round">
+                          {[
+                            { id: 'Appointment', icon: 'medical_services' },
+                            { id: 'Exercise', icon: 'fitness_center' },
+                            { id: 'Lab Test', icon: 'science' },
+                            { id: 'Medication', icon: 'medication' },
+                            { id: 'Other', icon: 'event_note' }
+                          ].find(i => i.id === newEvent.type)?.icon}
+                        </span>
+                      </div>
+                      <div className="type-option-info">
+                        <h5>{
+                          [
+                            { id: 'Appointment', label: 'Medical Appointment' },
+                            { id: 'Exercise', label: 'Exercise/Workout' },
+                            { id: 'Lab Test', label: 'Lab Test' },
+                            { id: 'Medication', label: 'Medication Start' },
+                            { id: 'Other', label: 'Other Plan' }
+                          ].find(i => i.id === newEvent.type)?.label
+                        }</h5>
+                        <p>Tap to change plan type</p>
+                      </div>
+                    </div>
+                    <span className="material-icons-round expand-icon">
+                      {isPlannerTypeExpanded ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </div>
+
+                  {isPlannerTypeExpanded && (
+                    <div className="extender-options fade-in">
+                      {[
+                        { id: 'Appointment', label: 'Medical Appointment', icon: 'medical_services', desc: 'Doctors, specialists, clinic visits' },
+                        { id: 'Exercise', label: 'Exercise/Workout', icon: 'fitness_center', desc: 'Gym, cardio, yoga, rehabilitation' },
+                        { id: 'Lab Test', label: 'Lab Test', icon: 'science', desc: 'Blood work, X-rays, diagnostics' },
+                        { id: 'Medication', label: 'Medication Start', icon: 'medication', desc: 'New prescription cycles' },
+                        { id: 'Other', label: 'Other Plan', icon: 'event_note', desc: 'Miscellaneous health-related events' }
+                      ].map(item => (
+                        <div 
+                          key={item.id} 
+                          className={`planner-type-option mini ${newEvent.type === item.id ? 'active' : ''}`}
+                          onClick={() => {
+                            setNewEvent({...newEvent, type: item.id});
+                            setIsPlannerTypeExpanded(false);
+                          }}
+                        >
+                          <div className="type-option-content">
+                            <div className="type-option-icon small">
+                              <span className="material-icons-round">{item.icon}</span>
+                            </div>
+                            <div className="type-option-info">
+                              <h5>{item.label}</h5>
+                            </div>
+                          </div>
+                          <div className="type-radio small"></div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="input-group filled">
                   <input type="text" placeholder=" " value={newEvent.location} onChange={e => setNewEvent({...newEvent, location: e.target.value})} />

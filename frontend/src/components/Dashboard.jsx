@@ -24,12 +24,7 @@ const Dashboard = ({
     return 'Good Evening';
   };
 
-  const vitals = [
-    { label: 'Heart Rate',    value: '72',   unit: 'bpm',   icon: 'favorite',       color: '#ef4444', trend: 'flat', trendText: 'Stable',    trendIcon: 'remove',     pulse: true  },
-    { label: 'Sleep',         value: '7.5',  unit: 'hrs',   icon: 'bedtime',        color: '#6366f1', trend: 'up',   trendText: '+0.5 hrs',  trendIcon: 'trending_up', pulse: false },
-    { label: 'Steps Today',   value: '8,420',unit: 'steps', icon: 'directions_walk',color: '#22c55e', trend: 'up',   trendText: '+1.2k',     trendIcon: 'trending_up', pulse: false },
-    { label: 'Blood Glucose', value: '98',   unit: 'mg/dL', icon: 'water_drop',     color: '#f59e0b', trend: 'flat', trendText: 'Normal',    trendIcon: 'remove',     pulse: false },
-  ];
+
 
   const upcomingMeds = meds.filter(m => {
     const hour = new Date().getHours();
@@ -262,27 +257,7 @@ const Dashboard = ({
           </div>
         </div>
 
-        {/* ── Vitals Grid ── */}
-        <div className="dash-vitals-grid">
-          {vitals.map((v, i) => (
-            <div key={i} className="vital-card-elite">
-              {v.pulse && <div className="vital-pulse-dot" />}
-              <div className="vital-icon" style={{ background: `${v.color}18`, color: v.color }}>
-                <span className="material-icons-round">{v.icon}</span>
-              </div>
-              <div className="vital-info">
-                <h4>{v.label}</h4>
-                <div className="vital-value">
-                  {v.value}<small>{v.unit}</small>
-                </div>
-                <div className={`vital-trend ${v.trend}`}>
-                  <span className="material-icons-round">{v.trendIcon}</span>
-                  {v.trendText}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+
 
         {/* SECONDARY ROW */}
         <div className="dash-secondary-row">
@@ -339,16 +314,7 @@ const Dashboard = ({
             )}
           </div>
 
-          {/* AI Insight */}
-          <div className="dash-insight-card">
-            <div className="insight-title">
-              <span className="material-icons-round">lightbulb</span>
-              AI Insight
-            </div>
-            <p>
-              Based on your sleep patterns, try reducing caffeine intake after 2 PM to improve your deep sleep cycles tonight.
-            </p>
-          </div>
+
         </div>
       </div>
     </div>

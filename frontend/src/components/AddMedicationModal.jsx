@@ -186,6 +186,7 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
               <input 
                 type="text" 
                 id="dosage"
+                className="input-premium-lg"
                 required 
                 placeholder=" "
                 value={formData.dosage}
@@ -198,6 +199,7 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
             <div className="form-group input-group filled">
               <select 
                 id="frequency"
+                className="input-premium-lg"
                 value={formData.frequency}
                 onChange={handleFrequencyChange}
               >
