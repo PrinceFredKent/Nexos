@@ -98,6 +98,7 @@ function App() {
   const [selectedDetail, setSelectedDetail] = useState(null);
   const [closingDropdown, setClosingDropdown] = useState(null);
   const [isClosingDetail, setIsClosingDetail] = useState(false);
+
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
   const [isPlannerTypeExpanded, setIsPlannerTypeExpanded] = useState(false);
 
@@ -1020,227 +1021,240 @@ function App() {
 
       {/* Main Content */}
       <main className="main-content fade-in">
-        <header className={`top-bar ${isMobileSearchExpanded ? 'search-active' : ''}`}>
+        {/* ─── Mobile-Only Isolated Header ─── */}
+        <header className="top-bar mobile-only">
           <div className="mobile-branding">
-              <img src="/logo.png" alt="Nexos Logo" className="mobile-logo" />
-              <span className="mobile-app-name">Nexos</span>
+            <img src="/logo.png" alt="Nexos Logo" className="mobile-logo" />
+            <span className="mobile-app-name">Nexos</span>
           </div>
 
-          <div className={`search-wrapper ${isMobileSearchExpanded ? 'expanded' : ''}`} ref={searchRef}>
+          <div className="top-actions">
+            <div 
+              className={`header-action-btn ${activeTab === 'search' ? 'active' : ''}`}
+              onClick={() => setActiveTab('search')}
+            >
+              <span className="material-icons-round">search</span>
+            </div>
+
+            <div style={{ position: 'relative' }} ref={notificationsRef}>
+              <div 
+                className={`header-action-btn ${activeDropdown === 'notifications' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('notifications')}
+              >
+                <span className="material-icons-round">notifications</span>
+                {notifications.some(n => !n.read) && <div className="notification-badge"></div>}
+              </div>
+              
+              {activeDropdown === 'notifications' && (
+                <div className={`header-dropdown-panel notifications-panel origin-top-right ${closingDropdown === 'notifications' ? 'is-closing' : ''}`}>
+                  <div className="dropdown-header">
+                    <h4>Notifications</h4>
+                    <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setNotifications([])}>Clear All</span>
+                  </div>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                    {notifications.length > 0 ? notifications.map(n => (
+                      <div key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`}>
+                        <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{n.title}</h5>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.text}</p>
+                      </div>
+                    )) : (
+                      <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>All caught up!</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ position: 'relative' }} ref={mobileMenuRef}>
+              <div 
+                className={`header-action-btn ${activeDropdown === 'mobileMenu' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('mobileMenu')}
+              >
+                <span className="material-icons-round">settings</span>
+              </div>
+
+              {activeDropdown === 'mobileMenu' && (
+                <div className={`header-dropdown-panel mobile-menu-panel origin-top-right ${closingDropdown === 'mobileMenu' ? 'is-closing' : ''}`}>
+                  <div className="dropdown-header">
+                    <h4>Menu & Tools</h4>
+                  </div>
+                  
+                  <div className="menu-group-label">Quick Tools</div>
+                  <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
+                    <span className="material-icons-round">add_box</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Add Medication</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Record a new prescription</p>
+                    </div>
+                  </div>
+                  <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
+                    <span className="material-icons-round">emergency</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Medical Identity</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
+                    </div>
+                  </div>
+                  <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
+                    <span className="material-icons-round">history</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Analysis History</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Review past symptom checks</p>
+                    </div>
+                  </div>
+                  
+                  <div className="menu-group-label">System</div>
+                  <div className="action-menu-item" onClick={() => {
+                    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                    if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                    closeDropdown();
+                  }}>
+                    <span className="material-icons-round" style={{ color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'inherit' }}>
+                      {syncCloudOk === false ? 'cloud_off' : 'cloud_done'}
+                    </span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Sync Data</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{syncLastAt ? `Last: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Click to sync now'}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="action-menu-item" onClick={() => { setActiveTab('settings'); closeDropdown(); }}>
+                    <span className="material-icons-round">settings</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>App Settings</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Theme and account preferences</p>
+                    </div>
+                  </div>
+                  
+                  <div className="menu-divider"></div>
+                  
+                  <div className="action-menu-item logout-item" onClick={() => { handleLogout(); closeDropdown(); }}>
+                    <span className="material-icons-round" style={{ color: '#ef4444' }}>logout</span>
+                    <div>
+                      <h5 style={{ margin: 0, color: '#ef4444' }}>Logout</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sign out of your account</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* ─── Desktop-Only Isolated Header ─── */}
+        <header className="top-bar desktop-only">
+          <div className="search-section" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <div className="search-wrapper" ref={searchRef}>
               <div className="search-input-container">
-                  <span className="material-icons-round mobile-search-icon" onClick={() => setIsMobileSearchExpanded(!isMobileSearchExpanded)}>
-                    search
-                  </span>
-                  <input 
-                    type="text" 
-                    className="search-box" 
-                    ref={searchInputRef}
-                    placeholder={
-                        activeTab === 'symptoms' ? "Search for symptoms, tips..." :
-                        activeTab === 'meds' ? "Search for medications, dosing..." :
-                        activeTab === 'planner' ? "Search for events, plans..." :
-                        "Search for health records..."
-                    } 
-                    value={searchTerm}
-                    onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        if (e.target.value) setActiveDropdown('search');
-                        else closeDropdown();
-                    }}
-                    onFocus={() => { if (window.innerWidth <= 768) setIsMobileSearchExpanded(true); }}
-                  />
+                <span className="material-icons-round" style={{ position: 'absolute', left: '1rem', color: 'var(--text-muted)' }}>search</span>
+                <input 
+                  type="text" 
+                  className="search-box" 
+                  style={{ paddingLeft: '3rem' }}
+                  ref={searchInputRef}
+                  placeholder="Search symptoms, meds, records..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    if (e.target.value) setActiveDropdown('search');
+                    else closeDropdown();
+                  }}
+                />
               </div>
               {activeDropdown === 'search' && searchTerm && (
-                  <div className={`header-dropdown-panel search-results-panel origin-top-left ${closingDropdown === 'search' ? 'is-closing' : ''}`}>
-                      {getSearchResults().length > 0 ? getSearchResults().map((res, i) => (
-                          <div 
-                            key={i} 
-                            className={`search-result-item ${res.isGeneral ? 'health-library-item' : ''}`}
-                            onClick={() => { handleSearchAction(res); setIsMobileSearchExpanded(false); }}
-                          >
-                              <div className="result-icon"><span className="material-icons-round">{res.icon}</span></div>
-                              <div className="result-content">
-                                  <h5>{res.title}</h5>
-                                  <p>{res.subtitle}</p>
-                              </div>
-                          </div>
-                      )) : (
-                          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No results found</div>
-                      )}
-                  </div>
+                <div className={`header-dropdown-panel search-results-panel origin-top-left ${closingDropdown === 'search' ? 'is-closing' : ''}`}>
+                  {getSearchResults().length > 0 ? getSearchResults().map((res, i) => (
+                    <div 
+                      key={i} 
+                      className={`search-result-item ${res.isGeneral ? 'health-library-item' : ''}`}
+                      onClick={() => { handleSearchAction(res); }}
+                    >
+                      <div className="result-icon"><span className="material-icons-round">{res.icon}</span></div>
+                      <div className="result-content">
+                        <h5>{res.title}</h5>
+                        <p>{res.subtitle}</p>
+                      </div>
+                    </div>
+                  )) : (
+                    <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No results found</div>
+                  )}
+                </div>
               )}
+            </div>
           </div>
 
-          <div className="top-actions" style={{display: 'flex', gap: '1.2rem', alignItems: 'center', color: 'var(--text-muted)', position: 'relative'}}>
+          <div className="top-actions" style={{ display: 'flex', gap: '1.2rem', alignItems: 'center', color: 'var(--text-muted)', position: 'relative' }}>
             <div style={{ position: 'relative' }} ref={notificationsRef}>
-                <span 
-                    className="material-icons-round" 
-                    style={{cursor: 'pointer', color: activeDropdown === 'notifications' ? 'var(--primary)' : 'inherit'}}
-                    onClick={() => toggleDropdown('notifications')}
-                >notifications</span>
+              <div 
+                className={`header-action-btn ${activeDropdown === 'notifications' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('notifications')}
+              >
+                <span className="material-icons-round">notifications</span>
                 {notifications.some(n => !n.read) && <div className="notification-badge"></div>}
-                
-                {activeDropdown === 'notifications' && (
-                    <div className={`header-dropdown-panel notifications-panel origin-top-right ${closingDropdown === 'notifications' ? 'is-closing' : ''}`}>
-                        <div className="dropdown-header">
-                            <h4>Notifications</h4>
-                            <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setNotifications([])}>Clear All</span>
-                        </div>
-                        <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                            {notifications.length > 0 ? notifications.map(n => (
-                                <div key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`}>
-                                    <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{n.title}</h5>
-                                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.text}</p>
-                                </div>
-                            )) : (
-                                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>All caught up!</div>
-                            )}
-                        </div>
+              </div>
+              
+              {activeDropdown === 'notifications' && (
+                <div className={`header-dropdown-panel notifications-panel origin-top-right ${closingDropdown === 'notifications' ? 'is-closing' : ''}`}>
+                  <div className="dropdown-header">
+                    <h4>Notifications</h4>
+                    <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setNotifications([])}>Clear All</span>
+                  </div>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                    {notifications.length > 0 ? notifications.map(n => (
+                      <div key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`}>
+                        <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{n.title}</h5>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.text}</p>
+                      </div>
+                    )) : (
+                      <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>All caught up!</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ position: 'relative' }} ref={actionsRef}>
+              <div 
+                className={`header-action-btn ${activeDropdown === 'actions' ? 'active' : ''}`}
+                onClick={() => toggleDropdown('actions')}
+              >
+                <span className="material-icons-round">medical_services</span>
+              </div>
+              
+              {activeDropdown === 'actions' && (
+                <div className={`header-dropdown-panel quick-actions-panel origin-top-right ${closingDropdown === 'actions' ? 'is-closing' : ''}`}>
+                  <div className="dropdown-header">
+                    <h4>Quick Tools</h4>
+                  </div>
+                  <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
+                    <span className="material-icons-round">add_box</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Add Medication</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Record a new prescription</p>
                     </div>
-                )}
-            </div>
-
-            <div style={{ position: 'relative' }} ref={actionsRef} className="desktop-only">
-                <span 
-                    className="material-icons-round" 
-                    style={{cursor: 'pointer', color: activeDropdown === 'actions' ? 'var(--primary)' : 'inherit'}}
-                    onClick={() => toggleDropdown('actions')}
-                >medical_services</span>
-                
-                {activeDropdown === 'actions' && (
-                    <div className={`header-dropdown-panel quick-actions-panel origin-top-right ${closingDropdown === 'actions' ? 'is-closing' : ''}`}>
-                        <div className="dropdown-header">
-                            <h4>Quick Tools</h4>
-                        </div>
-                        <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
-                            <span className="material-icons-round">add_box</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Add Medication</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Record a new prescription</p>
-                            </div>
-                        </div>
-                        <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
-                            <span className="material-icons-round">emergency</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Medical Identity</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
-                            </div>
-                        </div>
-                        <div className="action-menu-item" onClick={() => { setActiveTab('symptoms'); setIsCheckerCollapsed(false); closeDropdown(); }}>
-                            <span className="material-icons-round">edit_note</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Log Symptoms</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Update your current status</p>
-                            </div>
-                        </div>
-                        <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
-                            <span className="material-icons-round">history</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Analysis History</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Review past symptom checks</p>
-                            </div>
-                        </div>
+                  </div>
+                  <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
+                    <span className="material-icons-round">emergency</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Medical Identity</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
                     </div>
-                )}
-            </div>
-
-            <div style={{ position: 'relative' }} className="desktop-only">
-              <span
-                className="material-icons-round"
-                style={{cursor: 'pointer', color: activeTab === 'settings' ? 'var(--primary)' : 'inherit'}}
-                onClick={() => setActiveTab('settings')}
-                title="Settings"
-              >settings</span>
-            </div>
-
-            {/* Cloud sync badge - Desktop only */}
-            <div
-              className="desktop-only"
-              title={syncLastAt ? `Last synced: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Not yet synced — click to sync now'}
-              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-              onClick={() => {
-                const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-              }}
-            >
-              <span
-                className="material-icons-round"
-                style={{ fontSize: '1.3rem', color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'var(--text-muted)', transition: 'color 0.3s' }}
-              >{syncCloudOk === false ? 'cloud_off' : 'cloud_done'}</span>
-            </div>
-
-            {/* Consolidated Mobile Menu - Mobile only */}
-            <div style={{ position: 'relative' }} ref={mobileMenuRef} className="mobile-only">
-                <span 
-                    className="material-icons-round" 
-                    style={{cursor: 'pointer', color: activeDropdown === 'mobileMenu' ? 'var(--primary)' : 'inherit', fontSize: '1.6rem'}}
-                    onClick={() => toggleDropdown('mobileMenu')}
-                >settings</span>
-                
-                {activeDropdown === 'mobileMenu' && (
-                    <div className={`header-dropdown-panel mobile-menu-panel origin-top-right ${closingDropdown === 'mobileMenu' ? 'is-closing' : ''}`}>
-                        <div className="dropdown-header">
-                            <h4>Menu & Tools</h4>
-                        </div>
-                        
-                        <div className="menu-group-label">Quick Tools</div>
-                        <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
-                            <span className="material-icons-round">add_box</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Add Medication</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Record a new prescription</p>
-                            </div>
-                        </div>
-                        <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
-                            <span className="material-icons-round">emergency</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Medical Identity</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
-                            </div>
-                        </div>
-                        
-                        <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
-                            <span className="material-icons-round">history</span>
-                            <div>
-                                <h5 style={{margin: 0}}>Analysis History</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Review past symptom checks</p>
-                            </div>
-                        </div>
-                        
-                        <div className="menu-group-label">System</div>
-                        <div className="action-menu-item" onClick={() => {
-                            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                            if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                            closeDropdown();
-                        }}>
-                            <span className="material-icons-round" style={{ color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'inherit' }}>
-                                {syncCloudOk === false ? 'cloud_off' : 'cloud_done'}
-                            </span>
-                            <div>
-                                <h5 style={{margin: 0}}>Sync Data</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>{syncLastAt ? `Last: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Click to sync now'}</p>
-                            </div>
-                        </div>
-                        
-                        <div className="action-menu-item" onClick={() => { setActiveTab('settings'); closeDropdown(); }}>
-                            <span className="material-icons-round">settings</span>
-                            <div>
-                                <h5 style={{margin: 0}}>App Settings</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Theme and account preferences</p>
-                            </div>
-                        </div>
-                        
-                        <div className="menu-divider"></div>
-                        
-                        <div className="action-menu-item logout-item" onClick={() => { handleLogout(); closeDropdown(); }}>
-                            <span className="material-icons-round" style={{color: '#ef4444'}}>logout</span>
-                            <div>
-                                <h5 style={{margin: 0, color: '#ef4444'}}>Logout</h5>
-                                <p style={{margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)'}}>Sign out of your account</p>
-                            </div>
-                        </div>
+                  </div>
+                  <div className="action-menu-item" onClick={() => { setActiveTab('symptoms'); setIsCheckerCollapsed(false); closeDropdown(); }}>
+                    <span className="material-icons-round">edit_note</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Log Symptoms</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Update your current status</p>
                     </div>
-                )}
+                  </div>
+                  <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
+                    <span className="material-icons-round">history</span>
+                    <div>
+                      <h5 style={{ margin: 0 }}>Analysis History</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Review past symptom checks</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -1248,6 +1262,57 @@ function App() {
         {/* Dashboard Content Container */}
 
         <div className={`dashboard-content ${activeDropdown ? 'blur-content' : ''}`}>
+
+          {activeTab === 'search' && (
+            <div className="search-page-container fade-in">
+              <div className="search-hero">
+                <h2>Health Intelligence</h2>
+                <p style={{color: 'var(--text-muted)', marginBottom: '2rem'}}>Search your records, medications, and health library.</p>
+                <div className="search-page-input-wrapper">
+                  <span className="material-icons-round search-page-icon">search</span>
+                  <input 
+                    type="text" 
+                    className="search-page-input" 
+                    placeholder="Search symptoms, meds, tips..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="search-page-results">
+                {searchTerm ? (
+                  <>
+                    {getSearchResults().length > 0 ? (
+                      getSearchResults().map((res, i) => (
+                        <div key={i} className="search-item-card" onClick={() => handleSearchAction(res)}>
+                          <div className="search-item-icon">
+                            <span className="material-icons-round">{res.icon}</span>
+                          </div>
+                          <div className="search-item-info">
+                            <h4>{res.title}</h4>
+                            <p>{res.subtitle}</p>
+                          </div>
+                          <span className="material-icons-round" style={{marginLeft: 'auto', opacity: 0.3}}>chevron_right</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{textAlign: 'center', padding: '4rem', opacity: 0.5}}>
+                        <span className="material-icons-round" style={{fontSize: '4rem'}}>search_off</span>
+                        <p>No results found for "{searchTerm}"</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="search-empty-state" style={{textAlign: 'center', padding: '2rem', opacity: 0.6}}>
+                    <span className="material-icons-round" style={{fontSize: '3rem', color: 'var(--primary)'}}>history</span>
+                    <p>Try searching for "Headache", "Medication", or "Dashboard"</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {activeTab === 'symptoms' && (
             <Dashboard 
@@ -1432,7 +1497,13 @@ function App() {
                             </div>
                           )
                         })}
-                    </div>
+                      </div>
+                    ) : (
+                      <div style={{gridColumn: '1/-1', textAlign: 'center', padding: '4rem', opacity: 0.5}}>
+                        <span className="material-icons-round" style={{fontSize: '4rem'}}>calendar_today</span>
+                        <p>No health plans scheduled yet.</p>
+                      </div>
+                    )}
                  </section>
 
                  {/* Medication Cabinet */}
