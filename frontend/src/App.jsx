@@ -90,6 +90,17 @@ function App() {
   
   // Header Functionality State
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchHistory, setSearchHistory] = useState(() => {
+    const saved = localStorage.getItem('nexos_search_history');
+    return saved ? JSON.parse(saved) : ['Dashboard', 'Medications', 'Planner', 'Profile'];
+  });
+
+  const addToHistory = (term) => {
+    if (!term || term.trim() === '') return;
+    const newHistory = [term, ...searchHistory.filter(h => h !== term)].slice(0, 5);
+    setSearchHistory(newHistory);
+    localStorage.setItem('nexos_search_history', JSON.stringify(newHistory));
+  };
   const [activeDropdown, setActiveDropdown] = useState(null); // 'search', 'notifications', 'actions', 'mobileMenu'
   const [notifications, setNotifications] = useState([
     { id: 1, type: 'info', title: 'Welcome to Nexos', text: 'All systems are active. Stay healthy!', read: false },
@@ -747,19 +758,31 @@ function App() {
   }, [isAuthenticated]);
 
   const handleSearchAction = (action) => {
-    if (action.type === 'page') setActiveTab(action.value);
-    if (action.type === 'symptom') toggleSymptom(action.value);
+    if (action.type === 'page') {
+      setActiveTab(action.value);
+      setSearchTerm('');
+    }
+    if (action.type === 'symptom') {
+      toggleSymptom(action.value);
+      setActiveTab('symptoms');
+      setSearchTerm('');
+    }
     if (action.type === 'med') {
         setActiveTab('meds');
+        setSearchTerm('');
         setTimeout(() => {
             const el = document.getElementById(`med-${action.value}`);
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
     }
     if (action.type === 'fact') {
-        setSelectedDetail(action);
+        // We now show facts directly on the search page, 
+        // but if triggered from elsewhere, we can still use the modal
+        if (activeTab !== 'search') {
+          setSelectedDetail(action);
+          setSearchTerm('');
+        }
     }
-    setSearchTerm('');
     closeDropdown();
   };
 
@@ -1153,32 +1176,13 @@ function App() {
                   ref={searchInputRef}
                   placeholder="Search symptoms, meds, records..."
                   value={searchTerm}
+                  onFocus={() => setActiveTab('search')}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
-                    if (e.target.value) setActiveDropdown('search');
-                    else closeDropdown();
+                    if (activeTab !== 'search') setActiveTab('search');
                   }}
                 />
               </div>
-              {activeDropdown === 'search' && searchTerm && (
-                <div className={`header-dropdown-panel search-results-panel origin-top-left ${closingDropdown === 'search' ? 'is-closing' : ''}`}>
-                  {getSearchResults().length > 0 ? getSearchResults().map((res, i) => (
-                    <div 
-                      key={i} 
-                      className={`search-result-item ${res.isGeneral ? 'health-library-item' : ''}`}
-                      onClick={() => { handleSearchAction(res); }}
-                    >
-                      <div className="result-icon"><span className="material-icons-round">{res.icon}</span></div>
-                      <div className="result-content">
-                        <h5>{res.title}</h5>
-                        <p>{res.subtitle}</p>
-                      </div>
-                    </div>
-                  )) : (
-                    <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No results found</div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1276,38 +1280,111 @@ function App() {
                     placeholder="Search symptoms, meds, tips..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchTerm.trim()) {
+                        addToHistory(searchTerm.trim());
+                      }
+                    }}
                     autoFocus
                   />
+                  {searchTerm && (
+                    <span 
+                      className="material-icons-round" 
+                      style={{ position: 'absolute', right: '1.2rem', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', opacity: 0.5 }}
+                      onClick={() => setSearchTerm('')}
+                    >
+                      close
+                    </span>
+                  )}
                 </div>
               </div>
 
-              <div className="search-page-results">
+              <div className="search-page-content">
                 {searchTerm ? (
-                  <>
+                  <div className="search-page-results">
                     {getSearchResults().length > 0 ? (
                       getSearchResults().map((res, i) => (
-                        <div key={i} className="search-item-card" onClick={() => handleSearchAction(res)}>
-                          <div className="search-item-icon">
-                            <span className="material-icons-round">{res.icon}</span>
+                        <div 
+                          key={i} 
+                          className={`search-result-detailed type-${res.type} ${res.isGeneral ? 'is-fact' : ''}`} 
+                          onClick={() => handleSearchAction(res)}
+                        >
+                          <div className="result-header">
+                            <div className="result-icon-box">
+                              <span className="material-icons-round">{res.icon}</span>
+                            </div>
+                            <div className="result-title-group">
+                              <span className="result-category">{res.type === 'fact' ? 'Health Library' : res.type === 'page' ? 'Navigation' : 'Record'}</span>
+                              <h4>{res.title}</h4>
+                            </div>
+                            {res.type !== 'fact' && <span className="material-icons-round action-arrow">arrow_forward</span>}
                           </div>
-                          <div className="search-item-info">
-                            <h4>{res.title}</h4>
-                            <p>{res.subtitle}</p>
+                          
+                          <div className="result-body">
+                            {res.type === 'fact' ? (
+                              <div className="fact-content">
+                                <p className="fact-description">{res.subtitle}</p>
+                                <div className="fact-meta">
+                                  <span className="material-icons-round">verified</span>
+                                  Verified Medical Insight
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="result-subtitle">{res.subtitle}</p>
+                            )}
                           </div>
-                          <span className="material-icons-round" style={{marginLeft: 'auto', opacity: 0.3}}>chevron_right</span>
                         </div>
                       ))
                     ) : (
-                      <div style={{textAlign: 'center', padding: '4rem', opacity: 0.5}}>
-                        <span className="material-icons-round" style={{fontSize: '4rem'}}>search_off</span>
+                      <div className="search-empty-results">
+                        <span className="material-icons-round">search_off</span>
                         <p>No results found for "{searchTerm}"</p>
                       </div>
                     )}
-                  </>
+                  </div>
                 ) : (
-                  <div className="search-empty-state" style={{textAlign: 'center', padding: '2rem', opacity: 0.6}}>
-                    <span className="material-icons-round" style={{fontSize: '3rem', color: 'var(--primary)'}}>history</span>
-                    <p>Try searching for "Headache", "Medication", or "Dashboard"</p>
+                  <div className="search-explore-area">
+                    {searchHistory.length > 0 && (
+                      <div className="search-suggestion-section">
+                        <div className="section-header">
+                          <h4>Recent Searches</h4>
+                          <span className="clear-history" onClick={() => {
+                            setSearchHistory([]);
+                            localStorage.removeItem('nexos_search_history');
+                          }}>Clear</span>
+                        </div>
+                        <div className="history-tags">
+                          {searchHistory.map((item, i) => (
+                            <div key={i} className="history-tag" onClick={() => setSearchTerm(item)}>
+                              <span className="material-icons-round">history</span>
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="search-suggestion-section">
+                      <h4>Suggested Health Insights</h4>
+                      <div className="suggestion-grid">
+                        <div className="suggestion-card" onClick={() => setSearchTerm('Malaria Prevention')}>
+                          <span className="material-icons-round" style={{color: '#ef4444'}}>coronavirus</span>
+                          <span>Malaria Tips</span>
+                        </div>
+                        <div className="suggestion-card" onClick={() => setSearchTerm('Dizziness causes')}>
+                          <span className="material-icons-round" style={{color: '#f59e0b'}}>sensors</span>
+                          <span>Dizziness</span>
+                        </div>
+                        <div className="suggestion-card" onClick={() => setSearchTerm('Stroke symptoms')}>
+                          <span className="material-icons-round" style={{color: '#7c3aed'}}>psychology_alt</span>
+                          <span>Stroke Info</span>
+                        </div>
+                        <div className="suggestion-card" onClick={() => setSearchTerm('Healthy Diet')}>
+                          <span className="material-icons-round" style={{color: '#10b981'}}>restaurant</span>
+                          <span>Nutrition</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1644,11 +1721,11 @@ function App() {
           <section className="profile-card">
             <h3>MY PROFILE</h3>
             <div className="profile-avatar" style={{ overflow: 'hidden' }}>
-              {patient?.profile_picture ? (
-                  <img src={patient.profile_picture} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-                  <span className="material-icons-round" style={{fontSize: '3rem'}}>person</span>
-              )}
+              <img 
+                src={patient?.profile_picture || (patient?.gender?.toLowerCase() === 'female' ? '/female.png' : '/male.png')} 
+                alt="Profile" 
+                style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+              />
             </div>
             <h2>{patient?.full_name || localStorage.getItem('username') || 'User'}</h2>
             <p style={{color: 'var(--text-muted)', fontSize: '0.9rem'}}>Patient ID: #NX-2026</p>
@@ -1866,7 +1943,7 @@ function App() {
                         Dismiss
                     </button>
                     {selectedDetail.type === 'fact' && (
-                        <button className="detail-btn primary" onClick={() => { setSearchTerm(selectedDetail.title); setActiveDropdown('search'); closeDetail(); }}>
+                        <button className="detail-btn primary" onClick={() => { setSearchTerm(selectedDetail.title); setActiveTab('search'); closeDetail(); }}>
                             <span className="material-icons-round">search</span>
                             Continue Search
                         </button>

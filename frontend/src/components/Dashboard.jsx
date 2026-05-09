@@ -73,7 +73,7 @@ const Dashboard = ({
           <div className="hero-avatar-area">
             <div className="hero-avatar-wrapper">
               <img 
-                src={patient?.profile_picture || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Tina'} 
+                src={patient?.profile_picture || (patient?.gender?.toLowerCase() === 'female' ? '/female.png' : '/male.png')} 
                 alt="Profile" 
                 className="hero-avatar-img"
               />

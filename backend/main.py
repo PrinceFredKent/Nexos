@@ -439,7 +439,7 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
 #         raise HTTPException(status_code=500, detail="Internal server error during Google login")
 
 @app.post("/verify-otp")
-async def verify_otp(data: VerifyOTP, db: Session = Depends(get_db)):
+async def verify_otp(data: VerifyOTP, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.email == data.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

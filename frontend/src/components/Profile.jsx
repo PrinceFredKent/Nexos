@@ -260,13 +260,11 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
       {/* ── Hero Header ── */}
       <div className="profile-hero-elite">
         {/* Background Photo */}
-        {(isEditing ? editData.profile_picture : patient.profile_picture) && (
-          <img 
-            src={isEditing ? editData.profile_picture : patient.profile_picture} 
-            className="profile-hero-image"
-            alt="Profile Background" 
-          />
-        )}
+        <img 
+          src={(isEditing ? editData.profile_picture : patient.profile_picture) || (patient?.gender?.toLowerCase() === 'female' ? '/female.png' : '/male.png')} 
+          className="profile-hero-image"
+          alt="Profile Background" 
+        />
         
         {/* Shadow Overlay */}
         <div className="profile-hero-overlay"></div>
