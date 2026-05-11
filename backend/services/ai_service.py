@@ -3,6 +3,7 @@ import os
 import asyncio
 from typing import List, Dict
 from dotenv import load_dotenv
+from sqlalchemy.orm import Session
 
 # Load API keys from .env if present
 load_dotenv()
@@ -202,6 +203,55 @@ def refined_local_analysis(user_symptoms: List[str]) -> Dict:
         
     return scores
 
+def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
+    """Algorithm to match symptoms to localized conditions stored in the database."""
+    from models.health_knowledge import HealthCondition
+    
+    conditions = db.query(HealthCondition).all()
+    scores = []
+    user_symptoms_lower = [s.lower() for s in user_symptoms]
+    
+    for cond in conditions:
+        try:
+            registry_symptoms = json.loads(cond.symptoms)
+            required_any = json.loads(cond.required_any) if cond.required_any else []
+            action_steps = json.loads(cond.action_steps)
+        except:
+            continue
+            
+        registry_symptoms_lower = [s.lower() for s in registry_symptoms]
+        
+        # Calculate Overlap
+        matches = [s for s in user_symptoms_lower if s in registry_symptoms_lower]
+        match_count = len(matches)
+        
+        if match_count > 0:
+            percentage = int((match_count / len(registry_symptoms)) * 100)
+            score = match_count * 10
+            
+            if required_any:
+                has_indicator = any(ind.lower() in user_symptoms_lower for ind in required_any)
+                if not has_indicator:
+                    score = score * 0.4
+            
+            if cond.is_emergency: score += 15
+            if match_count >= 3: score += 5
+            
+            scores.append({
+                "condition": cond.name,
+                "score": score,
+                "percentage": percentage,
+                "data": {
+                    "explanation": cond.explanation,
+                    "action_steps": action_steps,
+                    "is_emergency": cond.is_emergency,
+                    "icon": cond.icon
+                }
+            })
+            
+    scores.sort(key=lambda x: x["score"], reverse=True)
+    return scores if scores else None
+
 async def call_gemini_analysis(symptoms: List[str], risk_level: str, cycle_context: str = None) -> Dict:
     """[TEMPORARILY DISABLED] Single Gemini call for both diagnosis and formatting."""
     print("DEBUG: Gemini Analysis is temporarily disabled. Using local logic.")
@@ -278,8 +328,8 @@ Return ONLY a valid JSON object (no markdown) with this exact structure:
         return None
 
 
-async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = None):
-    """Resilient Pipeline: Gemini 2.5 Flash -> Local Ugandan-Context Fallback."""
+async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = None, db: Session = None):
+    """Resilient Pipeline: Dynamic Local Analysis (Database) -> Static Fallback."""
     if not user_symptoms:
         return {"status": "Empty", "results": "Please select symptoms."}
 
@@ -302,9 +352,13 @@ async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = No
             "possibilities": gemini_result["possibilities"]
         }
 
-    # Step 3: Local Ugandan-Context Fallback if Gemini is unavailable
-    print("Gemini unavailable. Falling back to Local Ugandan-Context Analysis.")
-    local_results = refined_local_analysis(user_symptoms)
+    # Step 3: Dynamic Local Analysis if DB is available
+    if db:
+        print("Using Dynamic Knowledge Base for analysis...")
+        local_results = db_refined_local_analysis(user_symptoms, db)
+    else:
+        print("Falling back to Static Local Registry.")
+        local_results = refined_local_analysis(user_symptoms)
 
     if not local_results:
         return {

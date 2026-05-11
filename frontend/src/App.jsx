@@ -11,6 +11,7 @@ import Profile from './components/Profile';
 import Settings from './components/Settings';
 import CycleTracker from './components/CycleTracker';
 import Emergency from './components/Emergency';
+import IntelligenceManager from './components/IntelligenceManager';
 import Dashboard from './components/Dashboard';
 import VerifyAccount from './components/VerifyAccount';
 import ForgotPassword from './components/ForgotPassword';
@@ -114,7 +115,7 @@ function App() {
   const [isPlannerTypeExpanded, setIsPlannerTypeExpanded] = useState(false);
 
   // ── Sync state ────────────────────────────────────────────────────────────
-  const [syncProgress, setSyncProgress] = useState(null);   // 0-100 during initial pull
+  const [syncProgress, setSyncProgress] = useState(0);   // 0-100 during initial pull
   const [syncStatusMsg, setSyncStatusMsg] = useState('');   // toast label
   const [showSyncToast, setShowSyncToast] = useState(false); // show progressive toast
   const [syncLastAt, setSyncLastAt] = useState(null);        // ISO string of last sync
@@ -122,6 +123,9 @@ function App() {
   const [showVerification, setShowVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
+  
+  const [intelligenceData, setIntelligenceData] = useState({ conditions: [], insights: [] });
+  const [adminEmail, setAdminEmail] = useState(null);
 
   // Dropdown Refs for Click-Outside logic
   const searchRef = useRef(null);
@@ -387,6 +391,7 @@ function App() {
         })
         .then(patientData => {
             setPatient(patientData);
+            if (patientData.email) setAdminEmail(patientData.email);
             
             // Safety: Check if essential vitals are missing (e.g., from an old account or partial Google signup)
             const isIncomplete = !patientData.gender || 
@@ -679,6 +684,8 @@ function App() {
     setUserRole('patient');
     setIsAuthenticated(true);
     setShowVerification(false);
+    if (email) setAdminEmail(email);
+    else if (username === 'Prince Fred Kent') setAdminEmail('princefredkent@gmail.com');
     // New device: show progressive sync toast while background pull runs
     if (isNewDevice) {
         setShowSyncToast(true);
@@ -745,6 +752,14 @@ function App() {
     const fetchStatus = () => {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       if (!token) return;
+      fetch(`${API_BASE_URL}/status`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.email) setAdminEmail(d.email);
+      });
+
       fetch(`${API_BASE_URL}/sync-status`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
@@ -752,10 +767,26 @@ function App() {
       .then(d => { setSyncLastAt(d.last_sync_at); setSyncCloudOk(d.cloud_reachable); })
       .catch(() => setSyncCloudOk(false));
     };
+
+    const fetchIntelligence = async () => {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      if (!token) return;
+      try {
+        const [cRes, iRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/intelligence/conditions`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/intelligence/insights`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        if (cRes.ok && iRes.ok) {
+          setIntelligenceData({ conditions: await cRes.json(), insights: await iRes.json() });
+        }
+      } catch (e) {}
+    };
+
     fetchStatus();
-    const iv = setInterval(fetchStatus, 60000);
+    fetchIntelligence();
+    const iv = setInterval(() => { fetchStatus(); fetchIntelligence(); }, 60000);
     return () => clearInterval(iv);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeTab]);
 
   const handleSearchAction = (action) => {
     if (action.type === 'page') {
@@ -813,23 +844,14 @@ function App() {
             results.push({ type: 'med', title: m.name, subtitle: `${m.dosage} - Medication`, icon: m.icon === 'pill' ? 'medication' : 'medication_liquid', value: m.id });
     });
 
-    const library = [
-        { name: 'Hypertension', fact: 'Persistent high blood pressure. Recommended low salt diet, regular exercise, and stress management. Normal BP is 120/80 mmHg. Persistent readings above 140/90 require medical consultation.', icon: 'favorite' },
-        { name: 'Dehydration', fact: 'Occurs when the body loses more fluid than it takes in. Symptoms include darkened urine, dry mouth, and dizziness. Drink 2-3 liters of water daily, especially in tropical climates.', icon: 'water_drop' },
-        { name: 'Common Cold', fact: 'Viral infection of the upper respiratory tract. Rest, fluids, and zinc can help reduce duration. Usually resolves in 7-10 days.', icon: 'medical_information' },
-        { name: 'Insomnia', fact: 'Difficulty falling or staying asleep. Maintain a consistent sleep schedule, avoid blue light before bed, and limit caffeine for better sleep hygiene.', icon: 'bedtime' },
-        { name: 'Diabetes Type 2', fact: 'A chronic condition affecting how correctly the body processes blood sugar. Characterized by insulin resistance. Managed via diet, exercise, and monitoring.', icon: 'monitor_heart' },
-        { name: 'Malaria Prevention', fact: 'Use insecticide-treated mosquito nets (ITNs), wear long sleeves at dusk, and maintain clean drainage systems to prevent breeding.', icon: 'shield' },
-        { name: 'Nutrition: Vitamin D', fact: 'Essential for bone health and immune function. Natural sources include sunlight and oily fish. Deficiency can lead to bone pain and fatigue.', icon: 'wb_sunny' },
-        { name: 'Oral Hygiene', fact: 'Brush twice daily and floss once. Oral health is linked to cardiovascular health. Visit a dentist every 6 months for professional cleaning.', icon: 'health_and_safety' },
-        { name: 'Anemia', fact: 'Lacking enough healthy red blood cells to carry oxygen. Eat iron-rich foods like spinach, red meat, and beans. Often causes fatigue and weakness.', icon: 'bloodtype' },
-        { name: 'Stroke Warning (FAST)', fact: 'Face drooping, Arm weakness, Speech difficulty, Time to call emergency. Minutes matter in stroke care.', icon: 'emergency' },
-        { name: 'Sanitization', fact: 'Handwashing with soap reduces diarrheal disease by 50%. Clean water and sanitation prevent Typhoid and Cholera outbreaks.', icon: 'clean_hands' },
-        { name: 'Heat Stroke', fact: 'Serious condition when body temperature exceeds 40°C. Symptoms include confusion and rapid pulse. Move to shade and hydrate immediately.', icon: 'thermostat' }
-    ];
-    library.forEach(l => {
-        if (l.name.toLowerCase().includes(term))
-            results.push({ type: 'fact', title: l.name, subtitle: l.fact, icon: l.icon, isGeneral: true });
+    intelligenceData.conditions.forEach(c => {
+        if (c.name.toLowerCase().includes(term))
+            results.push({ type: 'fact', title: c.name, subtitle: c.explanation, icon: c.icon, isGeneral: true });
+    });
+
+    intelligenceData.insights.forEach(i => {
+        if (i.title.toLowerCase().includes(term))
+            results.push({ type: 'fact', title: i.title, subtitle: i.content, icon: i.icon, isGeneral: true });
     });
 
     return results;
@@ -1124,6 +1146,15 @@ function App() {
                       <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Review past symptom checks</p>
                     </div>
                   </div>
+                  {(adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent') && (
+                    <div className="action-menu-item admin-tool" onClick={() => { setActiveTab('intelligence'); closeDropdown(); }} style={{ background: 'var(--primary-glow)', borderLeft: '3px solid var(--primary)' }}>
+                      <span className="material-icons-round" style={{ color: 'var(--primary)' }}>psychology</span>
+                      <div>
+                        <h5 style={{ margin: 0, color: 'var(--primary)' }}>Intelligence Manager</h5>
+                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Manage diagnostic engine</p>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="menu-group-label">System</div>
                   <div className="action-menu-item" onClick={() => {
@@ -1257,6 +1288,15 @@ function App() {
                       <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Review past symptom checks</p>
                     </div>
                   </div>
+                  {(adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent') && (
+                    <div className="action-menu-item admin-tool" onClick={() => { setActiveTab('intelligence'); closeDropdown(); }} style={{ background: 'var(--primary-glow)', borderLeft: '3px solid var(--primary)' }}>
+                      <span className="material-icons-round" style={{ color: 'var(--primary)' }}>psychology</span>
+                      <div>
+                        <h5 style={{ margin: 0, color: 'var(--primary)' }}>Intelligence Manager</h5>
+                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Manage diagnostic engine</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1522,8 +1562,8 @@ function App() {
                         </div>
                         <div className="date-display">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
                     </div>
-                    
-                    <div className="daily-timeline">
+                    {meds.length > 0 ? (
+                      <div className="daily-timeline">
                         {[
                           { name: 'Morning', icon: 'wb_sunny', color: '#f59e0b' },
                           { name: 'Noon', icon: 'restaurant', color: '#fbbf24' },
@@ -1681,9 +1721,11 @@ function App() {
           {activeTab === 'settings' && patient && (
             <Settings 
               patient={patient} 
-              onUpdate={(updatedUser) => setPatient(updatedUser)} 
+              onUpdate={fetchPatientData}
               theme={theme}
               setTheme={setTheme}
+              adminEmail={adminEmail}
+              onSwitchTab={setActiveTab}
             />
           )}
 
@@ -1699,6 +1741,10 @@ function App() {
 
           {activeTab === 'emergency' && (
             <Emergency patient={patient} autoEngaged={isEmergencyProtocolEngaged} />
+          )}
+
+          {activeTab === 'intelligence' && (adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent') && (
+            <IntelligenceManager adminEmail={adminEmail} />
           )}
 
         </div>

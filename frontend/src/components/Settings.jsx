@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
 
 
-const Settings = ({ patient, onUpdate, theme, setTheme }) => {
+const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab }) => {
   const [activeSegment, setActiveSegment] = useState('account');
   const [prevSegment, setPrevSegment] = useState('account');
   const [pillStyle, setPillStyle] = useState({});
   const [message, setMessage] = useState('');
   
+  const isAdmin = adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent';
   const segments = ['account', 'notifications', 'appearance'];
+  if (isAdmin) segments.push('intelligence');
   const navRef = React.useRef(null);
   const btnRefs = React.useRef({});
   
@@ -516,6 +518,36 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
             </div>
           </div>
         )}
+
+        {activeSegment === 'intelligence' && isAdmin && (
+          <div className={`settings-panel glass-card ${animationClass}`}>
+            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
+              <h2 style={{ fontSize: '1.8rem', color: 'var(--primary)', margin: 0 }}>Intelligence Management</h2>
+              <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Access the core brain of Nexos to improve its clinical deliverance.</p>
+            </div>
+            
+            <div className="intelligence-promo" style={{ 
+                background: 'linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(67, 97, 238, 0.1) 100%)',
+                padding: '2.5rem',
+                borderRadius: '24px',
+                textAlign: 'center',
+                border: '1px solid rgba(67, 97, 238, 0.2)'
+            }}>
+                <span className="material-icons-round" style={{ fontSize: '4rem', color: 'var(--primary)', marginBottom: '1rem' }}>psychology</span>
+                <h3 style={{ marginBottom: '1rem' }}>Local Knowledge Base</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', maxWidth: '500px', margin: '0 auto 2rem' }}>
+                    You are authorized to manage the clinical data registry. Add new illnesses, symptoms, and health tips to improve the accuracy of local analysis.
+                </p>
+                <button 
+                    onClick={() => onSwitchTab('intelligence')}
+                    className="btn-primary"
+                    style={{ padding: '1rem 2.5rem', borderRadius: '14px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '0.8rem' }}
+                >
+                    Open Intelligence Manager <span className="material-icons-round">open_in_new</span>
+                </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Settings Navigation - Now on the Right & Sticky */}
@@ -533,7 +565,7 @@ const Settings = ({ patient, onUpdate, theme, setTheme }) => {
               onClick={() => handleSegmentChange(seg)}
             >
               <span className="material-icons-round">
-                {seg === 'account' ? 'security' : seg === 'notifications' ? 'notifications' : 'palette'}
+                {seg === 'account' ? 'security' : seg === 'notifications' ? 'notifications' : seg === 'appearance' ? 'palette' : 'psychology'}
               </span>
               <span>{seg.charAt(0).toUpperCase() + seg.slice(1)}</span>
             </button>

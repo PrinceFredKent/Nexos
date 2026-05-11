@@ -23,6 +23,7 @@ from models.medication import Medication as DBMedication, MedicationIntake as DB
 from models.cycle import CycleLog as DBCycleLog
 from models.symptom_log import SymptomLog as DBSymptomLog
 from models.appointment import Appointment as DBAppointment
+from models.health_knowledge import HealthCondition, HealthInsight
 from models.sync_meta import SyncMeta  # noqa: F401 — registers table with Base
 from sync_service import (
     get_sync_status, estimate_pending_push,
@@ -56,7 +57,31 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Start periodic cloud sync on app launch."""
+    """Start periodic cloud sync on app launch and migrate data."""
+    # Data migration from static to dynamic
+    db = next(get_db())
+    try:
+        from services.ai_service import LOCAL_CONDITION_REGISTRY
+        if db.query(HealthCondition).count() == 0:
+            log.info("Migrating static medical data to database...")
+            for name, data in LOCAL_CONDITION_REGISTRY.items():
+                db.add(HealthCondition(
+                    name=name,
+                    symptoms=json.dumps(data["symptoms"]),
+                    explanation=data["explanation"],
+                    action_steps=json.dumps(data["action_steps"]),
+                    is_emergency=data.get("is_emergency", False),
+                    female_only=data.get("female_only", False),
+                    required_any=json.dumps(data.get("required_any", [])),
+                    icon=data.get("icon", "medical_services")
+                ))
+            db.commit()
+            log.info("Migration complete.")
+    except Exception as e:
+        log.error(f"Migration error: {e}")
+    finally:
+        db.close()
+
     interval = int(os.environ.get("SYNC_INTERVAL_MINUTES", "5"))
     if interval > 0 and cloud_engine:
         _scheduler.add_job(run_sync, "interval", minutes=interval, id="periodic_sync")
@@ -203,8 +228,13 @@ class IntakeRecord(BaseModel):
 
 
 @app.get("/status")
-def get_status():
-    return {"status": "online", "mode": "patient-assistant"}
+def get_status(username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    return {
+        "status": "online", 
+        "mode": "patient-assistant",
+        "email": user.email if user else None
+    }
 
 
 # ─── Sync Status & Control ─────────────────────────────────────────────
@@ -532,9 +562,9 @@ async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db
     return {"message": "Password has been reset successfully"}
 
 @app.post("/analyze-symptoms")
-async def analyze_symptoms(request: SymptomAnalysisRequest, username: Optional[str] = None, db: Session = Depends(get_db)):
+async def analyze_symptoms(request: SymptomAnalysisRequest, db: Session = Depends(get_db)):
     """Analyze symptoms with optional female cycle context and store result if user is known."""
-    result = await get_symptom_analysis(request.symptoms, cycle_context=request.cycle_context)
+    result = await get_symptom_analysis(request.symptoms, cycle_context=request.cycle_context, db=db)
     if result["status"] == "Error":
         raise HTTPException(status_code=500, detail=result.get("analysis", "Unknown error"))
     
@@ -940,6 +970,100 @@ async def delete_event(event_id: int, username: str = Depends(get_current_user),
     event = db.query(DBAppointment).filter(DBAppointment.id == event_id, DBAppointment.user_id == user.id).first()
     if not event: raise HTTPException(status_code=404)
     db.delete(event)
+    db.commit()
+    return {"status": "deleted"}
+
+# ─── Intelligence Manager Endpoints (Admin Only) ──────────────────────────────
+
+ADMIN_EMAIL = "princefredkent@gmail.com"
+
+def verify_admin(user: DBUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    db_user = db.query(DBUser).filter(DBUser.username == user).first()
+    if not db_user or db_user.email != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return db_user
+
+@app.get("/intelligence/conditions")
+async def get_conditions(db: Session = Depends(get_db)):
+    return db.query(HealthCondition).all()
+
+@app.post("/intelligence/conditions")
+async def create_condition(data: dict, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):
+    new_cond = HealthCondition(
+        name=data["name"],
+        symptoms=json.dumps(data["symptoms"]),
+        explanation=data["explanation"],
+        action_steps=json.dumps(data["action_steps"]),
+        is_emergency=data.get("is_emergency", False),
+        female_only=data.get("female_only", False),
+        required_any=json.dumps(data.get("required_any", [])),
+        icon=data.get("icon", "medical_services")
+    )
+    db.add(new_cond)
+    db.commit()
+    db.refresh(new_cond)
+    return new_cond
+
+@app.put("/intelligence/conditions/{cond_id}")
+async def update_condition(cond_id: int, data: dict, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):
+    cond = db.query(HealthCondition).filter(HealthCondition.id == cond_id).first()
+    if not cond: raise HTTPException(status_code=404)
+    
+    cond.name = data["name"]
+    cond.symptoms = json.dumps(data["symptoms"])
+    cond.explanation = data["explanation"]
+    cond.action_steps = json.dumps(data["action_steps"])
+    cond.is_emergency = data.get("is_emergency", False)
+    cond.female_only = data.get("female_only", False)
+    cond.required_any = json.dumps(data.get("required_any", []))
+    cond.icon = data.get("icon", "medical_services")
+    
+    db.commit()
+    return cond
+
+@app.delete("/intelligence/conditions/{cond_id}")
+async def delete_condition(cond_id: int, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):
+    cond = db.query(HealthCondition).filter(HealthCondition.id == cond_id).first()
+    if not cond: raise HTTPException(status_code=404)
+    db.delete(cond)
+    db.commit()
+    return {"status": "deleted"}
+
+@app.get("/intelligence/insights")
+async def get_insights(db: Session = Depends(get_db)):
+    return db.query(HealthInsight).all()
+
+@app.post("/intelligence/insights")
+async def create_insight(data: dict, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):
+    new_insight = HealthInsight(
+        title=data["title"],
+        content=data["content"],
+        category=data.get("category", "Insight"),
+        icon=data.get("icon", "lightbulb")
+    )
+    db.add(new_insight)
+    db.commit()
+    db.refresh(new_insight)
+    return new_insight
+
+@app.put("/intelligence/insights/{insight_id}")
+async def update_insight(insight_id: int, data: dict, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):
+    insight = db.query(HealthInsight).filter(HealthInsight.id == insight_id).first()
+    if not insight: raise HTTPException(status_code=404)
+    
+    insight.title = data["title"]
+    insight.content = data["content"]
+    insight.category = data.get("category", "Insight")
+    insight.icon = data.get("icon", "lightbulb")
+    
+    db.commit()
+    return insight
+
+@app.delete("/intelligence/insights/{insight_id}")
+async def delete_insight(insight_id: int, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):
+    insight = db.query(HealthInsight).filter(HealthInsight.id == insight_id).first()
+    if not insight: raise HTTPException(status_code=404)
+    db.delete(insight)
     db.commit()
     return {"status": "deleted"}
 
