@@ -6,8 +6,6 @@ import uvicorn
 import json
 import sys
 import os
-import webbrowser
-import threading
 import logging
 from sqlalchemy.orm import Session, joinedload
 from fastapi.staticfiles import StaticFiles
@@ -47,9 +45,17 @@ _scheduler = AsyncIOScheduler()
 app = FastAPI(title="AI Health Assistant API")
 
 # Add CORS middleware
+# In production, FRONTEND_URL is set to the Vercel URL in Render env vars.
+# Locally it falls back to wildcard for convenience.
+_frontend_url = os.environ.get("FRONTEND_URL", "")
+_allow_origins = (
+    [_frontend_url, "http://localhost:5173", "http://localhost:3000"]
+    if _frontend_url
+    else ["*"]
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1109,11 +1115,7 @@ else:
     def read_root():
         return {"message": "Welcome to the AI Health Assistant API (Frontend not built)"}
 
-def open_browser():
-    webbrowser.open_new('http://127.0.0.1:8000')
-
 if __name__ == "__main__":
-    if getattr(sys, 'frozen', False):
-        # Open browser shortly after server starts when running as exe
-        threading.Timer(1.5, open_browser).start()
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))  # Render injects $PORT
+    uvicorn.run(app, host="0.0.0.0", port=port)
+

@@ -1,14 +1,19 @@
 import bcrypt
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from dotenv import load_dotenv
 
-# Configuration
-SECRET_KEY = "your-secret-key-change-this"
+load_dotenv()
+
+# Configuration — SECRET_KEY must be set in env for production (Render dashboard)
+# Falls back to a dev-only placeholder; tokens will be re-signed if key changes.
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "nexos-dev-secret-change-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days — better for mobile users
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 

@@ -12,7 +12,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environment variables
+# Environment variables — .env.production is safe to commit (no secrets, just URLs)
 .env
 .env.local
 .env.development.local
@@ -22,9 +22,22 @@ __pycache__/
 # Database
 *.db
 *.sqlite3
+*.db-shm
+*.db-wal
 
 # IDEs and Tools
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
+# PyInstaller artifacts
+*.spec
+backend/build/
+backend/dist/
+
+# Sync / output logs
+*.txt
+sync_output.txt
+mig_out.txt
+build_log.txt
