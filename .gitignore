@@ -38,6 +38,7 @@ backend/dist/
 
 # Sync / output logs
 *.txt
+!requirements*.txt
 sync_output.txt
 mig_out.txt
 build_log.txt
