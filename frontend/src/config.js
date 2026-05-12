@@ -4,5 +4,3 @@ export const API_BASE_URL = isLocal
   ? "http://localhost:8000" 
   : (import.meta.env.VITE_API_URL || "https://nexos-api-w4n0.onrender.com");
 
-
-  
