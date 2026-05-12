@@ -13,6 +13,7 @@ class HealthCondition(Base):
     female_only = Column(Boolean, default=False)
     required_any = Column(Text, nullable=True)  # JSON string of core indicators
     icon = Column(String, default="medical_services")
+    tags = Column(String, nullable=True)  # Comma-separated tags
 
 class HealthInsight(Base):
     __tablename__ = "health_insights"
@@ -22,3 +23,4 @@ class HealthInsight(Base):
     content = Column(Text)
     category = Column(String, default="Insight")  # Insight or Tip
     icon = Column(String, default="lightbulb")
+    tags = Column(String, nullable=True)  # Comma-separated tags

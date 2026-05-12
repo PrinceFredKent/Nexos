@@ -1446,6 +1446,7 @@ function App() {
               setActiveTab={setActiveTab}
               isCheckerCollapsed={isCheckerCollapsed}
               setIsCheckerCollapsed={setIsCheckerCollapsed}
+              intelligenceData={intelligenceData}
             />
           )}
 

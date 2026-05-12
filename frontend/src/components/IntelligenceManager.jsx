@@ -8,6 +8,8 @@ const IntelligenceManager = ({ adminEmail }) => {
     const [isEditing, setIsEditing] = useState(null); // { type, data }
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [modalTags, setModalTags] = useState([]);
+    const [currentTagInput, setCurrentTagInput] = useState('');
 
     const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -76,7 +78,8 @@ const IntelligenceManager = ({ adminEmail }) => {
             female_only: formData.get('female_only') === 'on',
             symptoms: formData.get('symptoms').split(',').map(s => s.trim()).filter(s => s),
             action_steps: formData.get('action_steps').split('\n').map(s => s.trim()).filter(s => s),
-            required_any: formData.get('required_any').split(',').map(s => s.trim()).filter(s => s)
+            required_any: formData.get('required_any').split(',').map(s => s.trim()).filter(s => s),
+            tags: modalTags.join(', ')
         };
 
         try {
@@ -111,7 +114,8 @@ const IntelligenceManager = ({ adminEmail }) => {
             title: formData.get('title'),
             content: formData.get('content'),
             category: formData.get('category'),
-            icon: formData.get('icon')
+            icon: formData.get('icon'),
+            tags: modalTags.join(', ')
         };
 
         try {
@@ -154,6 +158,27 @@ const IntelligenceManager = ({ adminEmail }) => {
         }
     };
 
+    const openModal = (type, data = null) => {
+        setIsEditing({ type, ...data });
+        if (data && data.tags) {
+            setModalTags(data.tags.split(',').map(t => t.trim()).filter(t => t));
+        } else {
+            setModalTags([]);
+        }
+    };
+
+    const addTag = () => {
+        const tag = currentTagInput.trim();
+        if (tag && !modalTags.includes(tag)) {
+            setModalTags([...modalTags, tag]);
+            setCurrentTagInput('');
+        }
+    };
+
+    const removeTag = (tagToRemove) => {
+        setModalTags(modalTags.filter(t => t !== tagToRemove));
+    };
+
     if (isLoading) return <div className="p-8 text-center">Loading Intelligence Engine...</div>;
 
     return (
@@ -172,7 +197,7 @@ const IntelligenceManager = ({ adminEmail }) => {
             <main className="manager-content">
                 <div className="section-header">
                     <h2>{activeTab === 'conditions' ? 'Medical Conditions' : 'Health Insights'}</h2>
-                    <button className="btn-primary-mini" onClick={() => setIsEditing({ type: activeTab })}>
+                    <button className="btn-primary-mini" onClick={() => openModal(activeTab)}>
                         <span className="material-icons-round">add</span> Add New
                     </button>
                 </div>
@@ -184,7 +209,7 @@ const IntelligenceManager = ({ adminEmail }) => {
                                 <div className="card-top">
                                     <span className="material-icons-round card-icon">{c.icon}</span>
                                     <div className="card-actions">
-                                        <button onClick={() => setIsEditing({ type: 'conditions', ...c })}><span className="material-icons-round">edit</span></button>
+                                        <button onClick={() => openModal('conditions', c)}><span className="material-icons-round">edit</span></button>
                                         <button onClick={() => handleDelete('condition', c.id)} className="delete"><span className="material-icons-round">delete</span></button>
                                     </div>
                                 </div>
@@ -194,6 +219,9 @@ const IntelligenceManager = ({ adminEmail }) => {
                                     {c.is_emergency && <span className="tag emergency">Emergency</span>}
                                     {c.female_only && <span className="tag female">Female Only</span>}
                                     <span className="tag symptoms">{JSON.parse(c.symptoms).length} Symptoms</span>
+                                    {c.tags && c.tags.split(',').map(tag => (
+                                        <span key={tag} className="tag generic">{tag.trim()}</span>
+                                    ))}
                                 </div>
                             </div>
                         ))
@@ -203,13 +231,18 @@ const IntelligenceManager = ({ adminEmail }) => {
                                 <div className="card-top">
                                     <span className="material-icons-round card-icon">{i.icon}</span>
                                     <div className="card-actions">
-                                        <button onClick={() => setIsEditing({ type: 'insights', ...i })}><span className="material-icons-round">edit</span></button>
+                                        <button onClick={() => openModal('insights', i)}><span className="material-icons-round">edit</span></button>
                                         <button onClick={() => handleDelete('insight', i.id)} className="delete"><span className="material-icons-round">delete</span></button>
                                     </div>
                                 </div>
                                 <div className="category-badge">{i.category}</div>
                                 <h3>{i.title}</h3>
                                 <p className="card-summary">{i.content.substring(0, 100)}...</p>
+                                <div className="card-tags">
+                                    {i.tags && i.tags.split(',').map(tag => (
+                                        <span key={tag} className="tag generic">{tag.trim()}</span>
+                                    ))}
+                                </div>
                             </div>
                         ))
                     )}
@@ -282,6 +315,35 @@ const IntelligenceManager = ({ adminEmail }) => {
                                             <textarea name="action_steps" defaultValue={isEditing.action_steps ? JSON.parse(isEditing.action_steps).join('\n') : ''} rows="4" placeholder="Visit lab for tests...&#10;Consult a physician immediately...&#10;Stay hydrated..."></textarea>
                                         </div>
                                     </div>
+
+                                    <div className="form-section">
+                                        <div className="form-section-title">Connectivity</div>
+                                        <div className="form-group">
+                                            <label><span className="material-icons-round">sell</span> Contribution Tags</label>
+                                            <div className="chip-input-container">
+                                                <div className="chips-wrapper">
+                                                    {modalTags.map(tag => (
+                                                        <span key={tag} className="chip">
+                                                            {tag}
+                                                            <span className="material-icons-round remove-chip" onClick={() => removeTag(tag)}>close</span>
+                                                        </span>
+                                                    ))}
+                                                    <input 
+                                                        value={currentTagInput}
+                                                        onChange={(e) => setCurrentTagInput(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                addTag();
+                                                            }
+                                                        }}
+                                                        placeholder={modalTags.length === 0 ? "e.g. Malaria, Anemia..." : "Add more..."}
+                                                        className="chip-bare-input"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -317,6 +379,35 @@ const IntelligenceManager = ({ adminEmail }) => {
                                         <div className="form-group">
                                             <label><span className="material-icons-round">subject</span> Body Content</label>
                                             <textarea name="content" defaultValue={isEditing.content} required rows="8" placeholder="Enter the full content of the health insight or tip..."></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div className="form-section">
+                                        <div className="form-section-title">Connectivity</div>
+                                        <div className="form-group">
+                                            <label><span className="material-icons-round">sell</span> Contribution Tags</label>
+                                            <div className="chip-input-container">
+                                                <div className="chips-wrapper">
+                                                    {modalTags.map(tag => (
+                                                        <span key={tag} className="chip">
+                                                            {tag}
+                                                            <span className="material-icons-round remove-chip" onClick={() => removeTag(tag)}>close</span>
+                                                        </span>
+                                                    ))}
+                                                    <input 
+                                                        value={currentTagInput}
+                                                        onChange={(e) => setCurrentTagInput(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                                e.preventDefault();
+                                                                addTag();
+                                                            }
+                                                        }}
+                                                        placeholder={modalTags.length === 0 ? "e.g. Malaria, Sleep..." : "Add more..."}
+                                                        className="chip-bare-input"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </>
@@ -389,6 +480,60 @@ const IntelligenceManager = ({ adminEmail }) => {
                 .tag.emergency { background: rgba(239, 68, 68, 0.1); color: #ff6b6b; border: 1px solid rgba(239, 68, 68, 0.2); }
                 .tag.female { background: rgba(236, 72, 153, 0.1); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.2); }
                 .tag.symptoms { background: rgba(67, 97, 238, 0.1); color: #60a5fa; border: 1px solid rgba(67, 97, 238, 0.2); }
+                .tag.generic { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border); }
+
+                /* Chip Input Styles */
+                .chip-input-container {
+                    background: var(--bg-input);
+                    border: 1px solid var(--border);
+                    border-radius: 18px;
+                    padding: 0.6rem 1rem;
+                    min-height: 56px;
+                    transition: all 0.3s;
+                }
+                .chip-input-container:focus-within {
+                    border-color: var(--primary);
+                    box-shadow: 0 0 0 4px var(--primary-glow);
+                }
+                .chips-wrapper {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.6rem;
+                    align-items: center;
+                }
+                .chip {
+                    background: var(--primary);
+                    color: white;
+                    padding: 4px 10px 4px 14px;
+                    border-radius: 12px;
+                    font-size: 0.85rem;
+                    font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    animation: chipScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+                @keyframes chipScaleIn {
+                    from { transform: scale(0.5); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                .remove-chip {
+                    font-size: 1rem;
+                    cursor: pointer;
+                    opacity: 0.7;
+                    transition: opacity 0.2s;
+                }
+                .remove-chip:hover { opacity: 1; }
+                .chip-bare-input {
+                    border: none !important;
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    width: auto !important;
+                    flex: 1;
+                    min-width: 120px;
+                    padding: 0.4rem 0 !important;
+                    font-size: 1rem !important;
+                }
                 
                 .category-badge { font-size: 0.75rem; color: var(--primary); font-weight: 900; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; }
                 

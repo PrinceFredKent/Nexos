@@ -997,7 +997,8 @@ async def create_condition(data: dict, admin: DBUser = Depends(verify_admin), db
         is_emergency=data.get("is_emergency", False),
         female_only=data.get("female_only", False),
         required_any=json.dumps(data.get("required_any", [])),
-        icon=data.get("icon", "medical_services")
+        icon=data.get("icon", "medical_services"),
+        tags=data.get("tags", "")
     )
     db.add(new_cond)
     db.commit()
@@ -1017,6 +1018,7 @@ async def update_condition(cond_id: int, data: dict, admin: DBUser = Depends(ver
     cond.female_only = data.get("female_only", False)
     cond.required_any = json.dumps(data.get("required_any", []))
     cond.icon = data.get("icon", "medical_services")
+    cond.tags = data.get("tags", "")
     
     db.commit()
     return cond
@@ -1039,7 +1041,8 @@ async def create_insight(data: dict, admin: DBUser = Depends(verify_admin), db: 
         title=data["title"],
         content=data["content"],
         category=data.get("category", "Insight"),
-        icon=data.get("icon", "lightbulb")
+        icon=data.get("icon", "lightbulb"),
+        tags=data.get("tags", "")
     )
     db.add(new_insight)
     db.commit()
@@ -1055,6 +1058,7 @@ async def update_insight(insight_id: int, data: dict, admin: DBUser = Depends(ve
     insight.content = data["content"]
     insight.category = data.get("category", "Insight")
     insight.icon = data.get("icon", "lightbulb")
+    insight.tags = data.get("tags", "")
     
     db.commit()
     return insight

@@ -14,7 +14,8 @@ const Dashboard = ({
   setCustomSymptom,
   setActiveTab,
   isCheckerCollapsed,
-  setIsCheckerCollapsed 
+  setIsCheckerCollapsed,
+  intelligenceData
 }) => {
 
   const getGreeting = () => {
@@ -204,6 +205,39 @@ const Dashboard = ({
                   </ul>
                 </div>
               )}
+
+              {/* Related Insights & Tips (Based on Tags) */}
+              {(() => {
+                const condition = intelligenceData.conditions.find(c => c.name === analysis.top_condition);
+                if (!condition || !condition.tags) return null;
+                
+                const conditionTags = condition.tags.split(',').map(t => t.trim().toLowerCase());
+                const relatedInsights = intelligenceData.insights.filter(insight => {
+                  if (!insight.tags) return false;
+                  const insightTags = insight.tags.split(',').map(t => t.trim().toLowerCase());
+                  return insightTags.some(tag => conditionTags.includes(tag));
+                });
+
+                if (relatedInsights.length === 0) return null;
+
+                return (
+                  <div className="related-insights-section">
+                    <h4>Related Insights & Advice</h4>
+                    <div className="related-insights-grid">
+                      {relatedInsights.map((insight, idx) => (
+                        <div key={idx} className="related-insight-card">
+                          <div className="insight-header">
+                            <span className="material-icons-round insight-icon">{insight.icon}</span>
+                            <span className="insight-category">{insight.category}</span>
+                          </div>
+                          <h5>{insight.title}</h5>
+                          <p>{insight.content.substring(0, 100)}...</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
