@@ -99,13 +99,63 @@ def _send_via_resend(to_email: str, subject: str, html_content: str) -> bool:
         return False
 
 
+def _send_via_brevo(to_email: str, subject: str, html_content: str) -> bool:
+    """
+    Send email via Brevo HTTP API (https://brevo.com).
+    Allows sending to ANY email address without domain verification.
+    Uses port 443 (HTTPS) — works on Render free tier.
+    """
+    api_key = os.environ.get("BREVO_API_KEY")
+    if not api_key:
+        return False
+
+    try:
+        import urllib.request
+        import json as _json
+
+        # Brevo allows sending from the email you registered with.
+        # Fallback to nexoshealthai@gmail.com if not set
+        sender_email = os.environ.get("SMTP_FROM") or os.environ.get("SMTP_USER") or "nexoshealthai@gmail.com"
+        
+        payload = _json.dumps({
+            "sender": {"name": "NEXOS Health", "email": sender_email},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "htmlContent": html_content
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://api.brevo.com/v3/smtp/email",
+            data=payload,
+            headers={
+                "api-key": api_key,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            method="POST",
+        )
+
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            log.info(f"Brevo delivered email to {to_email}")
+            print(f"DEBUG: Brevo OK to {to_email}")
+            return True
+
+    except Exception as e:
+        log.error(f"Brevo failed for {to_email}: {e}")
+        print(f"DEBUG: Brevo error: {e}")
+        return False
+
 def _send_real_email(to_email: str, subject: str, html_content: str):
-    """Send email — tries Resend HTTP API first, falls back to SMTP for local dev."""
-    # ── Priority 1: Resend HTTP API (works on Render / any cloud host) ──────────
+    """Send email — tries Brevo, then Resend, falls back to SMTP for local dev."""
+    # ── Priority 1: Brevo HTTP API (Best free tier, no recipient restrictions) ──
+    if _send_via_brevo(to_email, subject, html_content):
+        return True
+
+    # ── Priority 2: Resend HTTP API (Restricted to verified domains/self) ──
     if _send_via_resend(to_email, subject, html_content):
         return True
 
-    # ── Priority 2: Direct SMTP (local dev only — blocked on Render free tier) ──
+    # ── Priority 3: Direct SMTP (local dev only — blocked on Render free tier) ──
     smtp_host = os.environ.get("SMTP_HOST")
     smtp_port = int(os.environ.get("SMTP_PORT", 465))
     smtp_user = os.environ.get("SMTP_USER")
