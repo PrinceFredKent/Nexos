@@ -285,7 +285,7 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
                           "appointment_date", "type", "status", "created_at", "last_modified"]),
         ("symptom_logs", ["id", "user_id", "symptoms", "top_condition", "risk_level",
                           "explanation", "timestamp", "last_modified"]),
-        ("medication_intakes", ["id", "medication_id", "slot", "taken_at", "last_modified"]),
+        ("medication_intakes", ["id", "medication_id", "slot", "taken_at"]),
     ]
 
     total_pushed = 0

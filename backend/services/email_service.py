@@ -61,6 +61,8 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
     smtp_pass = os.environ.get("SMTP_PASSWORD")
     smtp_from = os.environ.get("SMTP_FROM", smtp_user)
     
+    print(f"DEBUG: SMTP Config - Host: {smtp_host}, Port: {smtp_port}, User: {smtp_user}, From: {smtp_from}")
+    
     if not smtp_host or not smtp_user or not smtp_pass:
         log.warning("SMTP not fully configured in .env. Falling back to console logging.")
         log.info(f"--- EMAIL TO {to_email} ---")
@@ -88,8 +90,10 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
         server.quit()
         
         log.info(f"Successfully sent email to {to_email}")
+        print(f"DEBUG: Email sent successfully to {to_email}")
         return True
     except Exception as e:
+        print(f"DEBUG: CRITICAL ERROR sending email to {to_email}: {str(e)}")
         log.error(f"CRITICAL: Failed to send email to {to_email}: {str(e)}")
         # Fallback to logging so user isn't stuck during dev
         log.info(f"--- FALLBACK EMAIL TO {to_email} ---")
@@ -98,6 +102,7 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
 
 def send_otp_email(email: str, username: str, otp_code: str):
     """Sends the OTP email."""
+    print(f"DEBUG: Preparing to send OTP to {email}")
     html_content = get_otp_email_template(otp_code, username)
     subject = f"NEXOS - Account Verification Code: {otp_code}"
     log.info(f"OTP Code for {email}: {otp_code}")
