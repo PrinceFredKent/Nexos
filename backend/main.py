@@ -8,6 +8,19 @@ import sys
 import os
 import logging
 from sqlalchemy.orm import Session, joinedload
+
+# Configure logging
+log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nexos.log")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(log_path),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+log = logging.getLogger("nexos")
+log.setLevel(logging.INFO)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -34,7 +47,6 @@ from services.email_service import (
 import random
 from datetime import datetime, date, timedelta
 
-log = logging.getLogger("nexos")
 
 # Create all local SQLite tables (instant — no network)
 Base.metadata.create_all(bind=engine)
@@ -109,7 +121,7 @@ else:
 
 class UserSignup(BaseModel):
     username: str
-    email: Optional[str] = None
+    email: str
     phone: str
     password: str
     age: Optional[int] = None

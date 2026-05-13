@@ -53,7 +53,7 @@ def get_otp_email_template(otp_code: str, username: str):
     </html>
     """
 
-async def _send_real_email(to_email: str, subject: str, html_content: str):
+def _send_real_email(to_email: str, subject: str, html_content: str):
     """Internal helper to send an actual email via SMTP, falling back to logging if unconfigured."""
     smtp_host = os.environ.get("SMTP_HOST")
     smtp_port = int(os.environ.get("SMTP_PORT", 587))
@@ -76,8 +76,13 @@ async def _send_real_email(to_email: str, subject: str, html_content: str):
         part = MIMEText(html_content, "html")
         msg.attach(part)
         
-        server = smtplib.SMTP(smtp_host, smtp_port)
-        server.starttls()
+        log.info(f"Connecting to SMTP server {smtp_host}:{smtp_port}...")
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15)
+        else:
+            server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+            server.starttls()
+            
         server.login(smtp_user, smtp_pass)
         server.sendmail(smtp_from, to_email, msg.as_string())
         server.quit()
@@ -85,18 +90,18 @@ async def _send_real_email(to_email: str, subject: str, html_content: str):
         log.info(f"Successfully sent email to {to_email}")
         return True
     except Exception as e:
-        log.error(f"Failed to send email to {to_email}: {str(e)}")
+        log.error(f"CRITICAL: Failed to send email to {to_email}: {str(e)}")
         # Fallback to logging so user isn't stuck during dev
         log.info(f"--- FALLBACK EMAIL TO {to_email} ---")
         log.info(f"Subject: {subject}")
         return False
 
-async def send_otp_email(email: str, username: str, otp_code: str):
+def send_otp_email(email: str, username: str, otp_code: str):
     """Sends the OTP email."""
     html_content = get_otp_email_template(otp_code, username)
     subject = f"NEXOS - Account Verification Code: {otp_code}"
     log.info(f"OTP Code for {email}: {otp_code}")
-    await _send_real_email(email, subject, html_content)
+    _send_real_email(email, subject, html_content)
     return True
 
 def get_welcome_email_template(username: str):
@@ -142,11 +147,11 @@ def get_welcome_email_template(username: str):
     </html>
     """
 
-async def send_welcome_email(email: str, username: str):
+def send_welcome_email(email: str, username: str):
     """Sends the welcome email to new users."""
     html_content = get_welcome_email_template(username)
     subject = f"Welcome to NEXOS Health Intelligence, {username}!"
-    await _send_real_email(email, subject, html_content)
+    _send_real_email(email, subject, html_content)
     return True
 
 def get_password_reset_email_template(otp_code: str, username: str):
@@ -193,12 +198,12 @@ def get_password_reset_email_template(otp_code: str, username: str):
     </html>
     """
 
-async def send_password_reset_email(email: str, username: str, otp_code: str):
+def send_password_reset_email(email: str, username: str, otp_code: str):
     """Sends the password reset email."""
     html_content = get_password_reset_email_template(otp_code, username)
     subject = f"NEXOS - Password Reset Code: {otp_code}"
     log.info(f"Password Reset Code for {email}: {otp_code}")
-    await _send_real_email(email, subject, html_content)
+    _send_real_email(email, subject, html_content)
     return True
 
 def get_security_verification_email_template(otp_code: str, username: str):
@@ -245,10 +250,10 @@ def get_security_verification_email_template(otp_code: str, username: str):
     </html>
     """
 
-async def send_security_otp_email(email: str, username: str, otp_code: str):
+def send_security_otp_email(email: str, username: str, otp_code: str):
     """Sends the security verification OTP email."""
     html_content = get_security_verification_email_template(otp_code, username)
     subject = f"NEXOS - Security Verification Code: {otp_code}"
     log.info(f"Security OTP Code for {email}: {otp_code}")
-    await _send_real_email(email, subject, html_content)
+    _send_real_email(email, subject, html_content)
     return True

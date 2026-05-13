@@ -74,8 +74,8 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
   const handleNext = () => {
     if (step === 1) {
-        if (!formData.username || !formData.phone || (!formData.password && !googleData)) {
-            setError('Name, Phone and Password are required');
+        if (!formData.username || !formData.email || !formData.phone || (!formData.password && !googleData)) {
+            setError('Name, Email, Phone and Password are required');
             return;
         }
         if (!googleData && formData.password !== formData.confirmPassword) {
@@ -268,7 +268,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
             <div style={{display: 'flex', gap: '1rem'}}>
                 <div className={`input-group ${formData.email ? 'filled' : ''}`} style={{flex: 1}}>
                   <input type="email" id="email" placeholder=" " value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-                  <label htmlFor="email">Email (Optional)</label>
+                  <label htmlFor="email">Email Address</label>
                 </div>
                 <div className={`input-group ${formData.phone ? 'filled' : ''}`} style={{flex: 1}}>
                   <input type="tel" id="phone" placeholder=" " value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
