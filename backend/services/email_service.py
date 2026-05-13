@@ -146,13 +146,13 @@ def _send_via_brevo(to_email: str, subject: str, html_content: str) -> bool:
         return False
 
 def _send_real_email(to_email: str, subject: str, html_content: str):
-    """Send email — tries Brevo, then Resend, falls back to SMTP for local dev."""
-    # ── Priority 1: Brevo HTTP API (Best free tier, no recipient restrictions) ──
-    if _send_via_brevo(to_email, subject, html_content):
+    """Send email — tries Resend first, then Brevo, and falls back to SMTP for local dev."""
+    # ── Priority 1: Resend HTTP API (best for verified domains and Render free tier) ──
+    if _send_via_resend(to_email, subject, html_content):
         return True
 
-    # ── Priority 2: Resend HTTP API (Restricted to verified domains/self) ──
-    if _send_via_resend(to_email, subject, html_content):
+    # ── Priority 2: Brevo HTTP API (good fallback if Resend is not configured) ──
+    if _send_via_brevo(to_email, subject, html_content):
         return True
 
     # ── Priority 3: Direct SMTP (local dev only — blocked on Render free tier) ──
