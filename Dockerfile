@@ -8,19 +8,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements
-COPY backend/requirements-render.txt ./requirements.txt
+COPY backend/requirements-render.txt /app/requirements.txt
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy entire backend
-COPY backend /app
+# Copy entire backend into /app
+COPY backend/ /app/
 
-# Create tables on startup
+# Create data directory for SQLite
 RUN mkdir -p /app/data
 
-# Expose port
-EXPOSE $PORT
+# Expose port (Railway assigns PORT env var)
+EXPOSE 8000
 
-# Run the app
+# Run the app directly from /app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "$PORT"]
