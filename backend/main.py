@@ -359,11 +359,11 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     new_user.otp_code = otp
     new_user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
-    
-    # Send email (async background task)
-    background_tasks.add_task(send_otp_email, new_user.email, new_user.username, otp)
+
+    if not send_otp_email(new_user.email, new_user.username, otp):
+        raise HTTPException(status_code=500, detail="Failed to send verification email. Please try again.")
+
     background_tasks.add_task(run_sync)
-    
     return {
         "message": "Account created. Please verify your email.", 
         "username": new_user.username,
@@ -371,25 +371,53 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
         "is_verified": False
     }
 
+def _merge_cloud_user_into_local(db: Session, user: Optional[DBUser], cloud_data: dict) -> DBUser:
+    valid_cols = {c.key for c in DBUser.__table__.columns}
+    filtered = {k: v for k, v in cloud_data.items() if k in valid_cols}
+    if user:
+        for key, value in filtered.items():
+            setattr(user, key, value)
+    else:
+        user = db.merge(DBUser(**filtered))
+
+    user.synced_at = datetime.utcnow()
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @app.post("/login")
 async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # Step 1: Check local SQLite first — instant, no network latency
     user = db.query(DBUser).filter(DBUser.email == credentials.email).first()
     is_new_device = False
+    cloud_data = None
+
+    if cloud_engine:
+        cloud_data = await initial_pull_credentials(credentials.email)
 
     # Step 2: Not found locally? Try pulling credentials from Supabase only
-    if not user and cloud_engine:
-        cloud_data = await initial_pull_credentials(credentials.email)
-        if cloud_data:
-            # Upsert the user row into local SQLite so future logins are instant
-            valid_cols = {c.key for c in DBUser.__table__.columns}
-            filtered = {k: v for k, v in cloud_data.items() if k in valid_cols}
-            user = db.merge(DBUser(**filtered))
-            db.commit()
-            db.refresh(user)
-            is_new_device = True
+    if not user and cloud_data:
+        user = _merge_cloud_user_into_local(db, None, cloud_data)
+        is_new_device = True
 
-    if not user or not verify_password(credentials.password, user.hashed_password):
+    # Step 3: Validate local password first
+    if user and verify_password(credentials.password, user.hashed_password):
+        if cloud_engine and cloud_data:
+            local_last_modified = user.last_modified or datetime.min
+            cloud_last_modified = cloud_data.get("last_modified")
+            if cloud_last_modified and cloud_last_modified > local_last_modified:
+                if not verify_password(credentials.password, cloud_data["hashed_password"]):
+                    raise HTTPException(status_code=401, detail="Invalid email or password")
+                user = _merge_cloud_user_into_local(db, user, cloud_data)
+                background_tasks.add_task(initial_pull_all, user.username)
+
+    # Step 4: Fallback to cloud verification when local password is stale or invalid
+    elif user and cloud_engine and cloud_data and verify_password(credentials.password, cloud_data["hashed_password"]):
+        user = _merge_cloud_user_into_local(db, user, cloud_data)
+        background_tasks.add_task(initial_pull_all, user.username)
+
+    else:
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not user.is_verified:
@@ -398,8 +426,9 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
         user.otp_code = otp
         user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
         db.commit()
-        background_tasks.add_task(send_otp_email, user.email, user.username, otp)
-        
+        if not send_otp_email(user.email, user.username, otp):
+            raise HTTPException(status_code=500, detail="Failed to send verification email. Please try again.")
+
         return {
             "access_token": None,
             "username": user.username,
@@ -410,7 +439,7 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
 
     access_token = create_access_token(data={"sub": user.username})
 
-    # Step 3: New device — stream remaining data in background while user enters app
+    # Step 5: New device — stream remaining data in background while user enters app
     if is_new_device:
         background_tasks.add_task(initial_pull_all, user.username)
 
@@ -527,7 +556,8 @@ async def resend_otp(email_data: dict, background_tasks: BackgroundTasks, db: Se
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
     
-    background_tasks.add_task(send_otp_email, user.email, user.username, otp)
+    if not send_otp_email(user.email, user.username, otp):
+        raise HTTPException(status_code=500, detail="Failed to resend verification email. Please try again.")
     return {"message": "Verification code resent"}
 
 @app.post("/forgot-password")
@@ -541,7 +571,8 @@ async def forgot_password(req: ForgotPasswordRequest, background_tasks: Backgrou
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
 
-    background_tasks.add_task(send_password_reset_email, user.email, user.username, otp)
+    if not send_password_reset_email(user.email, user.username, otp):
+        raise HTTPException(status_code=500, detail="Failed to send password reset code. Please try again.")
     return {"message": "Password reset code sent"}
 
 @app.post("/verify-password-otp")
@@ -725,7 +756,8 @@ async def request_password_change_otp(req: PasswordChangeRequest, background_tas
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
     
-    background_tasks.add_task(send_security_otp_email, user.email, user.username, otp)
+    if not send_security_otp_email(user.email, user.username, otp):
+        raise HTTPException(status_code=500, detail="Failed to send verification email. Please try again.")
     return {"message": "Verification code sent to your email"}
 
 @app.post("/change-password")

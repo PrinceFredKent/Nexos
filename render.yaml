@@ -30,8 +30,6 @@ services:
         sync: false          # Set in Render dashboard: https://resend.com/api-keys
       - key: RESEND_FROM
         value: "onboarding@resend.dev"  # Change to your verified domain once set up
-      - key: USE_CLOUD_DB
-        value: "true"        # Use the cloud database as the primary production datastore
       - key: SYNC_INTERVAL_MINUTES
         value: "10"
       - key: FRONTEND_URL

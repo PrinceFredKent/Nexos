@@ -67,19 +67,9 @@ else:
 
 # ─── Session Factories ────────────────────────────────────────────────────────
 
-# If a cloud database is configured and explicitly enabled, use it as the
-# primary datastore for API endpoints. Otherwise keep local SQLite as the
-# default local-only database engine.
-USE_CLOUD_DB = os.environ.get("USE_CLOUD_DB", "false").lower() in ("1", "true", "yes")
-primary_engine = cloud_engine if cloud_engine and USE_CLOUD_DB else local_engine
-
-if cloud_engine and USE_CLOUD_DB:
-    print("INFO: Using cloud database as primary datastore for API endpoints.")
-elif cloud_engine:
-    print("INFO: Cloud database available for sync only. API endpoints continue using local SQLite.")
-
-# LocalSession — used by every API endpoint via get_db()
-LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=primary_engine)
+# Local SQLite remains the primary database for API endpoints.
+# Cloud/Postgres is only used by the background SyncService.
+LocalSession = sessionmaker(autocommit=False, autoflush=False, bind=local_engine)
 
 # CloudSession — used only by sync_service.py
 CloudSession = sessionmaker(autocommit=False, autoflush=False, bind=cloud_engine) if cloud_engine else None

@@ -184,6 +184,7 @@ async def _pull_table(cloud: Session, local: Session, table: str, fk_col: str, u
             {"uid": user_id}
         ).mappings().all()
 
+        now = datetime.utcnow()
         for row in rows:
             row_dict = dict(row)
             if exclude_cols:
@@ -197,6 +198,12 @@ async def _pull_table(cloud: Session, local: Session, table: str, fk_col: str, u
                 text(f"INSERT OR REPLACE INTO {table} ({cols}) VALUES ({placeholders})"),
                 row_dict
             )
+
+            if "synced_at" in row_dict:
+                local.execute(
+                    text(f"UPDATE {table} SET synced_at = :now WHERE id = :id"),
+                    {"now": now, "id": row_dict["id"]}
+                )
         local.commit()
     except Exception as e:
         log.warning(f"Pull table '{table}' failed: {e}")

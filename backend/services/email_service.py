@@ -195,14 +195,13 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
         log.info(f"--- FALLBACK EMAIL TO {to_email} | Subject: {subject} ---")
         return False
 
-def send_otp_email(email: str, username: str, otp_code: str):
+def send_otp_email(email: str, username: str, otp_code: str) -> bool:
     """Sends the OTP email."""
     print(f"DEBUG: Preparing to send OTP to {email}")
     html_content = get_otp_email_template(otp_code, username)
     subject = f"NEXOS - Account Verification Code: {otp_code}"
     log.info(f"OTP Code for {email}: {otp_code}")
-    _send_real_email(email, subject, html_content)
-    return True
+    return _send_real_email(email, subject, html_content)
 
 def get_welcome_email_template(username: str):
     """Returns a premium, polished HTML template for the welcome message."""
@@ -247,12 +246,11 @@ def get_welcome_email_template(username: str):
     </html>
     """
 
-def send_welcome_email(email: str, username: str):
+def send_welcome_email(email: str, username: str) -> bool:
     """Sends the welcome email to new users."""
     html_content = get_welcome_email_template(username)
     subject = f"Welcome to NEXOS Health Intelligence, {username}!"
-    _send_real_email(email, subject, html_content)
-    return True
+    return _send_real_email(email, subject, html_content)
 
 def get_password_reset_email_template(otp_code: str, username: str):
     """Returns a premium, polished HTML template for password reset."""
@@ -298,13 +296,12 @@ def get_password_reset_email_template(otp_code: str, username: str):
     </html>
     """
 
-def send_password_reset_email(email: str, username: str, otp_code: str):
+def send_password_reset_email(email: str, username: str, otp_code: str) -> bool:
     """Sends the password reset email."""
     html_content = get_password_reset_email_template(otp_code, username)
     subject = f"NEXOS - Password Reset Code: {otp_code}"
     log.info(f"Password Reset Code for {email}: {otp_code}")
-    _send_real_email(email, subject, html_content)
-    return True
+    return _send_real_email(email, subject, html_content)
 
 def get_security_verification_email_template(otp_code: str, username: str):
     """Returns a premium, polished HTML template for security verification (password change)."""
@@ -350,10 +347,9 @@ def get_security_verification_email_template(otp_code: str, username: str):
     </html>
     """
 
-def send_security_otp_email(email: str, username: str, otp_code: str):
+def send_security_otp_email(email: str, username: str, otp_code: str) -> bool:
     """Sends the security verification OTP email."""
     html_content = get_security_verification_email_template(otp_code, username)
     subject = f"NEXOS - Security Verification Code: {otp_code}"
     log.info(f"Security OTP Code for {email}: {otp_code}")
-    _send_real_email(email, subject, html_content)
-    return True
+    return _send_real_email(email, subject, html_content)
