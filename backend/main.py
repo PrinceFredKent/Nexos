@@ -57,15 +57,22 @@ _scheduler = AsyncIOScheduler()
 app = FastAPI(title="AI Health Assistant API")
 
 # Add CORS middleware
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://nexos-murex.vercel.app")
 _allow_origins = [
+    FRONTEND_URL,
     "https://nexos-murex.vercel.app",
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:8000"
 ]
+# Deduplicate origins while preserving order
+seen = set()
+_allow_origins = [origin for origin in _allow_origins if not (origin in seen or seen.add(origin))]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_origins,
+    allow_origin_regex=r"^https?://(.*\.vercel\.app|.*\.railway\.app|localhost(:[0-9]+)?)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
