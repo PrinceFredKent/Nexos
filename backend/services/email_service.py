@@ -107,7 +107,7 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
 
     # ── Priority 2: Direct SMTP (local dev only — blocked on Render free tier) ──
     smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", 587))
+    smtp_port = int(os.environ.get("SMTP_PORT", 465))
     smtp_user = os.environ.get("SMTP_USER")
     smtp_pass = os.environ.get("SMTP_PASSWORD")
     smtp_from = os.environ.get("SMTP_FROM", smtp_user)
