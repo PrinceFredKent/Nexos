@@ -54,7 +54,7 @@ const VerifyAccount = ({ email, onVerificationSuccess, onBackToLogin }) => {
 
       const data = await response.json();
       if (response.ok) {
-        onVerificationSuccess(data.access_token, data.username, data.role);
+        onVerificationSuccess(data.access_token, data.username, true, data.role || 'patient', true, email);
       } else {
         setError(data.detail || 'Verification failed');
       }

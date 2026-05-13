@@ -127,7 +127,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     } else {
       payload = {
         username: formData.username,
-        email: formData.email || null,
+        email: formData.email,
         phone: formData.phone,
         password: formData.password || "oauth_managed_account",
         birth_date: formData.birthDate || null,
