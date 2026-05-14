@@ -682,6 +682,22 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
             </div>
 
             <div className="cycle-modal-body">
+              <div className="cycle-form-group duration-selector-group">
+                <label>Period Duration <span className="selected-val-hint">{logPeriodDuration} Days</span></label>
+                <div className="custom-duration-picker">
+                  {[...Array(10)].map((_, i) => (
+                    <button 
+                      key={i+1} 
+                      className={`duration-chip ${logPeriodDuration === i+1 ? 'active' : ''}`}
+                      onClick={() => setLogPeriodDuration(i+1)}
+                      type="button"
+                    >
+                      {i+1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="cycle-form-row">
                 <div className="cycle-form-group">
                   <label>Start Date</label>
@@ -710,23 +726,6 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
                 </div>
               </div>
 
-              <div className="cycle-form-group">
-                <label>
-                  Period Duration
-                </label>
-                <div className="cycle-input-wrapper">
-                  <span className="material-icons-round input-icon-inner">timer</span>
-                  <select 
-                    className="cycle-input" 
-                    value={logPeriodDuration}
-                    onChange={e => setLogPeriodDuration(Number(e.target.value))}
-                  >
-                    {[...Array(10)].map((_, i) => (
-                      <option key={i+1} value={i+1}>{i+1} Days</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
               <div className="cycle-form-group">
                 <label>

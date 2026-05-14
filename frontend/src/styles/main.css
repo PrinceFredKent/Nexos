@@ -6776,3 +6776,82 @@ body.dark-theme .med-details .frequency {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);
 }
+
+/* Custom Duration Picker Chips */
+.custom-duration-picker {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding: 0.5rem 0.25rem;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  margin-top: 0.25rem;
+}
+
+.custom-duration-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.duration-chip {
+  flex: 0 0 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Outfit', sans-serif;
+}
+
+.duration-chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.duration-chip.active {
+  background: linear-gradient(135deg, #f43f5e, #fb7185);
+  color: white;
+  border-color: #f43f5e;
+  box-shadow: 0 6px 15px rgba(244, 63, 94, 0.4);
+  transform: translateY(-2px) scale(1.05);
+}
+
+.selected-val-hint {
+  color: #f43f5e;
+  font-weight: 900;
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  background: rgba(244, 63, 94, 0.1);
+  padding: 0.15rem 0.65rem;
+  border-radius: 20px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Button Spinner */
+.btn-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: btnSpin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+.btn-primary:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+  transform: none !important;
+}

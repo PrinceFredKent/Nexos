@@ -9,6 +9,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -21,6 +22,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
       return;
     }
     setError('');
+    setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',
@@ -36,6 +38,8 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
       }
     } catch (err) {
       setError('Connection error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -134,7 +138,13 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
           <span className="auth-link" style={{fontSize: '0.88rem'}} onClick={() => onSwitch('forgot-password')}>Forgotten Password?</span>
         </div>
 
-        <button className="btn-primary" onClick={handleLogin}>Log In</button>
+        <button className="btn-primary" onClick={handleLogin} disabled={isLoading}>
+          {isLoading ? (
+            <div className="btn-spinner"></div>
+          ) : (
+            'Log In'
+          )}
+        </button>
 
         {/* Google Login Temporarily Disabled
         <div className="divider"><span>Or Login with</span></div>
