@@ -369,6 +369,7 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
   const [selectedLogDate, setSelectedLogDate] = useState(null);
   const [logEndDate, setLogEndDate] = useState('');
   const [logCycleLen, setLogCycleLen] = useState(28);
+  const [logPeriodDuration, setLogPeriodDuration] = useState(5);
   const [logNotes, setLogNotes] = useState('');
   const [toast, setToast] = useState(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -406,8 +407,13 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
   };
 
   const openLogModal = (date) => {
-    setSelectedLogDate(toISODate(date));
-    setLogEndDate('');
+    const startDateStr = toISODate(date);
+    setSelectedLogDate(startDateStr);
+    
+    // Auto-calculate end date based on default duration (5 days)
+    const endDate = addDays(date, 4); // 5 days total including start
+    setLogEndDate(toISODate(endDate));
+    setLogPeriodDuration(5);
     setLogCycleLen(28);
     setLogNotes('');
     setShowLogModal(true);
@@ -418,6 +424,15 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
     today.setHours(0, 0, 0, 0);
     openLogModal(today);
   };
+
+  // Auto-calculate end date when start date or duration changes
+  useEffect(() => {
+    if (selectedLogDate && logPeriodDuration) {
+      const start = new Date(selectedLogDate);
+      const end = addDays(start, logPeriodDuration - 1);
+      setLogEndDate(toISODate(end));
+    }
+  }, [selectedLogDate, logPeriodDuration]);
 
   const handleSubmitLog = async () => {
     if (!selectedLogDate || !token) return;
@@ -697,6 +712,26 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
 
               <div className="cycle-form-group">
                 <label>
+                  Period Duration
+                  <span className="cycle-len-badge duration">{logPeriodDuration} days</span>
+                </label>
+                <input
+                  type="range"
+                  min="1" max="10"
+                  value={logPeriodDuration}
+                  onChange={e => setLogPeriodDuration(Number(e.target.value))}
+                  className="cycle-range duration-slider"
+                  style={{
+                    background: `linear-gradient(to right, #f43f5e ${((logPeriodDuration - 1) / 9) * 100}%, rgba(255,255,255,0.08) ${((logPeriodDuration - 1) / 9) * 100}%)`
+                  }}
+                />
+                <div className="range-labels">
+                  <span>1</span><span>5</span><span>10</span>
+                </div>
+              </div>
+
+              <div className="cycle-form-group">
+                <label>
                   Cycle Length
                   <span className="cycle-len-badge">{logCycleLen} days</span>
                 </label>
@@ -707,7 +742,7 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
                   onChange={e => setLogCycleLen(Number(e.target.value))}
                   className="cycle-range"
                   style={{
-                    background: `linear-gradient(to right, #f43f5e ${sliderPercent}%, var(--border) ${sliderPercent}%)`
+                    background: `linear-gradient(to right, #f43f5e ${sliderPercent}%, rgba(255,255,255,0.08) ${sliderPercent}%)`
                   }}
                 />
                 <div className="range-labels">
