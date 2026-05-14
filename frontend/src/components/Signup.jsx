@@ -34,6 +34,13 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
   const [signupResult, setSignupResult] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null); // 'gender' | 'bloodType' | null
   const [googleData, setGoogleData] = useState(null); 
+  const [fieldErrors, setFieldErrors] = useState({
+    email: '',
+    password: '',
+    phone: '',
+    username: ''
+  });
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
   // Close dropdowns when clicking outside
   const closeDropdowns = () => setOpenDropdown(null);
@@ -71,15 +78,67 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
       )}
     </div>
   );
+  // Debounced email check
+  useEffect(() => {
+    if (!formData.email || !formData.email.includes('@')) {
+      setFieldErrors(prev => ({ ...prev, email: '' }));
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      // Basic regex check first
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setFieldErrors(prev => ({ ...prev, email: 'Invalid email format' }));
+        return;
+      }
+
+      setIsCheckingEmail(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/check-email?email=${encodeURIComponent(formData.email)}`);
+        const data = await res.json();
+        if (data.exists) {
+          setFieldErrors(prev => ({ ...prev, email: 'This email is already registered' }));
+        } else {
+          setFieldErrors(prev => ({ ...prev, email: '' }));
+        }
+      } catch (err) {
+        console.error("Email check failed:", err);
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [formData.email]);
+
+  const validateStep1 = () => {
+    const errors = {};
+    if (!formData.username || formData.username.length < 3) errors.username = 'Name must be at least 3 characters';
+    if (!formData.email) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Invalid email format';
+    
+    if (!formData.phone) errors.phone = 'Phone number is required';
+    else if (!/^\+?1?\d{9,15}$/.test(formData.phone)) errors.phone = 'Invalid phone format';
+
+    if (!googleData) {
+      if (!formData.password) errors.password = 'Password is required';
+      else if (formData.password.length < 8) errors.password = 'Password must be at least 8 characters';
+      
+      if (formData.password !== formData.confirmPassword) {
+        setError('Passwords do not match');
+        return false;
+      }
+    }
+
+    setFieldErrors(prev => ({ ...prev, ...errors }));
+    return Object.keys(errors).length === 0;
+  };
 
   const handleNext = () => {
     if (step === 1) {
-        if (!formData.username || !formData.email || !formData.phone || (!formData.password && !googleData)) {
-            setError('Name, Email, Phone and Password are required');
-            return;
-        }
-        if (!googleData && formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
+        if (!validateStep1()) return;
+        if (fieldErrors.email) {
+            setError(fieldErrors.email);
             return;
         }
     }
@@ -264,15 +323,19 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
             <div className={`input-group ${formData.username ? 'filled' : ''}`}>
               <input type="text" id="username" placeholder=" " value={formData.username} onChange={(e) => setFormData({...formData, username: e.target.value})} />
               <label htmlFor="username">Full Name</label>
+              {fieldErrors.username && <span className="field-error">{fieldErrors.username}</span>}
             </div>
             <div style={{display: 'flex', gap: '1rem'}}>
                 <div className={`input-group ${formData.email ? 'filled' : ''}`} style={{flex: 1}}>
                   <input type="email" id="email" placeholder=" " value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
                   <label htmlFor="email">Email Address</label>
+                  {isCheckingEmail && <div className="field-loader"></div>}
+                  {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
                 </div>
                 <div className={`input-group ${formData.phone ? 'filled' : ''}`} style={{flex: 1}}>
                   <input type="tel" id="phone" placeholder=" " value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
                   <label htmlFor="phone">Phone Number</label>
+                  {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
                 </div>
             </div>
             <div style={{display: 'flex', gap: '1rem'}}>
@@ -285,6 +348,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                     onChange={(e) => setFormData({...formData, password: e.target.value})} 
                   />
                   <label htmlFor="password">Password</label>
+                  {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
                   <button 
                     type="button" 
                     className="password-toggle" 
@@ -384,7 +448,11 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
           <div className="step-content" key="step3">
             <div className={`input-group ${formData.allergies ? 'filled' : ''}`}>
               <input type="text" id="allergies" placeholder=" " value={formData.allergies} onChange={(e) => setFormData({...formData, allergies: e.target.value})} />
-              <label htmlFor="allergies">Allergies & Conditions</label>
+              <label htmlFor="allergies">Known Allergies (e.g. Peanuts, Aspirin)</label>
+            </div>
+            <div className={`input-group ${formData.chronicConditions ? 'filled' : ''}`}>
+              <input type="text" id="chronicConditions" placeholder=" " value={formData.chronicConditions} onChange={(e) => setFormData({...formData, chronicConditions: e.target.value})} />
+              <label htmlFor="chronicConditions">Chronic Conditions (e.g. Diabetes, Asthma)</label>
             </div>
             <div className={`input-group ${formData.emergencyName ? 'filled' : ''}`}>
               <input type="text" id="emergName" placeholder=" " value={formData.emergencyName} onChange={(e) => setFormData({...formData, emergencyName: e.target.value})} />

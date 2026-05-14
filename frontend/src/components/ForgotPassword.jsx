@@ -17,6 +17,10 @@ const ForgotPassword = ({ onSwitch }) => {
 
   const handleSendCode = async (e) => {
     e.preventDefault();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
     setError('');
     setMessage('');
     setIsLoading(true);
@@ -74,8 +78,8 @@ const ForgotPassword = ({ onSwitch }) => {
       setError('Passwords do not match');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 

@@ -12,6 +12,15 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!email || !password) {
+      setError('Email and password are required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Invalid email format');
+      return;
+    }
+    setError('');
     try {
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: 'POST',

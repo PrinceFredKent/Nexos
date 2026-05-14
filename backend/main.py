@@ -1,7 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, EmailStr, Field, validator
+from typing import List, Optional, Dict
+import re
 import uvicorn
 import json
 import sys
@@ -118,10 +119,10 @@ else:
     FRONTEND_DIR = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
 
 class UserSignup(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3)
     email: str
     phone: str
-    password: str
+    password: str = Field(..., min_length=8)
     age: Optional[int] = None
     gender: str
     blood_type: str
@@ -134,6 +135,18 @@ class UserSignup(BaseModel):
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
     google_id: Optional[str] = None
+
+    @validator('email')
+    def validate_email(cls, v):
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
+            raise ValueError('Invalid email format')
+        return v
+
+    @validator('phone')
+    def validate_phone(cls, v):
+        if not re.match(r"^\+?1?\d{9,15}$", v):
+            raise ValueError('Invalid phone number format')
+        return v
 
 class UserUpdate(BaseModel):
     age: Optional[int] = None
@@ -249,6 +262,12 @@ def get_status(username: str = Depends(get_current_user), db: Session = Depends(
         "mode": "patient-assistant",
         "email": user.email if user else None
     }
+
+@app.get("/check-email")
+def check_email(email: str, db: Session = Depends(get_db)):
+    """Check if an email is already registered."""
+    user = db.query(DBUser).filter(DBUser.email == email).first()
+    return {"exists": user is not None}
 
 
 # ─── Sync Status & Control ─────────────────────────────────────────────
