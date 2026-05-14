@@ -16,9 +16,9 @@ body.dark-theme .auth-container {
 
 body:not(.dark-theme) .auth-container {
   --auth-text: #0f172a;
-  --auth-text-muted: #4b5563;
-  --auth-border: rgba(0, 0, 0, 0.12);
-  --auth-glass: rgba(0, 0, 0, 0.03);
+  --auth-text-muted: #334155;
+  --auth-border: rgba(0, 0, 0, 0.25);
+  --auth-glass: rgba(0, 0, 0, 0.05);
 }
 
 .auth-container {

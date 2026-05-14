@@ -10,12 +10,12 @@
   --dash-bg: #f4f7fe;
   --dash-card-bg: rgba(255, 255, 255, 0.85);
   --dash-text: #0b1120;
-  --dash-text-muted: #64748b;
+  --dash-text-muted: #334155;
   --dash-radius: 24px;
   --dash-radius-sm: 16px;
-  --dash-shadow: 0 8px 32px rgba(67, 97, 238, 0.08);
-  --dash-shadow-hover: 0 20px 48px rgba(67, 97, 238, 0.14);
-  --dash-border: rgba(0, 0, 0, 0.08);
+  --dash-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  --dash-shadow-hover: 0 20px 48px rgba(0, 0, 0, 0.1);
+  --dash-border: rgba(0, 0, 0, 0.15);
 }
 
 body.dark-theme {

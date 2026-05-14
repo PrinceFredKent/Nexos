@@ -6,12 +6,12 @@
   --bg-card: #ffffff;
   --bg-input: #ffffff;
   --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.08);
-  --text-main: #1e293b;
-  --text-muted: #64748b;
+  --glass-border: rgba(0, 0, 0, 0.15);
+  --text-main: #0f172a;
+  --text-muted: #334155;
   --text-inverse: #ffffff;
-  --border: #e2e8f0;
-  --border-light: rgba(226, 232, 240, 0.5);
+  --border: #94a3b8;
+  --border-light: rgba(0, 0, 0, 0.1);
   --card-border-dashed: rgba(0, 0, 0, 0.08);
   --accent: #ff6b6b;
   --sidebar-width: 80px;
@@ -801,16 +801,18 @@ body {
 
 .logout-icon {
   margin-top: auto;
-  color: var(--text-muted);
+  color: #ef4444; 
+  font-weight: 800;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.8rem;
+  padding: 1.1rem 1rem;
   transition: all 0.2s;
   width: 100%;
-  border-top: 1px solid var(--border);
+  border-top: 1.5px solid var(--border);
   border-radius: 16px;
+  background: rgba(239, 68, 68, 0.03);
 }
 
 .sidebar:not(.expanded) .logout-icon {
