@@ -713,20 +713,18 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
               <div className="cycle-form-group">
                 <label>
                   Period Duration
-                  <span className="cycle-len-badge duration">{logPeriodDuration} days</span>
                 </label>
-                <input
-                  type="range"
-                  min="1" max="10"
-                  value={logPeriodDuration}
-                  onChange={e => setLogPeriodDuration(Number(e.target.value))}
-                  className="cycle-range duration-slider"
-                  style={{
-                    background: `linear-gradient(to right, #f43f5e ${((logPeriodDuration - 1) / 9) * 100}%, rgba(255,255,255,0.08) ${((logPeriodDuration - 1) / 9) * 100}%)`
-                  }}
-                />
-                <div className="range-labels">
-                  <span>1</span><span>5</span><span>10</span>
+                <div className="cycle-input-wrapper">
+                  <span className="material-icons-round input-icon-inner">timer</span>
+                  <select 
+                    className="cycle-input" 
+                    value={logPeriodDuration}
+                    onChange={e => setLogPeriodDuration(Number(e.target.value))}
+                  >
+                    {[...Array(10)].map((_, i) => (
+                      <option key={i+1} value={i+1}>{i+1} Days</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
