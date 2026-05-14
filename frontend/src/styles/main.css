@@ -4195,6 +4195,7 @@ body.dark-theme .emergency-card-aside {
 .cycle-log-modal {
   width: 95% !important;
   max-width: 500px !important;
+  max-height: 90vh !important;
   background: rgba(15, 23, 42, 0.75) !important;
   backdrop-filter: blur(30px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
@@ -4205,7 +4206,13 @@ body.dark-theme .emergency-card-aside {
     inset 0 0 20px rgba(244, 63, 94, 0.05) !important;
   border-radius: 32px !important;
   padding: 2.5rem !important;
-  overflow: visible !important;
+  overflow-y: auto !important;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cycle-log-modal::-webkit-scrollbar {
+  display: none;
 }
 
 .cycle-modal-header {
