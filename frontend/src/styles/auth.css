@@ -17,6 +17,8 @@ body.dark-theme .auth-container {
 body:not(.dark-theme) .auth-container {
   --auth-text: #0f172a;
   --auth-text-muted: #4b5563;
+  --auth-border: rgba(0, 0, 0, 0.12);
+  --auth-glass: rgba(0, 0, 0, 0.03);
 }
 
 .auth-container {
@@ -337,7 +339,7 @@ body:not(.dark-theme) .auth-container {
   width: 100%;
   padding: 1.1rem 1.25rem;
   min-height: 58px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--auth-glass);
   border: 1.5px solid var(--auth-border);
   border-radius: 16px;
   color: var(--auth-text) !important;
@@ -362,7 +364,7 @@ body:not(.dark-theme) .auth-container {
 
 .input-group input::placeholder {
   color: var(--auth-text-muted);
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 .input-group input:focus, .input-group select:focus {

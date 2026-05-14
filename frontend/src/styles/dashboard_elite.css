@@ -15,7 +15,7 @@
   --dash-radius-sm: 16px;
   --dash-shadow: 0 8px 32px rgba(67, 97, 238, 0.08);
   --dash-shadow-hover: 0 20px 48px rgba(67, 97, 238, 0.14);
-  --dash-border: rgba(255, 255, 255, 0.6);
+  --dash-border: rgba(0, 0, 0, 0.08);
 }
 
 body.dark-theme {
@@ -594,7 +594,7 @@ body.dark-theme .dash-ai-input-wrapper {
   outline: none;
   font-family: inherit;
 }
-.dash-ai-input::placeholder { color: var(--dash-text-muted); opacity: 0.6; }
+.dash-ai-input::placeholder { color: var(--dash-text-muted); opacity: 0.8; }
 
 .btn-ai-submit {
   background: linear-gradient(135deg, var(--dash-primary), var(--dash-purple));
