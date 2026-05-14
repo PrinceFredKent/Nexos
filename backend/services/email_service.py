@@ -19,7 +19,7 @@ def get_otp_email_template(otp_code: str, username: str):
             body {{ font-family: 'Outfit', 'Inter', sans-serif; background-color: #050c1a; margin: 0; padding: 0; color: #ffffff; }}
             .container {{ max-width: 600px; margin: 40px auto; background: #0a1931; border-radius: 32px; overflow: hidden; border: 1px solid rgba(67, 97, 238, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }}
             .header {{ background: linear-gradient(135deg, #4361ee, #4ea8de); padding: 40px 20px; text-align: center; }}
-            .logo {{ width: 60px; height: 60px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; padding: 10px; border: 2px solid #ffffff; margin-bottom: 20px; }}
+            .logo {{ width: 80px; height: 80px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); object-fit: cover; display: block; margin: 0 auto 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }}
             .content {{ padding: 40px; text-align: center; }}
             h1 {{ font-size: 28px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }}
             p {{ font-size: 16px; line-height: 1.6; color: #94a3b8; margin-bottom: 32px; }}
@@ -32,7 +32,8 @@ def get_otp_email_template(otp_code: str, username: str):
     <body>
         <div class="container">
             <div class="header">
-                <div style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: white;">NEXOS</div>
+                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
                 <h1>Verify Your Identity</h1>
@@ -215,6 +216,7 @@ def get_welcome_email_template(username: str):
             body {{ font-family: 'Outfit', 'Inter', sans-serif; background-color: #050c1a; margin: 0; padding: 0; color: #ffffff; }}
             .container {{ max-width: 600px; margin: 40px auto; background: #0a1931; border-radius: 32px; overflow: hidden; border: 1px solid rgba(67, 97, 238, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }}
             .header {{ background: linear-gradient(135deg, #4361ee, #4ea8de); padding: 40px 20px; text-align: center; }}
+            .logo {{ width: 80px; height: 80px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); object-fit: cover; display: block; margin: 0 auto 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }}
             .content {{ padding: 40px; text-align: center; }}
             h1 {{ font-size: 28px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }}
             p {{ font-size: 16px; line-height: 1.6; color: #94a3b8; margin-bottom: 32px; }}
@@ -225,7 +227,8 @@ def get_welcome_email_template(username: str):
     <body>
         <div class="container">
             <div class="header">
-                <div style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: white;">NEXOS</div>
+                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
                 <h1>Welcome to Nexos, {username}!</h1>
@@ -264,6 +267,7 @@ def get_password_reset_email_template(otp_code: str, username: str):
             body {{ font-family: 'Outfit', 'Inter', sans-serif; background-color: #050c1a; margin: 0; padding: 0; color: #ffffff; }}
             .container {{ max-width: 600px; margin: 40px auto; background: #0a1931; border-radius: 32px; overflow: hidden; border: 1px solid rgba(67, 97, 238, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }}
             .header {{ background: linear-gradient(135deg, #4361ee, #4ea8de); padding: 40px 20px; text-align: center; }}
+            .logo {{ width: 80px; height: 80px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); object-fit: cover; display: block; margin: 0 auto 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }}
             .content {{ padding: 40px; text-align: center; }}
             h1 {{ font-size: 28px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }}
             p {{ font-size: 16px; line-height: 1.6; color: #94a3b8; margin-bottom: 32px; }}
@@ -275,7 +279,8 @@ def get_password_reset_email_template(otp_code: str, username: str):
     <body>
         <div class="container">
             <div class="header">
-                <div style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: white;">NEXOS</div>
+                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
                 <h1>Reset Your Password</h1>
@@ -315,6 +320,7 @@ def get_security_verification_email_template(otp_code: str, username: str):
             body {{ font-family: 'Outfit', 'Inter', sans-serif; background-color: #050c1a; margin: 0; padding: 0; color: #ffffff; }}
             .container {{ max-width: 600px; margin: 40px auto; background: #0a1931; border-radius: 32px; overflow: hidden; border: 1px solid rgba(67, 97, 238, 0.2); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }}
             .header {{ background: linear-gradient(135deg, #4361ee, #4ea8de); padding: 40px 20px; text-align: center; }}
+            .logo {{ width: 80px; height: 80px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.8); object-fit: cover; display: block; margin: 0 auto 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }}
             .content {{ padding: 40px; text-align: center; }}
             h1 {{ font-size: 28px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; }}
             p {{ font-size: 16px; line-height: 1.6; color: #94a3b8; margin-bottom: 32px; }}
@@ -326,7 +332,8 @@ def get_security_verification_email_template(otp_code: str, username: str):
     <body>
         <div class="container">
             <div class="header">
-                <div style="font-size: 32px; font-weight: 900; letter-spacing: 5px; color: white;">NEXOS</div>
+                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
                 <h1>Security Verification</h1>
