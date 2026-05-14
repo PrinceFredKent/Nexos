@@ -250,7 +250,7 @@ function CycleCalendar({ logs, userEvents = [], onDayClick }) {
               className={`cal-day${isToday ? ' today' : ''}${isPeriod ? ' period' : ''}${isOvul ? ' ovulation' : ''}${isFertile ? ' fertile' : ''}${isPredicted ? ' predicted' : ''} ${dayEvents.length > 0 ? 'has-events' : ''}`}
               onClick={() => onDayClick(new Date(year, month, dayNum))}
               title={
-                dayEvents.length > 0 ? `${dayEvents.length} events: ${dayEvents.map(e => e.title).join(', ')}` :
+                dayEvents.length > 0 ? `${dayEvents.length} Health Plans: ${dayEvents.map(e => e.title).join(', ')}` :
                 isPeriod   ? 'Period day — click to log' :
                 isOvul     ? 'Estimated ovulation' :
                 isFertile  ? 'Fertile window' :
@@ -259,13 +259,14 @@ function CycleCalendar({ logs, userEvents = [], onDayClick }) {
               }
             >
               <div className="day-num-box">{dayNum}</div>
-              {dayEvents.length > 0 && (
-                <div className="event-markers-mini">
-                   {dayEvents.slice(0, 3).map((e, idx) => (
-                      <div key={idx} className={`event-marker-dot ${e.type?.toLowerCase() || 'other'}`} />
-                   ))}
-                </div>
-              )}
+              
+              <div className="day-indicators">
+                {isPeriod && <span className="indicator-dot period" />}
+                {isFertile && <span className="indicator-dot fertile" />}
+                {isOvul && <span className="indicator-dot ovulation" />}
+                {isPredicted && <span className="indicator-dot predicted" />}
+                {dayEvents.length > 0 && <span className="indicator-dot event" />}
+              </div>
             </button>
           );
         })}
