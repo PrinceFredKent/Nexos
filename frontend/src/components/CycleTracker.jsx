@@ -670,22 +670,28 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
               <div className="cycle-form-row">
                 <div className="cycle-form-group">
                   <label>Start Date</label>
-                  <input
-                    type="date"
-                    value={selectedLogDate || ''}
-                    onChange={e => setSelectedLogDate(e.target.value)}
-                    className="cycle-input"
-                  />
+                  <div className="cycle-input-wrapper">
+                    <span className="material-icons-round input-icon-inner">calendar_today</span>
+                    <input
+                      type="date"
+                      value={selectedLogDate || ''}
+                      onChange={e => setSelectedLogDate(e.target.value)}
+                      className="cycle-input"
+                    />
+                  </div>
                 </div>
                 <div className="cycle-form-group">
-                  <label>End Date <span className="optional-tag">optional</span></label>
-                  <input
-                    type="date"
-                    value={logEndDate}
-                    min={selectedLogDate}
-                    onChange={e => setLogEndDate(e.target.value)}
-                    className="cycle-input"
-                  />
+                  <label>End Date <span className="optional-tag">(Optional)</span></label>
+                  <div className="cycle-input-wrapper">
+                    <span className="material-icons-round input-icon-inner">event_available</span>
+                    <input
+                      type="date"
+                      value={logEndDate}
+                      min={selectedLogDate}
+                      onChange={e => setLogEndDate(e.target.value)}
+                      className="cycle-input"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -710,14 +716,17 @@ export default function CycleTracker({ patient, userEvents = [], onDayClick }) {
               </div>
 
               <div className="cycle-form-group">
-                <label>Notes <span className="optional-tag">optional</span></label>
-                <textarea
-                  placeholder="e.g. Heavy flow, cramping, spotting..."
-                  value={logNotes}
-                  onChange={e => setLogNotes(e.target.value)}
-                  className="cycle-textarea"
-                  rows={3}
-                />
+                <label>Notes <span className="optional-tag">(Optional)</span></label>
+                <div className="cycle-input-wrapper">
+                  <span className="material-icons-round input-icon-inner textarea-icon">description</span>
+                  <textarea
+                    placeholder="e.g. Heavy flow, cramping, spotting..."
+                    value={logNotes}
+                    onChange={e => setLogNotes(e.target.value)}
+                    className="cycle-textarea"
+                    rows={3}
+                  />
+                </div>
               </div>
 
               <button
