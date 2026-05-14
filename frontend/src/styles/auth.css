@@ -14,10 +14,10 @@ body.dark-theme .auth-container {
   --auth-text-muted: #94a3b8;
 }
 
-body:not(.dark-theme) .auth-container {
+body:not(.dark-theme) {
   --auth-text: #0f172a;
   --auth-text-muted: #334155;
-  --auth-border: rgba(0, 0, 0, 0.25);
+  --auth-border: rgba(0, 0, 0, 0.3);
   --auth-glass: rgba(0, 0, 0, 0.05);
 }
 
