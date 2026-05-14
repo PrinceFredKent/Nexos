@@ -378,7 +378,7 @@ def _merge_cloud_user_into_local(db: Session, user: Optional[DBUser], cloud_data
     db.commit()
     db.refresh(user)
     return user
-
+#dummy change to trigger build
 
 @app.post("/login")
 async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
