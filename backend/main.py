@@ -56,11 +56,15 @@ _scheduler = AsyncIOScheduler()
 
 app = FastAPI(title="AI Health Assistant API")
 
-# Add CORS middleware
+# CORS — read allowed origins from env var (comma-separated list)
+# Example: ALLOWED_ORIGINS=https://nexos.pages.dev,https://your-tunnel.trycloudflare.com
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "*")
+_origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=_origins,
+    allow_credentials=_raw_origins != "*",
     allow_methods=["*"],
     allow_headers=["*"],
 )

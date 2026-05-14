@@ -35,7 +35,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    // Add localhost for local dev; Cloudflare tunnel can be re-added as needed
-    allowedHosts: ['localhost', '127.0.0.1'],
+    // localhost + Cloudflare tunnel domains for local dev
+    allowedHosts: ['localhost', '127.0.0.1', '.trycloudflare.com', '.pages.dev'],
   },
 })
