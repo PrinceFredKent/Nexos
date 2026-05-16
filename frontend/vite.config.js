@@ -33,9 +33,5 @@ export default defineConfig({
         enabled: false, // Disable SW in dev to avoid caching issues
       },
     }),
-  ],
-  server: {
-    // localhost + Cloudflare tunnel domains for local dev
-    allowedHosts: ['localhost', '127.0.0.1', '.trycloudflare.com', '.pages.dev'],
   },
 })
