@@ -33,5 +33,5 @@ export default defineConfig({
         enabled: false, // Disable SW in dev to avoid caching issues
       },
     }),
-  },
+  ],
 })
