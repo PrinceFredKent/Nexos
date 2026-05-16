@@ -12,6 +12,12 @@
   "categories": ["health", "medical", "lifestyle"],
   "icons": [
     {
+      "src": "/app-icon.jpg",
+      "sizes": "1024x1024",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
       "src": "/icons/icon-72x72.png",
       "sizes": "72x72",
       "type": "image/png",

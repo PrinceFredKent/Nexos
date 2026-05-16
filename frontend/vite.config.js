@@ -8,11 +8,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png', 'icons/*.png'],
+      includeAssets: ['logo.png', 'app-icon.jpg', 'icons/*.png'],
       manifest: false, // We use our own public/manifest.json
       workbox: {
         // Cache shell (JS/CSS/HTML) with stale-while-revalidate
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,jpg,jpeg}'],
         // API calls — network first, fall back to cache
         runtimeCaching: [
           {
