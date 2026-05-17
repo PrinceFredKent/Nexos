@@ -88,6 +88,13 @@ function App() {
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editingEventId, setEditingEventId] = useState(null);
   const [eventTime, setEventTime] = useState('10:00');
+
+  // Long-press state for Emergency SOS button
+  const [isHoldingEmergency, setIsHoldingEmergency] = useState(false);
+  const [holdProgress, setHoldProgress] = useState(0); // 0 to 100
+  const holdTimerRef = useRef(null);
+  const progressIntervalRef = useRef(null);
+  const isLongPressRef = useRef(false);
   
   // Header Functionality State
   const [searchTerm, setSearchTerm] = useState('');
@@ -377,6 +384,62 @@ function App() {
   const cancelEmergency = () => {
       setShowEmergencyCountdown(false);
       setCountdownTimer(5);
+  };
+
+  // Cleanup holding timers on component unmount
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
+  }, []);
+
+  const startEmergencyHold = (e) => {
+    e.preventDefault();
+    isLongPressRef.current = false;
+    setIsHoldingEmergency(true);
+    setHoldProgress(0);
+    
+    const duration = 1500; // 1.5 seconds hold time
+    const intervalTime = 30; // update progress every 30ms
+    let currentProgress = 0;
+    
+    progressIntervalRef.current = setInterval(() => {
+      currentProgress += (intervalTime / duration) * 100;
+      if (currentProgress >= 100) {
+        setHoldProgress(100);
+        clearInterval(progressIntervalRef.current);
+      } else {
+        setHoldProgress(currentProgress);
+      }
+    }, intervalTime);
+    
+    holdTimerRef.current = setTimeout(() => {
+      if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]); // Premium haptic vibe
+      }
+      isLongPressRef.current = true;
+      setIsHoldingEmergency(false);
+      setHoldProgress(0);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      
+      setCountdownTimer(5);
+      setShowEmergencyCountdown(true);
+    }, duration);
+  };
+
+  const cancelEmergencyHold = (e) => {
+    if (isHoldingEmergency) {
+      setIsHoldingEmergency(false);
+      setHoldProgress(0);
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      
+      // If released before 1.5s, treat as a standard quick tap
+      if (!isLongPressRef.current) {
+        setActiveTab('emergency');
+      }
+    }
   };
 
   const fetchPatientData = () => {
@@ -1052,9 +1115,24 @@ function App() {
             <span className="nav-text">Settings</span>
           </div>
           
-          <div className={`nav-icon emergency-nav ${activeTab === 'emergency' ? 'active' : ''}`} onClick={() => setActiveTab('emergency')}>
+          <div 
+            className={`nav-icon emergency-nav ${activeTab === 'emergency' ? 'active' : ''} ${isHoldingEmergency ? 'holding' : ''}`}
+            onMouseDown={startEmergencyHold}
+            onMouseUp={cancelEmergencyHold}
+            onMouseLeave={cancelEmergencyHold}
+            onTouchStart={startEmergencyHold}
+            onTouchEnd={cancelEmergencyHold}
+            onTouchCancel={cancelEmergencyHold}
+          >
             <span className="material-icons-round">emergency</span>
-            <span className="nav-text">Emergency</span>
+            <span className="nav-text">
+              {isHoldingEmergency ? `Hold (${Math.round(holdProgress)}%)` : 'Emergency'}
+            </span>
+            {isHoldingEmergency && (
+              <div className="sidebar-hold-bar">
+                <div className="sidebar-hold-bar-fill" style={{ width: `${holdProgress}%` }} />
+              </div>
+            )}
           </div>
         </nav>
 
@@ -2240,12 +2318,28 @@ function App() {
           {/* Emergency — Centre FAB */}
           <div
             className={`bottom-nav-emergency ${activeTab === 'emergency' ? 'active' : ''}`}
-            onClick={() => setActiveTab('emergency')}
+            onMouseDown={startEmergencyHold}
+            onMouseUp={cancelEmergencyHold}
+            onMouseLeave={cancelEmergencyHold}
+            onTouchStart={startEmergencyHold}
+            onTouchEnd={cancelEmergencyHold}
+            onTouchCancel={cancelEmergencyHold}
           >
-            <div className="bottom-nav-emergency-btn">
+            <div className={`bottom-nav-emergency-btn ${isHoldingEmergency ? 'holding' : ''}`}>
               <span className="material-icons-round">emergency</span>
+              {isHoldingEmergency && (
+                <svg className="sos-hold-ring" viewBox="0 0 56 56">
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="25"
+                    strokeDasharray="157"
+                    strokeDashoffset={157 - (157 * holdProgress) / 100}
+                  />
+                </svg>
+              )}
             </div>
-            <span className="bottom-nav-emergency-label">SOS</span>
+            <span className="bottom-nav-emergency-label">{isHoldingEmergency ? 'HOLD...' : 'SOS'}</span>
           </div>
 
           {/* Planner */}
