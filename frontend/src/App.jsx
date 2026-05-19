@@ -130,6 +130,8 @@ function App() {
   const [showVerification, setShowVerification] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
   const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
+  const [showMobileTour, setShowMobileTour] = useState(false);
+  const [tourStep, setTourStep] = useState(1);
   
   const [intelligenceData, setIntelligenceData] = useState({ conditions: [], insights: [] });
   const [adminEmail, setAdminEmail] = useState(null);
@@ -477,6 +479,11 @@ function App() {
   React.useEffect(() => {
     if (isAuthenticated) {
         fetchPatientData();
+        const tourCompleted = localStorage.getItem('nexos_mobile_tour_completed');
+        if (!tourCompleted) {
+            setShowMobileTour(true);
+            setTourStep(1);
+        }
     }
   }, [isAuthenticated]);
 
@@ -1144,6 +1151,15 @@ function App() {
           </div>
 
           <div className="top-actions">
+            <div 
+              className="mobile-guide-badge"
+              onClick={() => { setShowMobileTour(true); setTourStep(1); }}
+              style={{ marginRight: '0.25rem' }}
+            >
+              <span className="material-icons-round" style={{ fontSize: '0.95rem' }}>explore</span>
+              <span>Tour</span>
+            </div>
+
             <div 
               className={`header-action-btn ${activeTab === 'search' ? 'active' : ''}`}
               onClick={() => setActiveTab('search')}
@@ -2288,11 +2304,11 @@ function App() {
       )}
 
       {/* ── Mobile Bottom Navigation Bar ── */}
-      <nav className="bottom-nav">
+      <nav className={`bottom-nav ${showMobileTour ? 'tour-active' : ''}`}>
         <div className="bottom-nav-inner">
           {/* Dashboard */}
           <div
-            className={`bottom-nav-item ${activeTab === 'symptoms' ? 'active' : ''}`}
+            className={`bottom-nav-item ${activeTab === 'symptoms' ? 'active' : ''} ${showMobileTour && tourStep === 2 ? 'tour-highlight' : ''}`}
             onClick={() => setActiveTab('symptoms')}
           >
             <span className="material-icons-round">home</span>
@@ -2301,7 +2317,7 @@ function App() {
 
           {/* Medications */}
           <div
-            className={`bottom-nav-item ${activeTab === 'meds' ? 'active' : ''}`}
+            className={`bottom-nav-item ${activeTab === 'meds' ? 'active' : ''} ${showMobileTour && tourStep === 3 ? 'tour-highlight' : ''}`}
             onClick={() => setActiveTab('meds')}
           >
             <span className="material-icons-round">medication</span>
@@ -2310,7 +2326,7 @@ function App() {
 
           {/* Emergency — Centre FAB */}
           <div
-            className={`bottom-nav-emergency ${activeTab === 'emergency' ? 'active' : ''}`}
+            className={`bottom-nav-emergency ${activeTab === 'emergency' ? 'active' : ''} ${showMobileTour && tourStep === 4 ? 'tour-highlight' : ''}`}
             onMouseDown={startEmergencyHold}
             onMouseUp={cancelEmergencyHold}
             onMouseLeave={cancelEmergencyHold}
@@ -2337,7 +2353,7 @@ function App() {
 
           {/* Planner */}
           <div
-            className={`bottom-nav-item ${activeTab === 'planner' ? 'active' : ''}`}
+            className={`bottom-nav-item ${activeTab === 'planner' ? 'active' : ''} ${showMobileTour && tourStep === 5 ? 'tour-highlight' : ''}`}
             onClick={() => setActiveTab('planner')}
           >
             <span className="material-icons-round">calendar_today</span>
@@ -2346,7 +2362,7 @@ function App() {
 
           {/* Profile */}
           <div
-            className={`bottom-nav-item ${activeTab === 'profile' ? 'active' : ''}`}
+            className={`bottom-nav-item ${activeTab === 'profile' ? 'active' : ''} ${showMobileTour && tourStep === 6 ? 'tour-highlight' : ''}`}
             onClick={() => setActiveTab('profile')}
           >
             <span className="material-icons-round">person_outline</span>
@@ -2411,6 +2427,179 @@ function App() {
               {syncStatusMsg}
             </p>
           )}
+        </div>
+      )}
+
+      {/* ── Mobile Navigation Tour Guide ── */}
+      {showMobileTour && (
+        <div 
+          className="mobile-guide-overlay" 
+          onClick={() => { setShowMobileTour(false); localStorage.setItem('nexos_mobile_tour_completed', 'true'); }}
+        >
+          <div className={`mobile-guide-card ${tourStep > 1 ? 'pointing' : ''}`} onClick={e => e.stopPropagation()}>
+            <div className="mobile-guide-header">
+              <span className="guide-step-indicator">Step {tourStep} of 6</span>
+              <button 
+                className="guide-close-btn" 
+                onClick={() => { setShowMobileTour(false); localStorage.setItem('nexos_mobile_tour_completed', 'true'); }}
+              >
+                <span className="material-icons-round">close</span>
+              </button>
+            </div>
+            
+            <div className="mobile-guide-body">
+              <div className="guide-illustration-wrapper">
+                {tourStep === 1 && (
+                  <svg width="200" height="150" viewBox="0 0 200 150" fill="none" className="svg-float">
+                    <circle cx="100" cy="75" r="60" stroke="rgba(67, 97, 238, 0.15)" strokeWidth="2" strokeDasharray="6 6" />
+                    <circle cx="100" cy="75" r="45" stroke="rgba(129, 140, 248, 0.2)" strokeWidth="1.5" className="svg-rotate" style={{transformOrigin: 'center'}} />
+                    <circle cx="45" cy="50" r="6" fill="#ef4444" className="svg-pulse" />
+                    <circle cx="155" cy="100" r="5" fill="#10b981" />
+                    <circle cx="140" cy="40" r="7" fill="var(--primary)" />
+                    <rect x="75" y="20" width="50" height="110" rx="10" fill="var(--bg-card)" stroke="var(--primary)" strokeWidth="3" style={{filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.15))'}} />
+                    <rect x="80" y="30" width="40" height="90" rx="6" fill="rgba(67, 97, 238, 0.05)" />
+                    <rect x="94" y="24" width="12" height="2" rx="1" fill="var(--primary)" opacity="0.5" />
+                    <rect x="92" y="114" width="16" height="2" rx="1" fill="var(--primary)" opacity="0.6" />
+                    <line x1="85" y1="50" x2="115" y2="50" stroke="rgba(67, 97, 238, 0.2)" strokeWidth="2" />
+                    <line x1="85" y1="65" x2="105" y2="65" stroke="rgba(67, 97, 238, 0.2)" strokeWidth="2" />
+                    <line x1="85" y1="80" x2="110" y2="80" stroke="rgba(67, 97, 238, 0.2)" strokeWidth="2" />
+                  </svg>
+                )}
+                {tourStep === 2 && (
+                  <svg width="200" height="150" viewBox="0 0 200 150" fill="none" className="svg-float">
+                    <rect x="30" y="20" width="140" height="110" rx="16" fill="rgba(67, 97, 238, 0.04)" stroke="var(--border)" strokeWidth="1.5" />
+                    <path d="M 40 75 Q 60 75 70 75 L 75 50 L 80 100 L 85 75 Q 95 75 110 75 L 115 60 L 120 90 L 125 75 L 160 75" stroke="rgba(16, 185, 129, 0.25)" strokeWidth="2" strokeLinecap="round" />
+                    <path d="M 100 50 C 95 40, 80 40, 80 55 C 80 70, 100 85, 100 88 C 100 85, 120 70, 120 55 C 120 40, 105 40, 100 50 Z" fill="#ef4444" className="svg-pulse" style={{transformOrigin: '100px 60px'}} />
+                    <circle cx="50" cy="110" r="8" fill="#10b981" />
+                    <path d="M 47 110 L 49 112 L 53 108" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="150" cy="40" r="8" fill="var(--primary)" />
+                    <path d="M 147 40 L 149 42 L 153 38" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                )}
+                {tourStep === 3 && (
+                  <svg width="200" height="150" viewBox="0 0 200 150" fill="none" className="svg-float">
+                    <circle cx="100" cy="75" r="45" fill="rgba(99, 102, 241, 0.05)" stroke="rgba(99, 102, 241, 0.15)" strokeWidth="2" strokeDasharray="5 5" />
+                    <line x1="100" y1="75" x2="100" y2="45" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" strokeLinecap="round" className="svg-rotate" style={{transformOrigin: '100px 75px'}} />
+                    <line x1="100" y1="75" x2="120" y2="75" stroke="rgba(99, 102, 241, 0.3)" strokeWidth="2" strokeLinecap="round" />
+                    <g transform="translate(100, 75) rotate(-35) translate(-35, -15)">
+                      <rect x="0" y="0" width="35" height="30" rx="15" fill="var(--primary)" />
+                      <rect x="35" y="0" width="35" height="30" rx="15" fill="#a5b4fc" />
+                      <path d="M 10 7 Q 20 12 35 12 L 60 12" stroke="white" strokeWidth="2" opacity="0.3" strokeLinecap="round" />
+                    </g>
+                    <circle cx="60" cy="40" r="3" fill="#fbbf24" className="svg-pulse" />
+                    <circle cx="145" cy="110" r="4" fill="#fbbf24" />
+                  </svg>
+                )}
+                {tourStep === 4 && (
+                  <svg width="200" height="150" viewBox="0 0 200 150" fill="none">
+                    <circle cx="100" cy="75" r="65" stroke="#ef4444" strokeWidth="1.5" opacity="0.15" className="svg-pulse" style={{transformOrigin: 'center'}} />
+                    <circle cx="100" cy="75" r="50" stroke="#ef4444" strokeWidth="2" opacity="0.35" className="svg-pulse" style={{transformOrigin: 'center', animationDelay: '0.5s'}} />
+                    <circle cx="100" cy="75" r="35" fill="#ef4444" stroke="#fee2e2" strokeWidth="3" />
+                    <text x="100" y="82" fill="white" fontSize="18" fontWeight="900" textAnchor="middle" letterSpacing="1px">SOS</text>
+                    <g transform="translate(130, 40)">
+                      <circle cx="0" cy="0" r="10" fill="#ef4444" />
+                      <line x1="-5" y1="0" x2="5" y2="0" stroke="white" strokeWidth="2" />
+                      <line x1="0" y1="-5" x2="0" y2="5" stroke="white" strokeWidth="2" />
+                    </g>
+                  </svg>
+                )}
+                {tourStep === 5 && (
+                  <svg width="200" height="150" viewBox="0 0 200 150" fill="none" className="svg-float">
+                    <rect x="40" y="20" width="120" height="110" rx="12" fill="var(--bg-card)" stroke="var(--border)" strokeWidth="1.5" style={{filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.08))'}} />
+                    <path d="M 40 32 L 160 32" stroke="rgba(99, 102, 241, 0.15)" strokeWidth="20" strokeLinecap="square" />
+                    <circle cx="55" cy="32" r="5" fill="#3b82f6" />
+                    <circle cx="70" cy="32" r="5" fill="#10b981" />
+                    <g transform="translate(50, 55)">
+                      <circle cx="10" cy="10" r="7" fill="#10b981" />
+                      <path d="M 7 10 L 9 12 L 13 8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                      <line x1="25" y1="10" x2="90" y2="10" stroke="var(--text-muted)" strokeWidth="3" opacity="0.3" strokeLinecap="round" />
+                      <circle cx="10" cy="30" r="7" fill="#10b981" />
+                      <path d="M 7 30 L 9 32 L 13 28" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                      <line x1="25" y1="30" x2="80" y2="30" stroke="var(--text-muted)" strokeWidth="3" opacity="0.3" strokeLinecap="round" />
+                      <circle cx="10" cy="50" r="7" stroke="rgba(99, 102, 241, 0.5)" strokeWidth="1.5" />
+                      <line x1="25" y1="50" x2="95" y2="50" stroke="var(--text-muted)" strokeWidth="3" opacity="0.3" strokeLinecap="round" />
+                    </g>
+                  </svg>
+                )}
+                {tourStep === 6 && (
+                  <svg width="200" height="150" viewBox="0 0 200 150" fill="none" className="svg-float">
+                    <circle cx="100" cy="75" r="55" stroke="rgba(16, 185, 129, 0.15)" strokeWidth="1.5" strokeDasharray="4 4" />
+                    <path d="M 100 30 Q 135 30 140 55 Q 140 95 100 120 Q 60 95 60 55 Q 65 30 100 30 Z" fill="rgba(16, 185, 129, 0.05)" stroke="#10b981" strokeWidth="2.5" style={{filter: 'drop-shadow(0 8px 20px rgba(16, 185, 129, 0.2))'}} />
+                    <g transform="translate(87, 57)">
+                      <path d="M 6 10 C 6 2, 20 2, 20 10 L 20 15 L 6 15 Z" stroke="#10b981" strokeWidth="2.5" fill="none" />
+                      <rect x="0" y="14" width="26" height="20" rx="5" fill="#10b981" />
+                      <circle cx="13" cy="22" r="3" fill="white" />
+                      <path d="M 13 24 L 13 30" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                    </g>
+                  </svg>
+                )}
+              </div>
+              
+              <h3 className="guide-step-title">
+                {tourStep === 1 && "Welcome to Nexos Mobile!"}
+                {tourStep === 2 && "1. Home & Daily Check-In"}
+                {tourStep === 3 && "2. Medications Locker"}
+                {tourStep === 4 && "3. Central SOS Beacon"}
+                {tourStep === 5 && "4. Daily Health Planner"}
+                {tourStep === 6 && "5. Bio-Profile Security"}
+              </h3>
+              
+              <p className="guide-step-text">
+                {tourStep === 1 && "NEXOS brings clinical-grade AI diagnostics, health vitals charts, medication logging, and advanced safety protocols right to your mobile device."}
+                {tourStep === 2 && "Tap Home to check daily symptoms, review AI health assessments, scan body metrics, and complete clinical-grade check-ins."}
+                {tourStep === 3 && "Track your prescriptions, log schedules, and view dosage notifications. Easily record daily multivitamin and clinical prescriptions."}
+                {tourStep === 4 && "Press and hold the SOS button for 3 seconds to engage Emergency Protocols. This broadcasts live GPS coordinates and vitals alerts to saved emergency contacts."}
+                {tourStep === 5 && "Schedule doctor appointments, monitor custom medical logs, and coordinate wellness targets in a simplified planner timeline."}
+                {tourStep === 6 && "Safeguard crucial biological details. Edit emergency contacts, lock key login emails for high security, and update health cards safely."}
+              </p>
+            </div>
+            
+            <div className="mobile-guide-footer">
+              <button 
+                className="guide-btn-skip" 
+                onClick={() => { setShowMobileTour(false); localStorage.setItem('nexos_mobile_tour_completed', 'true'); }}
+              >
+                Skip
+              </button>
+              
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {tourStep > 1 && (
+                  <button className="guide-btn-back" onClick={() => setTourStep(prev => prev - 1)}>
+                    Back
+                  </button>
+                )}
+                <button 
+                  className="guide-btn-next" 
+                  onClick={() => {
+                    if (tourStep < 6) {
+                      setTourStep(prev => prev + 1);
+                    } else {
+                      setShowMobileTour(false);
+                      localStorage.setItem('nexos_mobile_tour_completed', 'true');
+                    }
+                  }}
+                >
+                  {tourStep === 6 ? "Let's Go!" : 'Next'}
+                  <span className="material-icons-round" style={{ fontSize: '1.1rem' }}>
+                    {tourStep === 6 ? 'check_circle' : 'chevron_right'}
+                  </span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Dynamic Pointing Arrow */}
+            {tourStep > 1 && (
+              <div 
+                className="guide-pointing-arrow" 
+                style={{
+                  left: tourStep === 2 ? '10%' :
+                        tourStep === 3 ? '30%' :
+                        tourStep === 4 ? '50%' :
+                        tourStep === 5 ? '70%' : '90%'
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
 
