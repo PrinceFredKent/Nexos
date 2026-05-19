@@ -345,7 +345,15 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
             <div className="info-content-elite">
               <label>User Name</label>
               {isEditing ? (
-                <input type="text" name="username" value={editData.username || ''} onChange={handleChange} className="profile-input-elite" />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <input 
+                    type="text" name="username" value={editData.username || ''} 
+                    className="profile-input-elite" 
+                    disabled 
+                    style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', cursor: 'not-allowed', paddingRight: '2.5rem', width: '100%' }} 
+                  />
+                  <span className="material-icons-round" style={{ position: 'absolute', right: '1rem', color: 'var(--text-muted)', fontSize: '1.1rem' }}>lock</span>
+                </div>
               ) : (
                 <p>{patient.username}</p>
               )}
@@ -357,7 +365,15 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
             <div className="info-content-elite">
               <label>Email Address</label>
               {isEditing ? (
-                <input type="email" name="email" value={editData.email || ''} onChange={handleChange} className="profile-input-elite" />
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <input 
+                    type="email" name="email" value={editData.email || ''} 
+                    className="profile-input-elite" 
+                    disabled 
+                    style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', cursor: 'not-allowed', paddingRight: '2.5rem', width: '100%' }} 
+                  />
+                  <span className="material-icons-round" style={{ position: 'absolute', right: '1rem', color: 'var(--text-muted)', fontSize: '1.1rem' }}>lock</span>
+                </div>
               ) : (
                 <p>{patient.email || 'No email provided'}</p>
               )}

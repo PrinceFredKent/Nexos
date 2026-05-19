@@ -160,7 +160,6 @@ class UserUpdate(BaseModel):
     emergency_contact_phone: Optional[str] = None
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
-    username: Optional[str] = None
     phone: Optional[str] = None
 
 class UserLogin(BaseModel):
@@ -816,13 +815,6 @@ async def update_profile(update: UserUpdate, background_tasks: BackgroundTasks, 
         
     # Update only provided fields
     update_data = update.dict(exclude_unset=True)
-    new_username = update_data.get("username")
-    
-    # Check if new username is already taken
-    if new_username and new_username != user.username:
-        existing = db.query(DBUser).filter(DBUser.username == new_username).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Username already taken")
 
     for key, value in update_data.items():
         setattr(user, key, value)
@@ -852,10 +844,6 @@ async def update_profile(update: UserUpdate, background_tasks: BackgroundTasks, 
         "birth_date": str(user.birth_date) if user.birth_date else None,
     }
     
-    # If username changed, issue a new token
-    if new_username:
-        response_data["access_token"] = create_access_token(data={"sub": user.username})
-        
     return response_data
 
 @app.get("/medications")
