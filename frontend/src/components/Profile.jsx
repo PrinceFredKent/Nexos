@@ -350,9 +350,9 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
                     type="text" name="username" value={editData.username || ''} 
                     className="profile-input-elite" 
                     disabled 
-                    style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', cursor: 'not-allowed', paddingRight: '2.5rem', width: '100%' }} 
+                    style={{ paddingRight: '2.5rem' }} 
                   />
-                  <span className="material-icons-round" style={{ position: 'absolute', right: '1rem', color: 'var(--text-muted)', fontSize: '1.1rem' }}>lock</span>
+                  <span className="material-icons-round" style={{ position: 'absolute', right: '1rem', color: 'var(--profile-muted)', fontSize: '1.1rem' }}>lock</span>
                 </div>
               ) : (
                 <p>{patient.username}</p>
@@ -370,9 +370,9 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
                     type="email" name="email" value={editData.email || ''} 
                     className="profile-input-elite" 
                     disabled 
-                    style={{ background: 'var(--bg-main)', color: 'var(--text-muted)', cursor: 'not-allowed', paddingRight: '2.5rem', width: '100%' }} 
+                    style={{ paddingRight: '2.5rem' }} 
                   />
-                  <span className="material-icons-round" style={{ position: 'absolute', right: '1rem', color: 'var(--text-muted)', fontSize: '1.1rem' }}>lock</span>
+                  <span className="material-icons-round" style={{ position: 'absolute', right: '1rem', color: 'var(--profile-muted)', fontSize: '1.1rem' }}>lock</span>
                 </div>
               ) : (
                 <p>{patient.email || 'No email provided'}</p>

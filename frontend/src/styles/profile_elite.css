@@ -350,6 +350,19 @@ body.dark-theme .profile-input-elite:focus {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.profile-input-elite:disabled {
+  background: #f1f5f9;
+  color: var(--profile-muted);
+  cursor: not-allowed;
+  border-color: rgba(0, 0, 0, 0.03);
+}
+
+body.dark-theme .profile-input-elite:disabled {
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--profile-muted);
+  border-color: rgba(255, 255, 255, 0.03);
+}
+
 .profile-save-bar {
   position: fixed;
   bottom: 95px; /* Clear the bottom navigation */
