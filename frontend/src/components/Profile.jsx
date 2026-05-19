@@ -256,7 +256,7 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
   };
 
   return (
-    <div className="profile-elite-wrapper fade-in">
+    <div className={`profile-elite-wrapper fade-in ${isEditing ? 'editing-mode' : ''}`}>
       {/* ── Hero Header ── */}
       <div className="profile-hero-elite">
         {/* Background Photo */}

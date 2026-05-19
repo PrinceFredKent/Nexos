@@ -17,7 +17,11 @@
   font-family: 'Outfit', sans-serif;
   padding-bottom: 5rem;
   color: var(--profile-text-light);
-  transition: background 0.3s ease;
+  transition: background 0.3s ease, padding-bottom 0.3s ease;
+}
+
+.profile-elite-wrapper.editing-mode {
+  padding-bottom: 14rem;
 }
 
 /* Support for Dark Theme */
