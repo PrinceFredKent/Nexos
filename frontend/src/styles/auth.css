@@ -1332,6 +1332,24 @@ body:not(.dark-theme) {
   }
 }
 
+.auth-top-buttons-group {
+  position: absolute;
+  top: 1.5rem;
+  right: 2rem;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0.5rem !important;
+  align-items: center;
+  z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .auth-top-buttons-group {
+    top: 1rem;
+    right: 1.25rem;
+  }
+}
+
 .skip-btn-elite {
   background: rgba(67, 97, 238, 0.15);
   border: 1.5px solid rgba(67, 97, 238, 0.35);
@@ -1442,5 +1460,76 @@ body.dark-theme .auth-loading-text {
 @keyframes pulseText {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* ── Bottom Cancel Button ── */
+.btn-cancel-bottom {
+  flex: 1;
+  background: rgba(239, 68, 68, 0.05) !important;
+  border: 1.5px solid rgba(239, 68, 68, 0.35) !important;
+  color: #ef4444 !important;
+  margin: 0 !important;
+  padding: 0.85rem !important;
+  border-radius: 50px !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.btn-cancel-bottom:hover {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+}
+
+.btn-cancel-bottom:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* ── Bottom Skip Button ── */
+.btn-skip-bottom {
+  flex: 1;
+  background: rgba(67, 97, 238, 0.05) !important;
+  border: 1.5px solid rgba(67, 97, 238, 0.35) !important;
+  color: var(--auth-accent) !important;
+  margin: 0 !important;
+  padding: 0.85rem !important;
+  border-radius: 50px !important;
+  font-size: 0.95rem !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.dark-theme .btn-skip-bottom {
+  color: #a3b5ff !important;
+}
+
+.btn-skip-bottom:hover {
+  background: var(--auth-accent) !important;
+  border-color: var(--auth-accent) !important;
+  color: #ffffff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+}
+
+body.dark-theme .btn-skip-bottom:hover {
+  background: white !important;
+  border-color: white !important;
+  color: #0b1120 !important;
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.25);
+}
+
+.btn-skip-bottom:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+.btn-skip-bottom:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
 }
 

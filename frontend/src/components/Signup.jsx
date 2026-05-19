@@ -319,44 +319,8 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
             <p className="auth-loading-text">Securing your clinical profile...</p>
           </div>
         )}
-        {(step === 2 || step === 3) && (
-          <div style={{ position: 'absolute', top: '-33px', right: '-1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
-            {isCompletingProfile && (
-              <button 
-                type="button" 
-                className="cancel-btn-elite" 
-                onClick={() => onSignupAutoLogin()}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
-                  color: '#ef4444',
-                  padding: '0.45rem 1rem',
-                  borderRadius: '20px',
-                  fontSize: '0.8rem',
-                  fontWeight: '800',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.08)'
-                }}
-                onMouseOver={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#ffffff'; }}
-                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.color = '#ef4444'; }}
-              >
-                Cancel
-              </button>
-            )}
-            <button 
-              type="button" 
-              className="skip-btn-elite" 
-              onClick={() => handleSignup()}
-              disabled={isSubmitting}
-            >
-              <span>{isSubmitting ? 'Skipping...' : 'Skip for Now'}</span>
-              {!isSubmitting && <span className="material-icons-round" style={{ fontSize: '1.1rem' }}>chevron_right</span>}
-            </button>
-          </div>
-        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', width: '100%', gap: '0.5rem' }}>
-          <h2 style={{ margin: 0, textAlign: 'left', paddingRight: '3.5rem' }}>
+          <h2 style={{ margin: 0, textAlign: 'left' }}>
             {isCompletingProfile ? 'Complete Profile' : (step === 1 ? 'Create Elite Account' : (step === 2 ? 'Clinical Vitals' : (step === 3 ? 'Emergency Protocol' : 'Identity Verified!')))}
           </h2>
         </div>
@@ -487,11 +451,31 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                   <label htmlFor="height">Height (cm)</label>
                 </div>
             </div>
-            <div style={{display: 'flex', gap: '1rem'}}>
-                {!isCompletingProfile && (
-                    <button className="btn-secondary" style={{flex: 1}} onClick={() => setStep(1)}>Back</button>
-                )}
-                <button className="btn-primary" style={{flex: isCompletingProfile ? 1 : 2}} onClick={handleNext}>Next: Safety</button>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem'}}>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                    {!isCompletingProfile && (
+                        <button className="btn-secondary" style={{flex: 1, margin: 0}} onClick={() => setStep(1)}>Back</button>
+                    )}
+                    <button className="btn-primary" style={{flex: isCompletingProfile ? 1 : 2, margin: 0}} onClick={handleNext}>Next: Safety</button>
+                </div>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                    {isCompletingProfile && (
+                        <button 
+                          className="btn-cancel-bottom" 
+                          onClick={() => onSignupAutoLogin()}
+                        >
+                          Cancel
+                        </button>
+                    )}
+                    <button 
+                      className="btn-skip-bottom" 
+                      style={{flex: isCompletingProfile ? 1 : 2}} 
+                      onClick={() => handleSignup()}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Skipping...' : 'Skip for Now'}
+                    </button>
+                </div>
             </div>
           </div>
         )}
@@ -514,9 +498,29 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
               <input type="tel" id="emergPhone" placeholder=" " value={formData.emergencyPhone} onChange={(e) => setFormData({...formData, emergencyPhone: e.target.value})} />
               <label htmlFor="emergPhone">Emergency Contact Phone</label>
             </div>
-            <div style={{display: 'flex', gap: '1rem'}}>
-                <button className="btn-secondary" style={{flex: 1}} onClick={() => setStep(2)}>Back</button>
-                <button className="btn-primary" style={{flex: 2}} onClick={handleSignup}>Finalize Profile</button>
+            <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem'}}>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                    <button className="btn-secondary" style={{flex: 1, margin: 0}} onClick={() => setStep(2)}>Back</button>
+                    <button className="btn-primary" style={{flex: 2, margin: 0}} onClick={handleSignup}>Finalize Profile</button>
+                </div>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                    {isCompletingProfile && (
+                        <button 
+                          className="btn-cancel-bottom" 
+                          onClick={() => onSignupAutoLogin()}
+                        >
+                          Cancel
+                        </button>
+                    )}
+                    <button 
+                      className="btn-skip-bottom" 
+                      style={{flex: 2}} 
+                      onClick={() => handleSignup()}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Skipping...' : 'Skip for Now'}
+                    </button>
+                </div>
             </div>
           </div>
         )}
