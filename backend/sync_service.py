@@ -108,19 +108,21 @@ async def initial_pull_all(username: str):
     Stage 2: Pull all remaining data for a user from Supabase into local SQLite.
     Runs as a background task after login. Updates progress in _sync_state.
     """
-    if _sync_state["initial_pull_done"]:
-        return  # Already pulled on this device session
+    # Reset in-memory initial pull fields to default/starting state
+    _sync_state["initial_pull_progress"] = 0
+    _sync_state["initial_pull_status"] = "Starting sync..."
+    _sync_state["initial_pull_done"] = False
+    _sync_state["last_error"] = None
 
     cloud = _cloud_db()
     if not cloud:
+        _sync_state["initial_pull_progress"] = 100
+        _sync_state["initial_pull_status"] = "Cloud sync not configured"
         _sync_state["initial_pull_done"] = True
         return
 
     local = LocalSession()
     try:
-        _sync_state["initial_pull_progress"] = 0
-        _sync_state["initial_pull_status"] = "Starting sync..."
-
         # Get user_id from local (should exist after credential pull upserted the user row)
         user_row = local.execute(
             text("SELECT id FROM users WHERE username = :u"), {"u": username}
@@ -128,6 +130,8 @@ async def initial_pull_all(username: str):
 
         if not user_row:
             log.warning("initial_pull_all: user not found locally, aborting.")
+            _sync_state["initial_pull_progress"] = 100
+            _sync_state["initial_pull_status"] = "User not found locally"
             _sync_state["initial_pull_done"] = True
             return
 
@@ -160,6 +164,9 @@ async def initial_pull_all(username: str):
         _sync_state["initial_pull_status"] = "Finalising..."
         await _pull_medication_intakes(cloud, local, user_id)
 
+        # Push local changes to Supabase so that signup info is also pushed immediately
+        await _push_dirty_rows(local, cloud)
+
         _sync_state["initial_pull_progress"] = 100
         _sync_state["initial_pull_status"] = "All data synced!"
         _sync_state["initial_pull_done"] = True
@@ -169,8 +176,9 @@ async def initial_pull_all(username: str):
     except Exception as e:
         log.error(f"Initial pull error: {e}")
         _sync_state["last_error"] = str(e)
-        _sync_state["initial_pull_progress"] = None
-        _sync_state["initial_pull_status"] = "Sync encountered an error"
+        _sync_state["initial_pull_progress"] = 100
+        _sync_state["initial_pull_status"] = f"Sync error: {e}"
+        _sync_state["initial_pull_done"] = True
     finally:
         local.close()
         cloud.close()

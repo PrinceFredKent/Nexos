@@ -360,7 +360,7 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     if new_user.is_verified:
         # Send Welcome Email immediately if verified (Google signup)
         background_tasks.add_task(send_welcome_email, new_user.email, new_user.username)
-        background_tasks.add_task(run_sync)
+        background_tasks.add_task(initial_pull_all, new_user.username)
         access_token = create_access_token(data={"sub": new_user.username})
         return {
             "message": "Welcome to Nexos! Registration complete.",
@@ -549,7 +549,7 @@ async def verify_otp(data: VerifyOTP, background_tasks: BackgroundTasks, db: Ses
     
     # Send Welcome Email
     background_tasks.add_task(send_welcome_email, user.email, user.username)
-    background_tasks.add_task(run_sync)
+    background_tasks.add_task(initial_pull_all, user.username)
     
     access_token = create_access_token(data={"sub": user.username})
     return {
