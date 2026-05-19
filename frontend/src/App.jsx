@@ -457,17 +457,8 @@ function App() {
             if (patientData.email) setAdminEmail(patientData.email);
             
             // Safety: Check if essential vitals are missing (e.g., from an old account or partial Google signup)
-            const isIncomplete = !patientData.gender || 
-                               patientData.gender === 'Not Specified' || 
-                               !patientData.blood_type || 
-                               patientData.blood_type === 'Unknown' ||
-                               !patientData.phone;
-            
-            if (isIncomplete) {
-                setIsProfileIncomplete(true);
-            } else {
-                setIsProfileIncomplete(false);
-            }
+            // We no longer force users into the completion wizard on page load; they can now access the dashboard
+            // freely and complete their details via the interactive reminder banner at their own pace.
 
             // All secondary fetches run in parallel
             fetchMeds();
@@ -1005,6 +996,7 @@ function App() {
         isCompletingProfile={true}
         onSignupAutoLogin={() => {
           fetchPatientData(); // Re-fetch to clear incomplete state and update patient info
+          setIsProfileIncomplete(false); // Direct return to the dashboard
         }}
       />
     );
@@ -1525,6 +1517,7 @@ function App() {
               isCheckerCollapsed={isCheckerCollapsed}
               setIsCheckerCollapsed={setIsCheckerCollapsed}
               intelligenceData={intelligenceData}
+              setIsProfileIncomplete={setIsProfileIncomplete}
             />
           )}
 

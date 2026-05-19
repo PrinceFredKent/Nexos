@@ -15,7 +15,8 @@ const Dashboard = ({
   setActiveTab,
   isCheckerCollapsed,
   setIsCheckerCollapsed,
-  intelligenceData
+  intelligenceData,
+  setIsProfileIncomplete
 }) => {
 
   const getGreeting = () => {
@@ -87,6 +88,23 @@ const Dashboard = ({
 
       {/* ── Main Layout ── */}
       <div className="dash-main-grid">
+        {/* ── Profile Incomplete Reminder Banner ── */}
+        {(!patient?.weight || !patient?.height || !patient?.emergency_contact_name) && (
+          <div className="profile-reminder-banner-elite fade-in" style={{ marginBottom: '0.5rem' }}>
+            <div className="reminder-left">
+              <span className="material-icons-round reminder-icon">warning_amber</span>
+              <div className="reminder-text">
+                <h4>Complete Your Clinical Profile</h4>
+                <p>Add your vitals and emergency contact to enable accurate AI analysis and health risk scoring.</p>
+              </div>
+            </div>
+            <button className="btn-reminder-action" onClick={() => setIsProfileIncomplete(true)}>
+              <span>Set Up Now</span>
+              <span className="material-icons-round">arrow_forward</span>
+            </button>
+          </div>
+        )}
+
         {/* Symptom Checker - NOW AT THE VERY TOP */}
         <div className="dash-ai-section">
           {/* AI Consultation */}

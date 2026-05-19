@@ -41,6 +41,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     username: ''
   });
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Close dropdowns when clicking outside
   const closeDropdowns = () => setOpenDropdown(null);
@@ -154,12 +155,15 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
   const handleSignup = async (e) => {
     if (e) e.preventDefault();
+    if (isSubmitting) return;
     
     if (isCompletingProfile && !formData.phone) {
         setError('Phone Number is required.');
         setStep(2);
         return;
     }
+
+    setIsSubmitting(true);
 
     const endpoint = isCompletingProfile ? `${API_BASE_URL}/update-profile` : `${API_BASE_URL}/signup`;
     const method = isCompletingProfile ? 'PATCH' : 'POST';
@@ -235,6 +239,8 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     } catch (err) {
       console.error("Signup error:", err);
       setError('Connection error: Is the backend running on port 8000?');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -306,8 +312,54 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
   return (
     <div onClick={closeDropdowns}>
     <AuthLayout reverse={false} step={step} image={currentImage}>
-      <div className="auth-form">
-        <h2>{isCompletingProfile ? 'Complete Profile' : (step === 1 ? 'Create Elite Account' : (step === 2 ? 'Clinical Vitals' : (step === 3 ? 'Emergency Protocol' : 'Identity Verified!')))}</h2>
+      <div className="auth-form" style={{ position: 'relative' }}>
+        {isSubmitting && (
+          <div className="auth-loading-overlay">
+            <div className="auth-spinner"></div>
+            <p className="auth-loading-text">Securing your clinical profile...</p>
+          </div>
+        )}
+        {(step === 2 || step === 3) && (
+          <div style={{ position: 'absolute', top: '-33px', right: '-1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
+            {isCompletingProfile && (
+              <button 
+                type="button" 
+                className="cancel-btn-elite" 
+                onClick={() => onSignupAutoLogin()}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  padding: '0.45rem 1rem',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.08)'
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = '#ffffff'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.color = '#ef4444'; }}
+              >
+                Cancel
+              </button>
+            )}
+            <button 
+              type="button" 
+              className="skip-btn-elite" 
+              onClick={() => handleSignup()}
+              disabled={isSubmitting}
+            >
+              <span>{isSubmitting ? 'Skipping...' : 'Skip for Now'}</span>
+              {!isSubmitting && <span className="material-icons-round" style={{ fontSize: '1.1rem' }}>chevron_right</span>}
+            </button>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', width: '100%', gap: '0.5rem' }}>
+          <h2 style={{ margin: 0, textAlign: 'left', paddingRight: '3.5rem' }}>
+            {isCompletingProfile ? 'Complete Profile' : (step === 1 ? 'Create Elite Account' : (step === 2 ? 'Clinical Vitals' : (step === 3 ? 'Emergency Protocol' : 'Identity Verified!')))}
+          </h2>
+        </div>
         <p>
             {isCompletingProfile ? 'Some essential health metrics are missing from your profile. Please complete them to ensure accurate AI analysis.' : 
             (step === 1 ? 'Initialize your clinical-grade health profile and join NEXOS.' : 
