@@ -99,3 +99,80 @@ def get_cloud_db():
 
 # Keep a backwards-compatible alias so existing imports still work
 engine = local_engine
+
+
+# ─── Outbox Pattern Hook ──────────────────────────────────────────────────────
+
+import json
+from sqlalchemy import text
+
+TRACKED_TABLES = {"users", "medications", "cycle_logs", "appointments", "symptom_logs", "medication_intakes"}
+
+@event.listens_for(LocalSession, "after_flush")
+def receive_after_flush(session, flush_context):
+    """
+    Hook into local SQLite writes to automatically queue offline changes into the outbox.
+    This only catches ORM modifications (API endpoints), not raw SQL executes (sync service).
+    """
+    outbox_entries = []
+    
+    for obj in session.new:
+        if getattr(obj, '__tablename__', '') in TRACKED_TABLES:
+            try:
+                row_id = getattr(obj, 'id', None)
+                if row_id is None:
+                    continue
+            except AttributeError:
+                continue
+            
+            # Serialize fields for conflict resolution or debugging
+            mod_fields = {}
+            for c in obj.__table__.columns:
+                val = getattr(obj, c.name)
+                if isinstance(val, (str, int, float, bool, type(None))):
+                    mod_fields[c.name] = val
+            
+            outbox_entries.append({
+                "table_name": obj.__tablename__,
+                "row_id": row_id,
+                "action": "INSERT",
+                "modified_fields": json.dumps(mod_fields)
+            })
+            
+    for obj in session.dirty:
+        if getattr(obj, '__tablename__', '') in TRACKED_TABLES and session.is_modified(obj):
+            try:
+                row_id = getattr(obj, 'id', None)
+                if row_id is None:
+                    continue
+            except AttributeError:
+                continue
+            
+            outbox_entries.append({
+                "table_name": obj.__tablename__,
+                "row_id": row_id,
+                "action": "UPDATE",
+                "modified_fields": None
+            })
+            
+    for obj in session.deleted:
+        if getattr(obj, '__tablename__', '') in TRACKED_TABLES:
+            try:
+                row_id = getattr(obj, 'id', None)
+                if row_id is None:
+                    continue
+            except AttributeError:
+                continue
+                
+            outbox_entries.append({
+                "table_name": obj.__tablename__,
+                "row_id": row_id,
+                "action": "DELETE",
+                "modified_fields": None
+            })
+            
+    if outbox_entries:
+        session.connection().execute(
+            text("INSERT INTO local_changes_outbox (table_name, row_id, action, modified_fields) VALUES (:table_name, :row_id, :action, :modified_fields)"),
+            outbox_entries
+        )

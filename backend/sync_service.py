@@ -283,50 +283,36 @@ async def run_sync():
 
 
 async def _push_dirty_rows(local: Session, cloud: Session) -> int:
-    """Push rows where last_modified > synced_at (or synced_at is NULL) to Supabase."""
+    """Push rows from local_changes_outbox to Supabase."""
     if not cloud:
         return 0
-
-    tables = [
-        ("users", ["id", "username", "email", "hashed_password", "phone", "birth_date",
-                   "age", "gender", "blood_type", "weight", "height", "allergies",
-                   "chronic_conditions", "emergency_contact_name", "emergency_contact_phone",
-                   "profile_picture", "google_id", "is_verified", "otp_code", "otp_expiry", "last_modified"]),
-        ("medications", ["id", "user_id", "name", "dosage", "frequency", "time",
-                         "icon", "stock", "total_stock", "last_taken", "last_modified"]),
-        ("cycle_logs", ["id", "user_id", "period_start", "period_end", "cycle_length",
-                        "notes", "last_modified"]),
-        ("appointments", ["id", "user_id", "title", "description", "location",
-                          "appointment_date", "type", "status", "created_at", "last_modified"]),
-        ("symptom_logs", ["id", "user_id", "symptoms", "top_condition", "risk_level",
-                          "explanation", "timestamp", "last_modified"]),
-        ("medication_intakes", ["id", "medication_id", "slot", "taken_at"]),
-    ]
 
     total_pushed = 0
     now = datetime.utcnow()
 
-    for table, cols in tables:
-        try:
-            has_last_modified = "last_modified" in cols
-            if has_last_modified:
-                query = f"""
-                    SELECT * FROM {table}
-                    WHERE synced_at IS NULL
-                       OR (last_modified IS NOT NULL AND last_modified > synced_at)
-                """
-            else:
-                query = f"""
-                    SELECT * FROM {table}
-                    WHERE synced_at IS NULL
-                """
+    try:
+        # Get all pending changes from outbox, ordered by ID to preserve chronological order
+        outbox_entries = local.execute(
+            text("SELECT * FROM local_changes_outbox ORDER BY id ASC")
+        ).mappings().all()
 
-            dirty_rows = local.execute(text(query)).mappings().all()
-
-            for row in dirty_rows:
-                row_dict = {k: row[k] for k in cols if k in row.keys()}
-
-                # Build PostgreSQL upsert (INSERT ... ON CONFLICT DO UPDATE)
+        for entry in outbox_entries:
+            table = entry["table_name"]
+            row_id = entry["row_id"]
+            action = entry["action"]
+            
+            if action in ("INSERT", "UPDATE"):
+                row = local.execute(
+                    text(f"SELECT * FROM {table} WHERE id = :id"),
+                    {"id": row_id}
+                ).mappings().first()
+                
+                if not row:
+                    # Row was deleted locally after this update was queued, skip it.
+                    local.execute(text("DELETE FROM local_changes_outbox WHERE id = :id"), {"id": entry["id"]})
+                    continue
+                    
+                row_dict = dict(row)
                 col_list = ", ".join(row_dict.keys())
                 placeholders = ", ".join([f":{k}" for k in row_dict.keys()])
                 update_set = ", ".join([f"{k} = EXCLUDED.{k}" for k in row_dict.keys() if k != "id"])
@@ -338,25 +324,33 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
                     """),
                     row_dict
                 )
-
-                # Mark as synced locally
-                local.execute(
-                    text(f"UPDATE {table} SET synced_at = :now WHERE id = :id"),
-                    {"now": now, "id": row["id"]}
+                
+                if "synced_at" in row_dict:
+                    local.execute(
+                        text(f"UPDATE {table} SET synced_at = :now WHERE id = :id"),
+                        {"now": now, "id": row_id}
+                    )
+            elif action == "DELETE":
+                cloud.execute(
+                    text(f"DELETE FROM {table} WHERE id = :id"),
+                    {"id": row_id}
                 )
-                total_pushed += 1
+            
+            # Remove from outbox
+            local.execute(text("DELETE FROM local_changes_outbox WHERE id = :id"), {"id": entry["id"]})
+            total_pushed += 1
 
-            if dirty_rows:
-                cloud.commit()
-                local.commit()
-
-        except Exception as e:
-            log.warning(f"Push failed for {table}: {e}")
-            try:
-                cloud.rollback()
-                local.rollback()
-            except Exception:
-                pass
+        if outbox_entries:
+            cloud.commit()
+            local.commit()
+            
+    except Exception as e:
+        log.warning(f"Push from outbox failed: {e}")
+        try:
+            cloud.rollback()
+            local.rollback()
+        except Exception:
+            pass
 
     _sync_state["pending_push"] = 0
     return total_pushed
@@ -387,6 +381,39 @@ async def _pull_remote_changes(local: Session, cloud: Session) -> int:
 
             for row in rows:
                 row_dict = dict(row)
+                row_id = row_dict["id"]
+                
+                # Conflict Detection for Critical Data
+                if table in ("medications", "symptom_logs"):
+                    local_row = local.execute(
+                        text(f"SELECT * FROM {table} WHERE id = :id"), {"id": row_id}
+                    ).mappings().first()
+                    
+                    if local_row:
+                        in_outbox = local.execute(
+                            text("SELECT 1 FROM local_changes_outbox WHERE table_name = :t AND row_id = :id"),
+                            {"t": table, "id": row_id}
+                        ).first()
+                        
+                        legacy_conflict = local_row.get("last_modified") and local_row.get("synced_at") and local_row["last_modified"] > local_row["synced_at"]
+                        
+                        if in_outbox or legacy_conflict:
+                            import json
+                            local.execute(
+                                text("""
+                                    INSERT INTO sync_conflicts (table_name, row_id, local_data, cloud_data, status)
+                                    VALUES (:t, :id, :local_data, :cloud_data, 'PENDING')
+                                """),
+                                {
+                                    "t": table,
+                                    "id": row_id,
+                                    "local_data": json.dumps(dict(local_row), default=str),
+                                    "cloud_data": json.dumps(row_dict, default=str)
+                                }
+                            )
+                            log.warning(f"Conflict detected for {table} row {row_id}. Skipping pull.")
+                            continue
+
                 cols = ", ".join(row_dict.keys())
                 placeholders = ", ".join([f":{k}" for k in row_dict.keys()])
                 local.execute(
@@ -412,14 +439,13 @@ def estimate_pending_push() -> int:
     """Quick count of unsynced rows — used by /sync-status endpoint."""
     local = LocalSession()
     total = 0
-    for table in ["users", "medications", "cycle_logs", "appointments", "symptom_logs"]:
-        try:
-            count = local.execute(
-                text(f"SELECT COUNT(*) FROM {table} WHERE synced_at IS NULL OR last_modified > synced_at")
-            ).scalar()
-            total += count or 0
-        except Exception:
-            pass
+    try:
+        count = local.execute(
+            text("SELECT COUNT(*) FROM local_changes_outbox")
+        ).scalar()
+        total += count or 0
+    except Exception:
+        pass
     local.close()
     _sync_state["pending_push"] = total
     return total
