@@ -617,6 +617,14 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   width: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, textarea, p.selectable {
+  -webkit-user-select: auto;
+  user-select: auto;
 }
 
 .app-layout {
