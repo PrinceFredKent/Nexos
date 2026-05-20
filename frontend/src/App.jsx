@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import PlannerPage from './pages/PlannerPage';
+import MedicationsPage from './pages/MedicationsPage';
 import { API_BASE_URL } from './config';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -52,12 +55,19 @@ const AnalysisLoading = () => (
 );
 
 function App() {
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activeTab = location.pathname.split('/')[1] || 'dashboard';
+  const setActiveTab = (tab) => {
+    const map = { symptoms: 'dashboard', meds: 'medications', cycle: 'cycle-tracker' };
+    navigate('/' + (map[tab] || tab));
+  };
   const [theme, setTheme] = useState(localStorage.getItem('nexos_theme') || 'system');
   const [isAuthenticated, setIsAuthenticated] = useState(!!(localStorage.getItem('token') || sessionStorage.getItem('token')));
   const [showWelcome, setShowWelcome] = useState(!localStorage.getItem('token') && !sessionStorage.getItem('token') && window.innerWidth < 1025);
   const [userRole, setUserRole] = useState('patient'); // Always patient now
   const [authView, setAuthView] = useState('login'); // 'login' or 'signup'
-  const [activeTab, setActiveTab] = useState('symptoms');
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [availableChips, setAvailableChips] = useState([
     'Headache', 'Fever', 'Fatigue', 'Cough', 'Nausea', 'Aching', 
@@ -857,7 +867,7 @@ function App() {
     }
     if (action.type === 'symptom') {
       toggleSymptom(action.value);
-      setActiveTab('symptoms');
+      setActiveTab('dashboard');
       setSearchTerm('');
     }
     if (action.type === 'med') {
@@ -1093,7 +1103,7 @@ function App() {
         </div>
 
         <nav className="nav-icons">
-              <div className={`nav-icon ${activeTab === 'symptoms' ? 'active' : ''}`} onClick={() => setActiveTab('symptoms')}>
+              <div className={`nav-icon ${activeTab === 'symptoms' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
                 <span className="material-icons-round">home</span>
                 <span className="nav-text">Dashboard</span>
               </div>
@@ -1361,7 +1371,7 @@ function App() {
                       <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
                     </div>
                   </div>
-                  <div className="action-menu-item" onClick={() => { setActiveTab('symptoms'); setIsCheckerCollapsed(false); closeDropdown(); }}>
+                  <div className="action-menu-item" onClick={() => { setActiveTab('dashboard'); setIsCheckerCollapsed(false); closeDropdown(); }}>
                     <span className="material-icons-round">edit_note</span>
                     <div>
                       <h5 style={{ margin: 0 }}>Log Symptoms</h5>
@@ -1518,324 +1528,19 @@ function App() {
             </div>
           )}
 
-          {activeTab === 'symptoms' && (
-            <Dashboard 
-              patient={patient}
-              meds={meds}
-              userEvents={userEvents}
-              analysis={analysis}
-              handleAnalyze={handleAnalyze}
-              selectedSymptoms={selectedSymptoms}
-              toggleSymptom={toggleSymptom}
-              availableChips={availableChips}
-              customSymptom={customSymptom}
-              setCustomSymptom={setCustomSymptom}
-              setActiveTab={setActiveTab}
-              isCheckerCollapsed={isCheckerCollapsed}
-              setIsCheckerCollapsed={setIsCheckerCollapsed}
-              intelligenceData={intelligenceData}
-              setIsProfileIncomplete={setIsProfileIncomplete}
-            />
-          )}
 
-          {activeTab === 'planner' && (
-            <div className="planner-full-section slide-in-bottom" style={{maxWidth: '1000px', margin: '0 auto'}}>
-              <div className="planner-header-card">
-                <div className="schedule-header" style={{margin: 0, padding: 0, border: 'none'}}>
-                  <div className="header-title-group">
-                    <h3>Personal Health Planner</h3>
-                    <div className="ux-prompt-small">Manage your appointments, tests, and routines.</div>
-                  </div>
-                  {userEvents.length > 0 && (
-                    <button className="date-display" onClick={() => openNewEventModal()} style={{border: 'none', cursor: 'pointer', fontFamily: 'inherit'}}>
-                      New Plan
-                    </button>
-                  )}
-                </div>
-              </div>
-
-
-              <div className="planner-agenda-container" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1.5rem'}}>
-                {userEvents.length > 0 ? userEvents.sort((a,b) => new Date(a.appointment_date) - new Date(b.appointment_date)).map(event => {
-                  const typeMap = {
-                    'Appointment': 'type-appointment',
-                    'Exercise': 'type-exercise',
-                    'Lab Test': 'type-lab-test',
-                    'Medication': 'type-medication',
-                    'Other': 'type-other'
-                  };
-                  const typeClass = typeMap[event.type] || 'type-other';
-                  
-                  return (
-                    <div key={event.id} className={`agenda-card-premium ${typeClass} fade-in`}>
-                      <div className={`agenda-date-gradient ${typeClass}`}>
-                         <span style={{fontSize: '0.8rem', opacity: 0.9, fontWeight: 600}}>{new Date(event.appointment_date).toLocaleString('en-US', { month: 'short' })}</span>
-                         <span style={{fontSize: '1.5rem', fontWeight: 800}}>{new Date(event.appointment_date).getDate()}</span>
-                      </div>
-                      <div style={{flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column'}}>
-                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem'}}>
-                           <h4 style={{margin: 0, fontSize: '1.1rem', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '1rem'}}>{event.title}</h4>
-                           <span className={`event-type-badge ${typeClass}`}>{event.type}</span>
-                         </div>
-                         <p style={{fontSize: '0.9rem', margin: 0, color: 'var(--text-muted)', lineHeight: '1.5', flex: 1}}>{event.description}</p>
-                         <div style={{display: 'flex', gap: '1rem', marginTop: '1rem', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600}}>
-                            {event.location && <span style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}><span className="material-icons-round" style={{fontSize: '1.1rem'}}>place</span> {event.location}</span>}
-                            <span style={{display: 'flex', alignItems: 'center', gap: '0.3rem'}}><span className="material-icons-round" style={{fontSize: '1.1rem'}}>schedule</span> {new Date(event.appointment_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                         </div>
-                      </div>
-                       <button className="icon-btn-edit" onClick={() => handleEditEvent(event)} style={{position: 'absolute', bottom: '1.2rem', right: '3.5rem', background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', opacity: 0.4, transition: 'all 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
-                         <span className="material-icons-round">edit_note</span>
-                       </button>
-                       <button className="icon-btn-delete" onClick={() => handleDeleteEvent(event.id)} style={{position: 'absolute', bottom: '1.2rem', right: '1.5rem', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.4, transition: 'all 0.2s'}} onMouseEnter={(e) => e.currentTarget.style.opacity = '1'} onMouseLeave={(e) => e.currentTarget.style.opacity = '0.4'}>
-                         <span className="material-icons-round">delete_outline</span>
-                       </button>
-                    </div>
-                  );
-                }) : (
-                  <div className="planner-empty-premium fade-in">
-                    <div className="empty-illustration-glow">
-                        <div className="illustration-circles"></div>
-                        <span className="material-icons-round illustration-icon">event_note</span>
-                    </div>
-                    <h3>Your Schedule is Clear</h3>
-                    <p style={{color: 'var(--text-muted)', maxWidth: '300px', margin: '0 auto 1.5rem'}}>You don't have any upcoming appointments, tests, or exercises planned.</p>
-                    <button className="btn-primary" onClick={() => openNewEventModal()} style={{padding: '0.8rem 2rem', width: 'max-content', flexShrink: 0}}>
-                        <span className="material-icons-round" style={{marginRight: '0.5rem', fontSize: '1.2rem', verticalAlign: 'middle'}}>add</span> 
-                        Create First Plan
-                    </button>
-                    <style>{`
-                        .empty-illustration-glow {
-                            position: relative;
-                            width: 120px;
-                            height: 120px;
-                            margin: 0 auto 2rem;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                        }
-                        .illustration-icon {
-                            font-size: 3.5rem !important;
-                            color: var(--primary);
-                            z-index: 2;
-                        }
-                        .illustration-circles {
-                            position: absolute;
-                            width: 100%;
-                            height: 100%;
-                            border-radius: 50%;
-                            background: var(--primary-light);
-                            opacity: 0.3;
-                            animation: pulse-ring 3s infinite;
-                        }
-                        @keyframes pulse-ring {
-                            0% { transform: scale(0.8); opacity: 0.3; }
-                            50% { transform: scale(1.1); opacity: 0.1; }
-                            100% { transform: scale(0.8); opacity: 0.3; }
-                        }
-                    `}</style>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'meds' && (
-             <div className="meds-section fade-in">
-               <div className="meds-dashboard">
-                 {/* Today's Schedule Timeline */}
-                 <section className="schedule-container">
-                    <div className="schedule-header">
-                        <div className="header-title-group">
-                            <h3>Today's Medication Plan</h3>
-                            <div className="ux-prompt-small">Stick to your schedule for better health.</div>
-                        </div>
-                        <div className="date-display">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-                    </div>
-                    {meds.length > 0 ? (
-                      <div className="daily-timeline">
-                        {[
-                          { name: 'Morning', icon: 'wb_sunny', color: '#f59e0b' },
-                          { name: 'Noon', icon: 'restaurant', color: '#fbbf24' },
-                          { name: 'Evening', icon: 'wb_twilight', color: '#6366f1' },
-                          { name: 'Bedtime', icon: 'bedtime', color: '#1e1b4b' }
-                        ].map(slot => {
-                          const slotMeds = meds.filter(m => m.time && m.time.split(',').map(t => t.trim()).includes(slot.name));
-                          return (
-                            <div key={slot.name} className={`timeline-slot ${slotMeds.length > 0 ? 'active' : ''}`}>
-                                <div className="slot-header">
-                                    <span className="material-icons-round" style={{color: slot.color}}>{slot.icon}</span>
-                                    <span className="slot-name">{slot.name}</span>
-                                </div>
-                                <div className="slot-meds">
-                                    {slotMeds.length > 0 ? slotMeds.map(med => {
-                                      const isSlotTaken = med.taken_today && med.taken_today.includes(slot.name);
-                                      return (
-                                        <div key={med.id} className={`mini-med-card ${isSlotTaken ? 'taken' : ''}`}>
-                                            <div className="med-symbol" style={{color: isSlotTaken ? '#16a34a' : 'var(--primary)', opacity: isSlotTaken ? 1 : 0.6}}>
-                                                <span className="material-icons-round" style={{fontSize: '1.2rem'}}>
-                                                    {med.icon === 'pill' ? 'medication' : 
-                                                     med.icon === 'liquid' ? 'water_drop' : 
-                                                     med.icon === 'shot' ? 'vaccines' : 
-                                                     med.icon === 'capsule' ? 'medication_liquid' : 'pill'}
-                                                </span>
-                                            </div>
-                                            <div className="med-info">
-                                                <h4>{med.name}</h4>
-                                                <p>{med.dosage}</p>
-                                            </div>
-                                            <button 
-                                                className={`take-btn ${isSlotTaken ? 'active' : ''}`} 
-                                                title={isSlotTaken ? "Dose taken" : "Mark as taken"}
-                                                onClick={() => !isSlotTaken && handleTakeMed(med.id, slot.name)}
-                                                disabled={isSlotTaken}
-                                            >
-                                                <span className="material-icons-round">{isSlotTaken ? 'done_all' : 'check'}</span>
-                                            </button>
-                                        </div>
-                                      );
-                                    }) : (
-                                      <div className="empty-slot-illustration" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem 0', opacity: 0.8 }}>
-                                        <span className="material-icons-round" style={{fontSize: '1.8rem', color: 'var(--primary)', opacity: 0.4, marginBottom: '0.5rem'}}>check_circle_outline</span>
-                                        <p style={{fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', fontWeight: 500}}>No medications</p>
-                                      </div>
-                                    )}
-                                </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div style={{gridColumn: '1/-1', textAlign: 'center', padding: '4rem', opacity: 0.5}}>
-                        <span className="material-icons-round" style={{fontSize: '4rem'}}>calendar_today</span>
-                        <p>No health plans scheduled yet.</p>
-                      </div>
-                    )}
-                 </section>
-
-                 {/* Medication Cabinet */}
-                 <section className="cabinet-section">
-                    <div className="section-header-flex">
-                        <h3>My Medicine Cabinet</h3>
-                        <button className="btn-primary-horizontal" onClick={() => setIsAddMedModalOpen(true)}>
-                            <span className="material-icons-round">add_circle</span>
-                            <span>Add Medication</span>
-                        </button>
-                    </div>
-                    
-                    <div className="cabinet-grid">
-                        {meds.map(med => {
-                          const isTakenToday = med.last_taken && new Date(med.last_taken).toDateString() === new Date().toDateString();
-                          const stockPercent = (med.stock / (med.total_stock || 1)) * 100;
-                          return (
-                            <div key={med.id} className={`med-card-premium ${isTakenToday ? 'taken' : ''}`}>
-                                {isTakenToday && (
-                                    <div className="taken-badge">
-                                        <span className="material-icons-round" style={{fontSize: '0.9rem'}}>verified</span>
-                                        TAKEN TODAY
-                                    </div>
-                                )}
-                                <div className="med-icon-box">
-                                    <span className="material-icons-round">
-                                        {med.icon === 'pill' ? 'medication' : 
-                                         med.icon === 'liquid' ? 'water_drop' : 
-                                         med.icon === 'shot' ? 'vaccines' : 
-                                         med.icon === 'capsule' ? 'medication_liquid' : 'pill'}
-                                    </span>
-                                </div>
-                                <div className="med-details">
-                                    <h4>{med.name}</h4>
-                                    <div style={{display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center'}}>
-                                        <span className="dosage">{med.dosage}</span>
-                                        <span className="frequency" style={{background: 'var(--bg-main)', padding: '0.1rem 0.6rem', borderRadius: '50px', fontSize: '0.8rem', fontWeight: 600}}>
-                                            {med.frequency}
-                                        </span>
-                                        <button 
-                                           className="btn-history-mini" 
-                                           onClick={() => fetchHistory(med)}
-                                           style={{background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: 0.7}}
-                                           title="View Intake History"
-                                        >
-                                            <span className="material-icons-round" style={{fontSize: '1.2rem'}}>history</span>
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="stock-progress-container">
-                                        <div className="stock-label-row">
-                                            <span>Stock Remaining</span>
-                                            <span>{med.stock} doses</span>
-                                        </div>
-                                        <div className="stock-progress-bar">
-                                            <div 
-                                                className={`stock-bar-fill ${med.stock < 5 ? 'low' : ''}`} 
-                                                style={{width: `${stockPercent}%`}}
-                                            ></div>
-                                        </div>
-                                        {med.stock < 5 && <p style={{color: '#f43f5e', fontSize: '0.75rem', fontWeight: 700, marginTop: '5px'}}>Low stock - refill soon!</p>}
-                                    </div>
-                                </div>
-                                
-                                <div className="btn-delete-med" onClick={() => handleDeleteMed(med.id)} title="Delete medication">
-                                    <span className="material-icons-round">delete_outline</span>
-                                </div>
-                            </div>
-                          );
-                        })}
-                        
-                        <div 
-                            className="med-card-premium add-new" 
-                            style={{borderStyle: 'dashed', cursor: 'pointer', justifyContent: 'center', alignItems: 'center', background: 'transparent', opacity: 0.6}}
-                            onClick={() => setIsAddMedModalOpen(true)}
-                        >
-                            <div style={{textAlign: 'center', color: 'var(--text-muted)'}}>
-                                <span className="material-icons-round" style={{fontSize: '2.5rem'}}>add_pills</span>
-                                <p style={{marginTop: '0.5rem', fontWeight: 700}}>Fast Add</p>
-                            </div>
-                        </div>
-                    </div>
-                 </section>
-               </div>
-             </div>
-          )}
-
-          {activeTab === 'profile' && patient && (
-            <Profile 
-              patient={patient} 
-              onUpdate={(updatedUser) => setPatient(updatedUser)} 
-              meds={meds}
-              userEvents={userEvents}
-              analysisHistory={analysisHistoryRecords}
-            />
-          )}
-
-          {activeTab === 'settings' && patient && (
-            <Settings 
-              patient={patient} 
-              onUpdate={fetchPatientData}
-              theme={theme}
-              setTheme={setTheme}
-              adminEmail={adminEmail}
-              onSwitchTab={setActiveTab}
-            />
-          )}
-
-          {activeTab === 'cycle' && patient?.gender?.toLowerCase() === 'female' && (
-            <CycleTracker 
-              patient={patient} 
-              userEvents={userEvents}
-              onDayClick={(date) => {
-                openNewEventModal(date.toISOString().split('T')[0]);
-              }}
-            />
-          )}
-
-          {activeTab === 'emergency' && (
-            <Emergency patient={patient} autoEngaged={isEmergencyProtocolEngaged} />
-          )}
-
-          {activeTab === 'intelligence' && (adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent') && (
-            <IntelligenceManager adminEmail={adminEmail} />
-          )}
-
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/symptoms" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard patient={patient} meds={meds} userEvents={userEvents} analysis={analysis} handleAnalyze={handleAnalyze} selectedSymptoms={selectedSymptoms} toggleSymptom={toggleSymptom} availableChips={availableChips} customSymptom={customSymptom} setCustomSymptom={setCustomSymptom} setActiveTab={setActiveTab} isCheckerCollapsed={isCheckerCollapsed} setIsCheckerCollapsed={setIsCheckerCollapsed} intelligenceData={intelligenceData} setIsProfileIncomplete={setIsProfileIncomplete} />} />
+            <Route path="/planner" element={<PlannerPage userEvents={userEvents} openNewEventModal={openNewEventModal} handleEditEvent={handleEditEvent} handleDeleteEvent={handleDeleteEvent} />} />
+            <Route path="/medications" element={<MedicationsPage meds={meds} handleTakeMed={handleTakeMed} setIsAddMedModalOpen={setIsAddMedModalOpen} fetchHistory={fetchHistory} handleDeleteMed={handleDeleteMed} />} />
+            <Route path="/profile" element={<Profile patient={patient} onUpdate={(updatedUser) => setPatient(updatedUser)} meds={meds} userEvents={userEvents} analysisHistory={analysisHistoryRecords} />} />
+            <Route path="/settings" element={<Settings patient={patient} onUpdate={fetchPatientData} theme={theme} setTheme={setTheme} adminEmail={adminEmail} onSwitchTab={setActiveTab} />} />
+            <Route path="/cycle-tracker" element={<CycleTracker patient={patient} userEvents={userEvents} onDayClick={(date) => openNewEventModal(date.toISOString().split('T')[0])} />} />
+            <Route path="/emergency" element={<Emergency patient={patient} autoEngaged={isEmergencyProtocolEngaged} />} />
+            <Route path="/intelligence" element={<IntelligenceManager adminEmail={adminEmail} />} />
+          </Routes>
         </div>
       </main>
 
@@ -2310,7 +2015,7 @@ function App() {
           {/* Dashboard */}
           <div
             className={`bottom-nav-item ${activeTab === 'symptoms' ? 'active' : ''} ${showMobileTour && tourStep === 2 ? 'tour-highlight' : ''}`}
-            onClick={() => setActiveTab('symptoms')}
+            onClick={() => setActiveTab('dashboard')}
           >
             <span className="material-icons-round">home</span>
             <span className="bottom-nav-label">Home</span>

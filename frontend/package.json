@@ -9,10 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/inter": "^5.2.8",
+    "@fontsource/outfit": "^5.2.8",
+    "@fortawesome/fontawesome-free": "^7.2.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "material-icons": "^1.13.14",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.15.1",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@types/react": "^18.2.66",
