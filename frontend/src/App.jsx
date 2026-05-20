@@ -58,6 +58,11 @@ function App() {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
   const activeTab = location.pathname.split('/')[1] || 'dashboard';
   const setActiveTab = (tab) => {
     const map = { symptoms: 'dashboard', meds: 'medications', cycle: 'cycle-tracker' };
