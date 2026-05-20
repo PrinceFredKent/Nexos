@@ -297,17 +297,18 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [activeDropdown]);
 
-  // Bypass Welcome Screen on Desktop
+  // Bypass Welcome Screen and Mobile Tour on Desktop
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1025 && showWelcome) {
-        setShowWelcome(false);
+      if (window.innerWidth >= 1025) {
+        if (showWelcome) setShowWelcome(false);
+        if (showMobileTour) setShowMobileTour(false);
       }
     };
     handleResize(); // Check on mount
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [showWelcome]);
+  }, [showWelcome, showMobileTour]);
 
   // Focus search input when expanded on mobile
   useEffect(() => {
@@ -480,7 +481,7 @@ function App() {
     if (isAuthenticated) {
         fetchPatientData();
         const tourCompleted = localStorage.getItem('nexos_mobile_tour_completed');
-        if (!tourCompleted) {
+        if (!tourCompleted && window.innerWidth < 1025) {
             setShowMobileTour(true);
             setTourStep(1);
         }
