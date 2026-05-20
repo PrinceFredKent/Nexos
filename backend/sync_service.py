@@ -402,7 +402,7 @@ async def _pull_remote_changes(local: Session, cloud: Session) -> int:
                             local.execute(
                                 text("""
                                     INSERT INTO sync_conflicts (table_name, row_id, local_data, cloud_data, status)
-                                    VALUES (:t, :id, :local_data, :cloud_data, 'PENDING')
+                                    VALUES (:t, :id, :local_data, :cloud_data, 'AUTO_RESOLVED_LOCAL')
                                 """),
                                 {
                                     "t": table,
@@ -411,7 +411,15 @@ async def _pull_remote_changes(local: Session, cloud: Session) -> int:
                                     "cloud_data": json.dumps(row_dict, default=str)
                                 }
                             )
-                            log.warning(f"Conflict detected for {table} row {row_id}. Skipping pull.")
+                            
+                            # Ensure local wins by queueing it to push to the cloud
+                            if not in_outbox:
+                                local.execute(
+                                    text("INSERT INTO local_changes_outbox (table_name, row_id, action) VALUES (:t, :id, 'UPDATE')"),
+                                    {"t": table, "id": row_id}
+                                )
+                                
+                            log.info(f"Conflict detected for {table} row {row_id}. Automatically resolved by keeping local version.")
                             continue
 
                 cols = ", ".join(row_dict.keys())
