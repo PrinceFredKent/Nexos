@@ -1103,11 +1103,11 @@ function App() {
         </div>
 
         <nav className="nav-icons">
-              <div className={`nav-icon ${activeTab === 'symptoms' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+              <div className={`nav-icon ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
                 <span className="material-icons-round">home</span>
                 <span className="nav-text">Dashboard</span>
               </div>
-              <div className={`nav-icon ${activeTab === 'meds' ? 'active' : ''}`} onClick={() => setActiveTab('meds')}>
+              <div className={`nav-icon ${activeTab === 'medications' ? 'active' : ''}`} onClick={() => setActiveTab('medications')}>
                 <span className="material-icons-round">bar_chart</span>
                 <span className="nav-text">Medications</span>
               </div>
@@ -2014,7 +2014,7 @@ function App() {
         <div className="bottom-nav-inner">
           {/* Dashboard */}
           <div
-            className={`bottom-nav-item ${activeTab === 'symptoms' ? 'active' : ''} ${showMobileTour && tourStep === 2 ? 'tour-highlight' : ''}`}
+            className={`bottom-nav-item ${activeTab === 'dashboard' ? 'active' : ''} ${showMobileTour && tourStep === 2 ? 'tour-highlight' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
             <span className="material-icons-round">home</span>
@@ -2023,8 +2023,8 @@ function App() {
 
           {/* Medications */}
           <div
-            className={`bottom-nav-item ${activeTab === 'meds' ? 'active' : ''} ${showMobileTour && tourStep === 3 ? 'tour-highlight' : ''}`}
-            onClick={() => setActiveTab('meds')}
+            className={`bottom-nav-item ${activeTab === 'medications' ? 'active' : ''} ${showMobileTour && tourStep === 3 ? 'tour-highlight' : ''}`}
+            onClick={() => setActiveTab('medications')}
           >
             <span className="material-icons-round">medication</span>
             <span className="bottom-nav-label">Meds</span>
@@ -2080,8 +2080,8 @@ function App() {
       {/* ── Floating Cycle / Period Button (female only, all screens) ── */}
       {patient?.gender?.toLowerCase() === 'female' && (
         <div
-          className={`cycle-fab ${activeTab === 'cycle' ? 'active' : ''}`}
-          onClick={() => setActiveTab('cycle')}
+          className={`cycle-fab ${activeTab === 'cycle-tracker' ? 'active' : ''}`}
+          onClick={() => setActiveTab('cycle-tracker')}
           title={currentCycleDay ? `Day ${currentCycleDay} of cycle` : 'Track Cycle'}
         >
           <div className="cycle-fab-btn">
