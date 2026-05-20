@@ -160,14 +160,14 @@ LOCAL_CONDITION_REGISTRY = {
 def refined_local_analysis(user_symptoms: List[str]) -> Dict:
     """Algorithm to match symptoms to localized conditions with priority weighting."""
     scores = []
-    user_symptoms_lower = [s.lower() for s in user_symptoms]
+    user_symptoms_text = " ".join(user_symptoms).lower()
     
     for condition, data in LOCAL_CONDITION_REGISTRY.items():
         # Clean current symptoms and registry symptoms
         registry_symptoms_lower = [s.lower() for s in data["symptoms"]]
         
         # Calculate Overlap
-        matches = [s for s in user_symptoms_lower if s in registry_symptoms_lower]
+        matches = [reg_symp for reg_symp in registry_symptoms_lower if reg_symp in user_symptoms_text]
         match_count = len(matches)
         
         if match_count > 0:
@@ -181,7 +181,7 @@ def refined_local_analysis(user_symptoms: List[str]) -> Dict:
             # Indicator Check: Penalize if a required indicator is missing
             required = data.get("required_any")
             if required:
-                has_indicator = any(ind.lower() in user_symptoms_lower for ind in required)
+                has_indicator = any(ind.lower() in user_symptoms_text for ind in required)
                 if not has_indicator:
                     score = score * 0.4 # Heavy penalty for missing core indicators
             
@@ -209,7 +209,7 @@ def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
     
     conditions = db.query(HealthCondition).all()
     scores = []
-    user_symptoms_lower = [s.lower() for s in user_symptoms]
+    user_symptoms_text = " ".join(user_symptoms).lower()
     
     for cond in conditions:
         try:
@@ -222,7 +222,7 @@ def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
         registry_symptoms_lower = [s.lower() for s in registry_symptoms]
         
         # Calculate Overlap
-        matches = [s for s in user_symptoms_lower if s in registry_symptoms_lower]
+        matches = [reg_symp for reg_symp in registry_symptoms_lower if reg_symp in user_symptoms_text]
         match_count = len(matches)
         
         if match_count > 0:
@@ -230,7 +230,7 @@ def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
             score = match_count * 10
             
             if required_any:
-                has_indicator = any(ind.lower() in user_symptoms_lower for ind in required_any)
+                has_indicator = any(ind.lower() in user_symptoms_text for ind in required_any)
                 if not has_indicator:
                     score = score * 0.4
             

@@ -1043,7 +1043,8 @@ function App() {
     try {
       const allSymptoms = [...selectedSymptoms];
       if (customSymptom.trim()) {
-        allSymptoms.push(customSymptom.trim());
+        const customParts = customSymptom.split(',').map(s => s.trim()).filter(s => s);
+        allSymptoms.push(...customParts);
       }
 
       // For female users: inject cycle context into the request
