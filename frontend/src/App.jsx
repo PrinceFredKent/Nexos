@@ -62,6 +62,10 @@ function App() {
   // Scroll to top on route change
   useEffect(() => {
     window.scrollTo(0, 0);
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+      mainContent.scrollTo(0, 0);
+    }
   }, [location.pathname]);
   const activeTab = location.pathname.split('/')[1] || 'dashboard';
   const setActiveTab = (tab) => {
