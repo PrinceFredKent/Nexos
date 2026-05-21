@@ -180,7 +180,7 @@ body:not(.dark-theme) {
 /* Form Side */
 .auth-form-side {
   flex: 1;
-  padding: 3.5rem 3rem 2.5rem; /* Pushes content down to guarantee top buttons are never cut off */
+  padding: 2rem 3rem 2rem; /* Reduced top padding to move Welcome Back up */
   display: flex;
   flex-direction: column;
   justify-content: flex-start; /* Flow naturally from top so taller forms scroll down elegantly */
@@ -263,7 +263,7 @@ body:not(.dark-theme) {
 
 .auth-form p {
   color: var(--auth-text-muted);
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem; /* Reduced bottom margin to move content up */
   font-size: 0.88rem;
   font-weight: 400;
   line-height: 1.6;
