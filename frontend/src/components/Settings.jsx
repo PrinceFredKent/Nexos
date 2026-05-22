@@ -283,55 +283,6 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
     }
   };
 
-  const handleDisableAppLock = async () => {
-    setMessage('');
-    
-    if (!disablePassword) {
-      setMessage('Error: Password is required');
-      return;
-    }
-
-    setIsDisablingAppLock(true);
-    const token = localStorage.getItem('token');
-    
-    try {
-      // Verify password with backend
-      const response = await fetch(`${API_BASE_URL}/verify-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          password: disablePassword
-        })
-      });
-
-      if (response.ok) {
-        // Password verified, clear app lock from secure storage
-        await secureStorage.clearToken();
-        const { logout } = useAuthStore.getState();
-        logout();
-        
-        setAppLockEnabled(false);
-        setMessage('App lock disabled successfully.');
-        setShowDisableAppLockModal(false);
-        setDisablePassword('');
-        setShowDisablePasswordField(false);
-        
-        // Clear app lock state
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const data = await response.json();
-        setMessage(`Error: ${data.detail || 'Password verification failed'}`);
-      }
-    } catch (err) {
-      setMessage('Error: Connection failed');
-    } finally {
-      setIsDisablingAppLock(false);
-    }
-  };
-  
   return (
     <div className="settings-container fade-in">
       
