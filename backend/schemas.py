@@ -61,6 +61,9 @@ class VerifyOTP(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str
 
+class PasswordVerifyRequest(BaseModel):
+    password: str
+
 class PasswordChange(BaseModel):
     new_password: str
     otp_code: str

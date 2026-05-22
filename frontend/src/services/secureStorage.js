@@ -65,7 +65,47 @@ class SecureStorage {
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([STORE_NAME], 'readwrite');
       const store = transaction.objectStore(STORE_NAME);
-      store.clear();
+      store.delete('jwt_token');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  async setAppLockEnabled(enabled) {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.put({
+        key: 'app_lock_enabled',
+        value: enabled,
+        timestamp: Date.now()
+      });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  async getAppLockEnabled() {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.get('app_lock_enabled');
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result?.value || false);
+    });
+  }
+
+  async clearAppLockPreferences() {
+    await this.initPromise;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.delete('jwt_token');
+      store.delete('app_pin');
+      store.delete('app_lock_enabled');
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
     });

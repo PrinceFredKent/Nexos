@@ -12,6 +12,7 @@ export const useAuthStore = create(
       token: localStorage.getItem('token') || sessionStorage.getItem('token') || null,
       appLocked: false,
       hasAppLock: false,
+      appLockEnabled: false,
 
       login: (token, userRole = 'patient', patientData = null) => {
         localStorage.setItem('token', token);
@@ -23,8 +24,8 @@ export const useAuthStore = create(
       logout: () => {
         localStorage.removeItem('token');
         sessionStorage.removeItem('token');
-        secureStorage.clearToken().catch(err => console.error('Failed to clear secure token:', err));
-        set({ isAuthenticated: false, patient: null, token: null, adminEmail: null, appLocked: false, hasAppLock: false });
+        secureStorage.clearAppLockPreferences().catch(err => console.error('Failed to clear secure app lock preferences:', err));
+        set({ isAuthenticated: false, patient: null, token: null, adminEmail: null, appLocked: false, hasAppLock: false, appLockEnabled: false });
       },
 
       unlockApp: () => {
@@ -35,12 +36,22 @@ export const useAuthStore = create(
         set({ appLocked: true });
       },
 
+      setAppLockEnabled: async (enabled) => {
+        try {
+          await secureStorage.setAppLockEnabled(enabled);
+          set({ appLockEnabled: enabled, hasAppLock: enabled, appLocked: enabled });
+        } catch (error) {
+          console.error('Failed to set app lock preference:', error);
+        }
+      },
+
       initializeAppLock: async () => {
         try {
+          const enabled = await secureStorage.getAppLockEnabled();
           const hasPin = await secureStorage.getAppPin();
           const hasBiometric = await secureStorage.isBiometricAvailable();
-          const shouldLock = hasPin || hasBiometric;
-          set({ hasAppLock: shouldLock, appLocked: shouldLock });
+          const shouldLock = enabled && (hasPin || hasBiometric);
+          set({ appLockEnabled: enabled, hasAppLock: shouldLock, appLocked: shouldLock });
         } catch (error) {
           console.error('Failed to initialize app lock:', error);
         }

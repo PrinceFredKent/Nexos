@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
+import { useAuthStore } from '../store/useAuthStore';
+import { secureStorage } from '../services/secureStorage';
 
 
 const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab }) => {
@@ -7,6 +9,7 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
   const [prevSegment, setPrevSegment] = useState('account');
   const [pillStyle, setPillStyle] = useState({});
   const [message, setMessage] = useState('');
+  const { appLockEnabled, setAppLockEnabled: setAppLockPreference, initializeAppLock } = useAuthStore();
   
   const isAdmin = adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent';
   const segments = ['account', 'notifications', 'appearance'];
@@ -61,6 +64,27 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // App Lock Settings State
+  const [showDisableAppLockModal, setShowDisableAppLockModal] = useState(false);
+  const [disablePassword, setDisablePassword] = useState('');
+  const [isDisablingAppLock, setIsDisablingAppLock] = useState(false);
+  const [showDisablePasswordField, setShowDisablePasswordField] = useState(false);
+
+  useEffect(() => {
+    if (appLockEnabled !== undefined) {
+      setMessage('');
+    }
+  }, [appLockEnabled]);
+
+  useEffect(() => {
+    const loadAppLockSetting = async () => {
+      const enabled = await secureStorage.getAppLockEnabled();
+      await setAppLockPreference(enabled);
+      await initializeAppLock();
+    };
+    loadAppLockSetting();
+  }, []);
+
   // Theme and notification persistence is now handled by App.jsx or locally
 
   // Notification State
@@ -80,6 +104,67 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
 
   const toggleNotification = (key) => {
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleEnableAppLock = async () => {
+    setMessage('');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setMessage('Error: You must be logged in to enable app lock');
+      return;
+    }
+
+    try {
+      await secureStorage.setToken(token);
+      await setAppLockPreference(true);
+      await initializeAppLock();
+      setMessage('App lock enabled. It will activate on next app open.');
+    } catch (error) {
+      console.error('Enable app lock error:', error);
+      setMessage('Error: Could not enable app lock');
+    }
+  };
+
+  const handleDisableAppLock = async () => {
+    setMessage('');
+    
+    if (!disablePassword) {
+      setMessage('Error: Password is required');
+      return;
+    }
+
+    setIsDisablingAppLock(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/verify-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          password: disablePassword
+        })
+      });
+
+      if (response.ok) {
+        await secureStorage.clearAppLockPreferences();
+        await setAppLockPreference(false);
+        setMessage('App lock disabled successfully.');
+        setShowDisableAppLockModal(false);
+        setDisablePassword('');
+        setShowDisablePasswordField(false);
+      } else {
+        const data = await response.json();
+        setMessage(`Error: ${data.detail || 'Password verification failed'}`);
+      }
+    } catch (err) {
+      console.error('Disable app lock error:', err);
+      setMessage('Error: Connection failed');
+    } finally {
+      setIsDisablingAppLock(false);
+    }
   };
 
   const handleRequestOTP = async () => {
@@ -197,6 +282,55 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
       setIsDeleting(false);
     }
   };
+
+  const handleDisableAppLock = async () => {
+    setMessage('');
+    
+    if (!disablePassword) {
+      setMessage('Error: Password is required');
+      return;
+    }
+
+    setIsDisablingAppLock(true);
+    const token = localStorage.getItem('token');
+    
+    try {
+      // Verify password with backend
+      const response = await fetch(`${API_BASE_URL}/verify-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          password: disablePassword
+        })
+      });
+
+      if (response.ok) {
+        // Password verified, clear app lock from secure storage
+        await secureStorage.clearToken();
+        const { logout } = useAuthStore.getState();
+        logout();
+        
+        setAppLockEnabled(false);
+        setMessage('App lock disabled successfully.');
+        setShowDisableAppLockModal(false);
+        setDisablePassword('');
+        setShowDisablePasswordField(false);
+        
+        // Clear app lock state
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        const data = await response.json();
+        setMessage(`Error: ${data.detail || 'Password verification failed'}`);
+      }
+    } catch (err) {
+      setMessage('Error: Connection failed');
+    } finally {
+      setIsDisablingAppLock(false);
+    }
+  };
   
   return (
     <div className="settings-container fade-in">
@@ -220,11 +354,64 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
             <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h2 style={{ fontSize: '1.8rem', color: 'var(--primary)', margin: 0 }}>Account Security</h2>
-                <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Manage your password and security protocols.</p>
+                <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Manage your password, security protocols, and app lock.</p>
               </div>
               <div style={{ padding: '10px', background: 'rgba(67, 97, 238, 0.1)', borderRadius: '12px', color: 'var(--primary)' }}>
                 <span className="material-icons-round" style={{ fontSize: '2rem' }}>verified_user</span>
               </div>
+            </div>
+
+            {/* App Lock Settings */}
+            <div className="setting-group" style={{ marginBottom: '2.5rem', padding: '1.5rem', background: 'rgba(67, 97, 238, 0.05)', borderRadius: '16px', border: '1px solid rgba(67, 97, 238, 0.15)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span className="material-icons-round">fingerprint</span>
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '1.1rem' }}>App Lock Protection</h4>
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      {appLockEnabled ? 'Biometric & PIN unlock enabled' : 'App lock is disabled'}
+                    </p>
+                  </div>
+                </div>
+                <div 
+                  onClick={() => {
+                    if (appLockEnabled) {
+                      setShowDisableAppLockModal(true);
+                    } else {
+                      handleEnableAppLock();
+                    }
+                  }}
+                  style={{ 
+                    background: appLockEnabled ? 'var(--primary)' : 'var(--border)', 
+                    width: '50px', 
+                    height: '26px', 
+                    borderRadius: '30px', 
+                    position: 'relative', 
+                    transition: 'background 0.3s',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div style={{ 
+                    background: 'white', 
+                    width: '20px', 
+                    height: '20px', 
+                    borderRadius: '50%', 
+                    position: 'absolute', 
+                    top: '3px', 
+                    right: appLockEnabled ? '4px' : 'auto', 
+                    left: !appLockEnabled ? '4px' : 'auto', 
+                    transition: 'all 0.3s', 
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)' 
+                  }}></div>
+                </div>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '1rem 0 0 0' }}>
+                {appLockEnabled 
+                  ? 'Your app will unlock with biometric authentication or PIN, and your session will stay secure.' 
+                  : 'Enable app lock to add an extra layer of security to your health data.'}
+              </p>
             </div>
             
             <div className="setting-group" style={{ marginBottom: '2.5rem' }}>
@@ -572,6 +759,179 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
           ))}
         </div>
       </div>
+
+      {/* Disable App Lock Modal */}
+      {showDisableAppLockModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 5000,
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            background: 'var(--bg-main)',
+            borderRadius: '24px',
+            padding: '2rem',
+            maxWidth: '420px',
+            width: '90%',
+            border: '1px solid var(--border)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-icons-round" style={{ color: '#ef4444' }}>lock_open</span>
+              </div>
+              <h3 style={{ margin: 0 }}>Disable App Lock?</h3>
+            </div>
+
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
+              To disable app lock, please verify your account password. This is required for your security.
+            </p>
+
+            {!showDisablePasswordField ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <button
+                  onClick={() => setShowDisablePasswordField(true)}
+                  className="btn-primary"
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.8rem'
+                  }}
+                >
+                  <span className="material-icons-round">password</span>
+                  Verify Password
+                </button>
+                <button
+                  onClick={() => setShowDisableAppLockModal(false)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    borderRadius: '12px',
+                    fontWeight: 600,
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-main)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="password"
+                    placeholder="Enter your account password"
+                    value={disablePassword}
+                    onChange={(e) => setDisablePassword(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      paddingLeft: '2.8rem',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border)',
+                      background: 'var(--bg-input)',
+                      color: 'var(--text-main)',
+                      boxSizing: 'border-box',
+                      fontSize: '1rem'
+                    }}
+                  />
+                  <span className="material-icons-round" style={{
+                    position: 'absolute',
+                    left: '0.8rem',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: 'var(--text-muted)',
+                    fontSize: '1.2rem'
+                  }}>lock</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button
+                    onClick={handleDisableAppLock}
+                    disabled={isDisablingAppLock || !disablePassword}
+                    style={{
+                      flex: 1,
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      fontWeight: 600,
+                      background: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      cursor: isDisablingAppLock || !disablePassword ? 'not-allowed' : 'pointer',
+                      opacity: isDisablingAppLock || !disablePassword ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.8rem'
+                    }}
+                  >
+                    {isDisablingAppLock ? (
+                      <>
+                        <div style={{ width: '16px', height: '16px', border: '2px solid white', borderTop: '2px solid transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }}></div>
+                        Disabling...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-icons-round" style={{ fontSize: '1.1rem' }}>delete</span>
+                        Disable App Lock
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowDisablePasswordField(false);
+                      setDisablePassword('');
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      fontWeight: 600,
+                      background: 'transparent',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text-main)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 };

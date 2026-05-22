@@ -5,7 +5,7 @@ import random
 
 from database import get_db
 from models.user import User as DBUser
-from schemas import UserUpdate, PasswordChangeRequest, PasswordChange
+from schemas import UserUpdate, PasswordChangeRequest, PasswordChange, PasswordVerifyRequest
 from auth_service import verify_password, get_password_hash, get_current_user
 from services.email_service import send_security_otp_email
 from sync_service import run_sync
@@ -104,6 +104,17 @@ async def request_password_change_otp(req: PasswordChangeRequest, background_tas
     if not send_security_otp_email(user.email, user.username, otp):
         raise HTTPException(status_code=500, detail="Failed to send verification email. Please try again.")
     return {"message": "Verification code sent to your email"}
+
+@router.post("/verify-password")
+async def verify_password_route(payload: PasswordVerifyRequest, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter(DBUser.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Password verification failed")
+
+    return {"message": "Password verified"}
 
 @router.post("/change-password")
 async def change_password(passwords: PasswordChange, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
