@@ -4,28 +4,42 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { secureStorage } from '../services/secureStorage';
 import '../styles/appLock.css';
 
-export const BiometricUnlock = ({ onSuccess, onFallback }) => {
+const bufferToBase64 = (buffer) => {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  bytes.forEach((b) => binary += String.fromCharCode(b));
+  return window.btoa(binary);
+};
+
+const base64ToBuffer = (base64) => {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
+export const BiometricUnlock = ({ credentialId, onSuccess, onFallback, onCredentialRegistered }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState('');
   const [biometricType, setBiometricType] = useState('fingerprint');
+  const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
     detectBiometricType();
-    // Auto-start scanning on component mount
+    // Auto-start scanning or registration on component mount
     handleBiometricAuth();
   }, []);
 
   const detectBiometricType = async () => {
-    // Try to detect which type of biometric is available
-    // This is a fallback for WebAuthn API
     if (window.PublicKeyCredential) {
       try {
         const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
         if (available) {
-          // Can't determine exact type from WebAuthn alone
-          // Use generic "biometric"
           setBiometricType('biometric');
         }
       } catch (error) {
@@ -38,25 +52,33 @@ export const BiometricUnlock = ({ onSuccess, onFallback }) => {
     setIsScanning(true);
     setError('');
 
+    if (!credentialId) {
+      await registerBiometricCredential();
+      return;
+    }
+
     try {
-      // Generate challenge for WebAuthn
       const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
 
       const options = {
-        challenge: challenge,
-        timeout: 60000,
-        userVerification: 'preferred',
+        publicKey: {
+          challenge,
+          timeout: 60000,
+          userVerification: 'preferred',
+          allowCredentials: [
+            {
+              type: 'public-key',
+              id: base64ToBuffer(credentialId),
+            },
+          ],
+        },
+        mediation: 'optional',
       };
 
-      // Attempt biometric verification
-      const assertion = await navigator.credentials.get({
-        publicKey: options,
-        mediation: 'optional',
-      });
+      const assertion = await navigator.credentials.get(options);
 
       if (assertion) {
-        // Biometric verification successful
         onSuccess();
       } else {
         setError('Biometric verification failed. Please try again.');
@@ -64,15 +86,68 @@ export const BiometricUnlock = ({ onSuccess, onFallback }) => {
       }
     } catch (error) {
       if (error.name === 'NotAllowedError') {
-        // User cancelled
         setError('Biometric verification cancelled.');
       } else if (error.name === 'InvalidStateError') {
-        setError('This device does not support biometric authentication.');
+        setError('No biometric credential exists. Please set up biometric unlock or use PIN.');
       } else {
         console.error('Biometric auth error:', error);
         setError('Biometric verification unavailable. Use PIN instead.');
       }
       setIsScanning(false);
+    }
+  };
+
+  const registerBiometricCredential = async () => {
+    setIsRegistering(true);
+    setError('');
+
+    try {
+      const challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+
+      const userId = new TextEncoder().encode('nexos-identity');
+      const options = {
+        publicKey: {
+          challenge,
+          rp: {
+            name: 'Health Assistant',
+          },
+          user: {
+            id: userId,
+            name: 'local-user',
+            displayName: 'Health Assistant User',
+          },
+          pubKeyCredParams: [
+            { type: 'public-key', alg: -7 },
+          ],
+          authenticatorSelection: {
+            userVerification: 'preferred',
+          },
+          timeout: 60000,
+          attestation: 'direct',
+        },
+      };
+
+      const credential = await navigator.credentials.create(options);
+      if (credential && credential.rawId) {
+        const storedId = bufferToBase64(credential.rawId);
+        await secureStorage.setBiometricCredential(storedId);
+        onCredentialRegistered(storedId);
+        onSuccess();
+      } else {
+        setError('Biometric setup failed. Please try again or use PIN instead.');
+        setIsScanning(false);
+      }
+    } catch (error) {
+      console.error('Biometric registration error:', error);
+      if (error.name === 'NotAllowedError') {
+        setError('Biometric setup cancelled.');
+      } else {
+        setError('Unable to register biometric credential. Use PIN instead.');
+      }
+      setIsScanning(false);
+    } finally {
+      setIsRegistering(false);
     }
   };
 
