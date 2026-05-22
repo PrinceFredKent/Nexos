@@ -6672,6 +6672,13 @@ body.dark-theme .cycle-fab-btn {
     display: none; /* Chrome, Safari and Opera */
   }
 
+  /* Ensure desktop header sticks to top of the scrolling main-content */
+  .top-bar.desktop-only {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 2000 !important;
+  }
+
   /* Ensure sidebars cover full height if needed, though they are already sticky */
   .sidebar, .aside {
     height: calc(100vh - 4vh); /* Matches current 96vh logic */

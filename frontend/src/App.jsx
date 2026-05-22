@@ -1167,147 +1167,147 @@ function App() {
             <span className="material-icons-round">logout</span>
             <span className="nav-text">Logout</span>
         </div>
-      </aside>
+        </aside>
+
+      {/* Mobile header moved outside of scrollable main so fixed positioning works reliably */}
+      <header className="top-bar mobile-only">
+        <div className="mobile-branding">
+          <img src="/logo.png" alt="Nexos Logo" className="mobile-logo" />
+          <span className="mobile-app-name">Nexos</span>
+        </div>
+
+        <div className="top-actions">
+          <div 
+            className="mobile-guide-badge"
+            onClick={() => { setShowMobileTour(true); setTourStep(1); }}
+            style={{ marginRight: '0.25rem' }}
+          >
+            <span className="material-icons-round" style={{ fontSize: '0.95rem' }}>explore</span>
+            <span>Tour</span>
+          </div>
+
+          <div 
+            className={`header-action-btn ${activeTab === 'search' ? 'active' : ''}`}
+            onClick={() => setActiveTab('search')}
+          >
+            <span className="material-icons-round">search</span>
+          </div>
+
+          <div style={{ position: 'relative' }} ref={notificationsRef}>
+            <div 
+              className={`header-action-btn ${activeDropdown === 'notifications' ? 'active' : ''}`}
+              onClick={() => toggleDropdown('notifications')}
+            >
+              <span className="material-icons-round">notifications</span>
+              {notifications.some(n => !n.read) && <div className="notification-badge"></div>}
+            </div>
+            
+            {activeDropdown === 'notifications' && (
+              <div className={`header-dropdown-panel notifications-panel origin-top-right ${closingDropdown === 'notifications' ? 'is-closing' : ''}`}>
+                <div className="dropdown-header">
+                  <h4>Notifications</h4>
+                  <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setNotifications([])}>Clear All</span>
+                </div>
+                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  {notifications.length > 0 ? notifications.map(n => (
+                    <div key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`}>
+                      <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{n.title}</h5>
+                      <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.text}</p>
+                    </div>
+                  )) : (
+                    <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>All caught up!</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ position: 'relative' }} ref={mobileMenuRef}>
+            <div 
+              className={`header-action-btn ${activeDropdown === 'mobileMenu' ? 'active' : ''}`}
+              onClick={() => toggleDropdown('mobileMenu')}
+            >
+              <span className="material-icons-round">settings</span>
+            </div>
+
+            {activeDropdown === 'mobileMenu' && (
+              <div className={`header-dropdown-panel mobile-menu-panel origin-top-right ${closingDropdown === 'mobileMenu' ? 'is-closing' : ''}`}>
+                <div className="dropdown-header">
+                  <h4>Menu & Tools</h4>
+                </div>
+                
+                <div className="menu-group-label">Quick Tools</div>
+                <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
+                  <span className="material-icons-round">add_box</span>
+                  <div>
+                    <h5 style={{ margin: 0 }}>Add Medication</h5>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Record a new prescription</p>
+                  </div>
+                </div>
+                <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
+                  <span className="material-icons-round">emergency</span>
+                  <div>
+                    <h5 style={{ margin: 0 }}>Medical Identity</h5>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
+                  </div>
+                </div>
+                <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
+                  <span className="material-icons-round">history</span>
+                  <div>
+                    <h5 style={{ margin: 0 }}>Analysis History</h5>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Review past symptom checks</p>
+                  </div>
+                </div>
+                {(adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent') && (
+                  <div className="action-menu-item admin-tool" onClick={() => { setActiveTab('intelligence'); closeDropdown(); }} style={{ background: 'var(--primary-glow)', borderLeft: '3px solid var(--primary)' }}>
+                    <span className="material-icons-round" style={{ color: 'var(--primary)' }}>psychology</span>
+                    <div>
+                      <h5 style={{ margin: 0, color: 'var(--primary)' }}>Intelligence Manager</h5>
+                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Manage diagnostic engine</p>
+                    </div>
+                  </div>
+                )}
+                
+                <div className="menu-group-label">System</div>
+                <div className="action-menu-item" onClick={() => {
+                  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+                  if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+                  closeDropdown();
+                }}>
+                  <span className="material-icons-round" style={{ color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'inherit' }}>
+                    {syncCloudOk === false ? 'cloud_off' : 'cloud_done'}
+                  </span>
+                  <div>
+                    <h5 style={{ margin: 0 }}>Sync Data</h5>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{syncLastAt ? `Last: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Click to sync now'}</p>
+                  </div>
+                </div>
+                
+                <div className="action-menu-item" onClick={() => { setActiveTab('settings'); closeDropdown(); }}>
+                  <span className="material-icons-round">settings</span>
+                  <div>
+                    <h5 style={{ margin: 0 }}>App Settings</h5>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Theme and account preferences</p>
+                  </div>
+                </div>
+                
+                <div className="menu-divider"></div>
+                
+                <div className="action-menu-item logout-item" onClick={() => { handleLogout(); closeDropdown(); }}>
+                  <span className="material-icons-round" style={{ color: '#ef4444' }}>logout</span>
+                  <div>
+                    <h5 style={{ margin: 0, color: '#ef4444' }}>Logout</h5>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sign out of your account</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
 
       {/* Main Content */}
       <main className="main-content fade-in">
-        {/* ─── Mobile-Only Isolated Header ─── */}
-        <header className="top-bar mobile-only">
-          <div className="mobile-branding">
-            <img src="/logo.png" alt="Nexos Logo" className="mobile-logo" />
-            <span className="mobile-app-name">Nexos</span>
-          </div>
-
-          <div className="top-actions">
-            <div 
-              className="mobile-guide-badge"
-              onClick={() => { setShowMobileTour(true); setTourStep(1); }}
-              style={{ marginRight: '0.25rem' }}
-            >
-              <span className="material-icons-round" style={{ fontSize: '0.95rem' }}>explore</span>
-              <span>Tour</span>
-            </div>
-
-            <div 
-              className={`header-action-btn ${activeTab === 'search' ? 'active' : ''}`}
-              onClick={() => setActiveTab('search')}
-            >
-              <span className="material-icons-round">search</span>
-            </div>
-
-            <div style={{ position: 'relative' }} ref={notificationsRef}>
-              <div 
-                className={`header-action-btn ${activeDropdown === 'notifications' ? 'active' : ''}`}
-                onClick={() => toggleDropdown('notifications')}
-              >
-                <span className="material-icons-round">notifications</span>
-                {notifications.some(n => !n.read) && <div className="notification-badge"></div>}
-              </div>
-              
-              {activeDropdown === 'notifications' && (
-                <div className={`header-dropdown-panel notifications-panel origin-top-right ${closingDropdown === 'notifications' ? 'is-closing' : ''}`}>
-                  <div className="dropdown-header">
-                    <h4>Notifications</h4>
-                    <span style={{ fontSize: '0.8rem', cursor: 'pointer', color: 'var(--text-muted)' }} onClick={() => setNotifications([])}>Clear All</span>
-                  </div>
-                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                    {notifications.length > 0 ? notifications.map(n => (
-                      <div key={n.id} className={`notification-item ${!n.read ? 'unread' : ''}`}>
-                        <h5 style={{ margin: 0, fontSize: '0.85rem' }}>{n.title}</h5>
-                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.text}</p>
-                      </div>
-                    )) : (
-                      <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>All caught up!</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ position: 'relative' }} ref={mobileMenuRef}>
-              <div 
-                className={`header-action-btn ${activeDropdown === 'mobileMenu' ? 'active' : ''}`}
-                onClick={() => toggleDropdown('mobileMenu')}
-              >
-                <span className="material-icons-round">settings</span>
-              </div>
-
-              {activeDropdown === 'mobileMenu' && (
-                <div className={`header-dropdown-panel mobile-menu-panel origin-top-right ${closingDropdown === 'mobileMenu' ? 'is-closing' : ''}`}>
-                  <div className="dropdown-header">
-                    <h4>Menu & Tools</h4>
-                  </div>
-                  
-                  <div className="menu-group-label">Quick Tools</div>
-                  <div className="action-menu-item" onClick={() => { setIsAddMedModalOpen(true); closeDropdown(); }}>
-                    <span className="material-icons-round">add_box</span>
-                    <div>
-                      <h5 style={{ margin: 0 }}>Add Medication</h5>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Record a new prescription</p>
-                    </div>
-                  </div>
-                  <div className="action-menu-item" onClick={() => { setActiveTab('profile'); closeDropdown(); }}>
-                    <span className="material-icons-round">emergency</span>
-                    <div>
-                      <h5 style={{ margin: 0 }}>Medical Identity</h5>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Age: {calculateAge(patient?.birth_date) || "N/A"} • Blood: {patient?.blood_type || "N/A"}</p>
-                    </div>
-                  </div>
-                  <div className="action-menu-item" onClick={() => { fetchAnalysisHistory(); closeDropdown(); }}>
-                    <span className="material-icons-round">history</span>
-                    <div>
-                      <h5 style={{ margin: 0 }}>Analysis History</h5>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Review past symptom checks</p>
-                    </div>
-                  </div>
-                  {(adminEmail?.toLowerCase() === 'princefredkent@gmail.com' || localStorage.getItem('username') === 'Prince Fred Kent') && (
-                    <div className="action-menu-item admin-tool" onClick={() => { setActiveTab('intelligence'); closeDropdown(); }} style={{ background: 'var(--primary-glow)', borderLeft: '3px solid var(--primary)' }}>
-                      <span className="material-icons-round" style={{ color: 'var(--primary)' }}>psychology</span>
-                      <div>
-                        <h5 style={{ margin: 0, color: 'var(--primary)' }}>Intelligence Manager</h5>
-                        <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Manage diagnostic engine</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="menu-group-label">System</div>
-                  <div className="action-menu-item" onClick={() => {
-                    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-                    if (token) fetch(`${API_BASE_URL}/sync-now`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
-                    closeDropdown();
-                  }}>
-                    <span className="material-icons-round" style={{ color: syncCloudOk === false ? '#ef4444' : syncCloudOk === true ? '#22c55e' : 'inherit' }}>
-                      {syncCloudOk === false ? 'cloud_off' : 'cloud_done'}
-                    </span>
-                    <div>
-                      <h5 style={{ margin: 0 }}>Sync Data</h5>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>{syncLastAt ? `Last: ${new Date(syncLastAt).toLocaleTimeString()}` : 'Click to sync now'}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="action-menu-item" onClick={() => { setActiveTab('settings'); closeDropdown(); }}>
-                    <span className="material-icons-round">settings</span>
-                    <div>
-                      <h5 style={{ margin: 0 }}>App Settings</h5>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Theme and account preferences</p>
-                    </div>
-                  </div>
-                  
-                  <div className="menu-divider"></div>
-                  
-                  <div className="action-menu-item logout-item" onClick={() => { handleLogout(); closeDropdown(); }}>
-                    <span className="material-icons-round" style={{ color: '#ef4444' }}>logout</span>
-                    <div>
-                      <h5 style={{ margin: 0, color: '#ef4444' }}>Logout</h5>
-                      <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)' }}>Sign out of your account</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
         {/* ─── Desktop-Only Isolated Header ─── */}
         <header className="top-bar desktop-only">
           <div className="search-section" style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
