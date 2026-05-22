@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { secureStorage } from '../services/secureStorage';
 
 export const useAuthStore = create(
   persist(
@@ -9,16 +10,40 @@ export const useAuthStore = create(
       patient: null,
       adminEmail: null,
       token: localStorage.getItem('token') || sessionStorage.getItem('token') || null,
+      appLocked: false,
+      hasAppLock: false,
 
       login: (token, userRole = 'patient', patientData = null) => {
         localStorage.setItem('token', token);
-        set({ isAuthenticated: true, userRole, patient: patientData, token });
+        // Store token in secure storage for app lock feature
+        secureStorage.setToken(token).catch(err => console.error('Failed to store token securely:', err));
+        set({ isAuthenticated: true, userRole, patient: patientData, token, appLocked: false });
       },
 
       logout: () => {
         localStorage.removeItem('token');
         sessionStorage.removeItem('token');
-        set({ isAuthenticated: false, patient: null, token: null, adminEmail: null });
+        secureStorage.clearToken().catch(err => console.error('Failed to clear secure token:', err));
+        set({ isAuthenticated: false, patient: null, token: null, adminEmail: null, appLocked: false, hasAppLock: false });
+      },
+
+      unlockApp: () => {
+        set({ appLocked: false });
+      },
+
+      lockApp: () => {
+        set({ appLocked: true });
+      },
+
+      initializeAppLock: async () => {
+        try {
+          const hasPin = await secureStorage.getAppPin();
+          const hasBiometric = await secureStorage.isBiometricAvailable();
+          const shouldLock = hasPin || hasBiometric;
+          set({ hasAppLock: shouldLock, appLocked: shouldLock });
+        } catch (error) {
+          console.error('Failed to initialize app lock:', error);
+        }
       },
 
       setPatient: (patientData) => set({ patient: patientData }),

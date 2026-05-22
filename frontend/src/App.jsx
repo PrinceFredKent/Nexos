@@ -7,6 +7,7 @@ import ApiConfigBanner from './components/ApiConfigBanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './styles/main.css';
+import './styles/appLock.css';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import WelcomeScreen from './components/WelcomeScreen';
@@ -19,6 +20,8 @@ import IntelligenceManager from './components/IntelligenceManager';
 import Dashboard from './components/Dashboard';
 import VerifyAccount from './components/VerifyAccount';
 import ForgotPassword from './components/ForgotPassword';
+import AppLock from './components/AppLock';
+import { useAuthStore } from './store/useAuthStore';
 // import DoctorDashboard from './components/DoctorDashboard'; // Removed
 
 const COMMON_SYMPTOMS = [
@@ -59,6 +62,7 @@ function App() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const { appLocked, unlockApp, lockApp, hasAppLock, initializeAppLock } = useAuthStore();
 
   // Scroll to top on route change
   useEffect(() => {
@@ -747,6 +751,8 @@ function App() {
     setMeds([]);
     setUserEvents([]);
     setNotifications([]);
+    const { logout } = useAuthStore.getState();
+    logout();
   };
 
   const handleLoginSuccess = (token, username, rememberMe = true, role = 'patient', isNewDevice = false, email = '') => {
@@ -768,6 +774,8 @@ function App() {
     setShowVerification(false);
     if (email) setAdminEmail(email);
     else if (username === 'Prince Fred Kent') setAdminEmail('princefredkent@gmail.com');
+    // Initialize app lock on successful login
+    initializeAppLock();
     // New device: show progressive sync toast while background pull runs
     if (isNewDevice) {
         setShowSyncToast(true);
@@ -1031,6 +1039,16 @@ function App() {
         }}
       />
       </>
+    );
+  }
+
+  // App Lock Check: Show lock screen if authenticated but app is locked
+  if (isAuthenticated && appLocked) {
+    return (
+      <AppLock 
+        onUnlocked={unlockApp}
+        onLogout={handleLogout}
+      />
     );
   }
 
