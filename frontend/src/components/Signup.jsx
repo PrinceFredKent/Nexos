@@ -35,6 +35,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
   const [openDropdown, setOpenDropdown] = useState(null); // 'gender' | 'bloodType' | null
   const [googleData, setGoogleData] = useState(null); 
   const [isGoogleSignupFlow, setIsGoogleSignupFlow] = useState(false); 
+  const [googleClientReady, setGoogleClientReady] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({
     email: '',
     password: '',
@@ -112,6 +113,17 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
     return () => clearTimeout(timer);
   }, [formData.email]);
+
+  useEffect(() => {
+    const checkGoogle = () => {
+      if (window.google?.accounts?.oauth2?.initTokenClient) {
+        setGoogleClientReady(true);
+      }
+    };
+    checkGoogle();
+    const interval = setInterval(checkGoogle, 250);
+    return () => clearInterval(interval);
+  }, []);
 
   const validateStep1 = () => {
     const errors = {};
@@ -245,12 +257,18 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     }
   };
 
-  const handleGoogleCallback = async (accessToken) => {
+  const handleGoogleCallback = async (tokenResponse) => {
+    const credential = tokenResponse?.access_token || tokenResponse?.id_token;
+    if (!credential) {
+      setError('Google authentication failed to return a valid credential.');
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential: accessToken })
+        body: JSON.stringify({ credential })
       });
 
       const data = await res.json();
@@ -285,19 +303,18 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
   const handleGoogleClick = () => {
     /* global google */
+    if (!googleClientReady) {
+      setError('Google auth library is still loading. Please wait a moment and try again.');
+      return;
+    }
+
     if (window.google) {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "1080363277355-12nq3rf5nou0pn1sb9g6racb3ioaua8l.apps.googleusercontent.com",
         scope: 'openid email profile https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.gender.read',
-        callback: (tokenResponse) => {
-          if (tokenResponse && tokenResponse.access_token) {
-            handleGoogleCallback(tokenResponse.access_token);
-          } else {
-            setError('Google authentication failed to return an access token.');
-          }
-        },
+        callback: handleGoogleCallback,
       });
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+      tokenClient.requestAccessToken({ prompt: 'select_account' });
     } else {
       setError('Google client not loaded. Please try again later.');
     }

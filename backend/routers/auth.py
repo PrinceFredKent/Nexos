@@ -334,7 +334,10 @@ async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, 
     if not user_info:
         try:
             headers = {"Authorization": f"Bearer {credential}"}
-            resp = requests.get("https://www.googleapis.com/oauth2/v3/userinfo", headers=headers)
+            resp = requests.get("https://www.googleapis.com/oauth2/v3/userinfo", headers=headers, timeout=10)
+            if resp.status_code != 200:
+                log.warning(f"Google Userinfo v3 returned status {resp.status_code}: {resp.text}")
+                resp = requests.get("https://openidconnect.googleapis.com/v1/userinfo", headers=headers, timeout=10)
             if resp.status_code == 200:
                 info = resp.json()
                 user_info = {
@@ -346,7 +349,7 @@ async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, 
                 }
                 access_token_used = True
             else:
-                log.warning(f"Google Userinfo API returned status {resp.status_code}: {resp.text}")
+                log.warning(f"Google Userinfo endpoint returned status {resp.status_code}: {resp.text}")
         except Exception as e:
             log.error(f"Error fetching Userinfo using access token: {e}")
             
