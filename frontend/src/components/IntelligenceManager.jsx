@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { API_BASE_URL } from '../config';
 
 const IntelligenceManager = ({ adminEmail }) => {
     const [conditions, setConditions] = useState([]);
@@ -10,8 +11,6 @@ const IntelligenceManager = ({ adminEmail }) => {
     const [error, setError] = useState(null);
     const [modalTags, setModalTags] = useState([]);
     const [currentTagInput, setCurrentTagInput] = useState('');
-
-    const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
     const MEDICAL_ICONS = [
         { id: 'medical_services', name: 'General Medical' },

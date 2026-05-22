@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import PlannerPage from './pages/PlannerPage';
 import MedicationsPage from './pages/MedicationsPage';
 import { API_BASE_URL } from './config';
+import ApiConfigBanner from './components/ApiConfigBanner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './styles/main.css';
@@ -982,6 +983,7 @@ function App() {
   if (!isAuthenticated) {
     return (
       <>
+        <ApiConfigBanner />
         {showWelcome && (
           <WelcomeScreen onProceed={() => setShowWelcome(false)} />
         ) }
@@ -1018,6 +1020,8 @@ function App() {
 
   if (isProfileIncomplete) {
     return (
+      <>
+      <ApiConfigBanner />
       <Signup 
         startingStep={2}
         isCompletingProfile={true}
@@ -1026,6 +1030,7 @@ function App() {
           setIsProfileIncomplete(false); // Direct return to the dashboard
         }}
       />
+      </>
     );
   }
 
@@ -1100,6 +1105,8 @@ function App() {
   };
 
   return (
+    <>
+    <ApiConfigBanner />
     <div className="app-layout">
       {/* Sidebar */}
       <aside className={`sidebar expanded ${activeDropdown ? 'blur-content' : ''}`}>
@@ -2320,6 +2327,7 @@ function App() {
       )}
 
     </div>
+    </>
   );
 }
 

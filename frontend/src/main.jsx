@@ -10,6 +10,7 @@ import '@fontsource/outfit/600.css';
 import '@fontsource/outfit/800.css';
 import 'material-icons/iconfont/round.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import './config';
 import App from './App.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
