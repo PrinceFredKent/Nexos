@@ -4,15 +4,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import BiometricUnlock from './BiometricUnlock';
 import PinUnlock from './PinUnlock';
 import { secureStorage } from '../services/secureStorage';
 import '../styles/appLock.css';
 
 export const AppLock = ({ onUnlocked, onLogout }) => {
-  const [unlockMethod, setUnlockMethod] = useState(null); // 'biometric', 'pin', or null
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const [biometricCredentialId, setBiometricCredentialId] = useState(null);
+  const [unlockMethod, setUnlockMethod] = useState('pin');
   const [pinSet, setPinSet] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -23,40 +20,14 @@ export const AppLock = ({ onUnlocked, onLogout }) => {
 
   const initializeAppLock = async () => {
     try {
-      const [hasBiometric, hasPin, storedCredential] = await Promise.all([
-        secureStorage.isBiometricAvailable(),
-        secureStorage.getAppPin(),
-        secureStorage.getBiometricCredential(),
-      ]);
-
-      setBiometricAvailable(!!hasBiometric);
-      setBiometricCredentialId(storedCredential);
+      const hasPin = await secureStorage.getAppPin();
       setPinSet(!!hasPin);
-
-      // Default to biometric if available, otherwise PIN
-      if (hasBiometric) {
-        setUnlockMethod('biometric');
-      } else if (hasPin) {
-        setUnlockMethod('pin');
-      }
-
+      setUnlockMethod('pin');
       setLoading(false);
     } catch (error) {
       console.error('App lock initialization error:', error);
       setError('Failed to initialize app lock');
       setLoading(false);
-    }
-  };
-
-  const handleBiometricSuccess = () => {
-    onUnlocked();
-  };
-
-  const handleBiometricFallback = () => {
-    if (pinSet) {
-      setUnlockMethod('pin');
-    } else {
-      setError('PIN not set. Please log in again.');
     }
   };
 
@@ -75,9 +46,7 @@ export const AppLock = ({ onUnlocked, onLogout }) => {
   };
 
   const handlePinCancel = () => {
-    if (biometricAvailable) {
-      setUnlockMethod('biometric');
-    }
+    onLogout();
   };
 
   if (loading) {
@@ -136,14 +105,7 @@ export const AppLock = ({ onUnlocked, onLogout }) => {
           <h2>Health Assistant</h2>
         </div>
 
-        {unlockMethod === 'biometric' && biometricAvailable ? (
-          <BiometricUnlock
-            credentialId={biometricCredentialId}
-            onSuccess={handleBiometricSuccess}
-            onFallback={handleBiometricFallback}
-            onCredentialRegistered={(newId) => setBiometricCredentialId(newId)}
-          />
-        ) : unlockMethod === 'pin' && pinSet ? (
+        {unlockMethod === 'pin' && pinSet ? (
           <PinUnlock onSuccess={handlePinSuccess} onCancel={handlePinCancel} />
         ) : unlockMethod === 'pin' && !pinSet ? (
           <PinUnlock
@@ -157,13 +119,7 @@ export const AppLock = ({ onUnlocked, onLogout }) => {
               }
             }}
             isSettingPin={true}
-            onCancel={() => {
-              if (biometricAvailable) {
-                setUnlockMethod('biometric');
-              } else {
-                onLogout();
-              }
-            }}
+            onCancel={onLogout}
           />
         ) : null}
 

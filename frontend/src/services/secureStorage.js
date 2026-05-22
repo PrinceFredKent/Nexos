@@ -8,22 +8,6 @@ const DB_NAME = 'nexos_secure_db';
 const DB_VERSION = 1;
 const STORE_NAME = 'auth_tokens';
 
-const bufferToBase64 = (buffer) => {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  bytes.forEach((b) => binary += String.fromCharCode(b));
-  return window.btoa(binary);
-};
-
-const base64ToBuffer = (base64) => {
-  const binary = window.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes.buffer;
-};
-
 class SecureStorage {
   constructor() {
     this.db = null;
@@ -122,35 +106,8 @@ class SecureStorage {
       store.delete('jwt_token');
       store.delete('app_pin');
       store.delete('app_lock_enabled');
-      store.delete('biometric_credential');
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
-    });
-  }
-
-  async setBiometricCredential(credentialId) {
-    await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readwrite');
-      const store = transaction.objectStore(STORE_NAME);
-      store.put({
-        key: 'biometric_credential',
-        value: credentialId,
-        timestamp: Date.now()
-      });
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-    });
-  }
-
-  async getBiometricCredential() {
-    await this.initPromise;
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([STORE_NAME], 'readonly');
-      const store = transaction.objectStore(STORE_NAME);
-      const request = store.get('biometric_credential');
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve(request.result?.value || null);
     });
   }
 
@@ -197,19 +154,6 @@ class SecureStorage {
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  // Biometric availability check
-  async isBiometricAvailable() {
-    if (!window.PublicKeyCredential) return false;
-    
-    try {
-      const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      return available;
-    } catch (error) {
-      console.warn('Biometric check failed:', error);
-      return false;
-    }
   }
 }
 
