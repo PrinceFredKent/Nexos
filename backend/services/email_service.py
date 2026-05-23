@@ -57,19 +57,24 @@ def get_otp_email_template(otp_code: str, username: str):
 def _send_via_resend(to_email: str, subject: str, html_content: str) -> bool:
     """
     Send email via Resend HTTP API (https://resend.com).
-    Uses port 443 (HTTPS) — works on Render free tier where SMTP is blocked.
+    NOTE: RESEND_FROM must be a verified domain address (not Gmail).
+    Uses port 443 (HTTPS) — works on Railway/Render where SMTP may be blocked.
     """
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:
-        return False  # Not configured — fall through to SMTP
+        log.info("Resend: RESEND_API_KEY not set — skipping")
+        return False
 
     try:
         import urllib.request
+        import urllib.error
         import json as _json
 
         from_name = "NEXOS Health"
         from_addr = os.environ.get("RESEND_FROM", "onboarding@resend.dev")
         from_header = f"{from_name} <{from_addr}>"
+
+        log.info(f"Resend: attempting to send to {to_email} from {from_addr}")
 
         payload = _json.dumps({
             "from": from_header,
@@ -90,13 +95,20 @@ def _send_via_resend(to_email: str, subject: str, html_content: str) -> bool:
 
         with urllib.request.urlopen(req, timeout=15) as resp:
             result = _json.loads(resp.read().decode())
-            log.info(f"Resend delivered email to {to_email} — id: {result.get('id')}")
-            print(f"DEBUG: Resend OK — email id: {result.get('id')}")
+            log.info(f"Resend: delivered to {to_email} — id: {result.get('id')}")
             return True
 
+    except urllib.error.HTTPError as e:
+        body = ""
+        try:
+            body = e.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        log.error(f"Resend: HTTP {e.code} for {to_email} | from={from_addr} | body={body}")
+        print(f"DEBUG Resend HTTP {e.code}: {body}")
+        return False
     except Exception as e:
-        log.error(f"Resend failed for {to_email}: {e}")
-        print(f"DEBUG: Resend error: {e}")
+        log.error(f"Resend: unexpected error for {to_email}: {e}")
         return False
 
 
@@ -147,54 +159,58 @@ def _send_via_brevo(to_email: str, subject: str, html_content: str) -> bool:
         return False
 
 def _send_real_email(to_email: str, subject: str, html_content: str):
-    """Send email — tries Resend first, then Brevo, and falls back to SMTP for local dev."""
-    # ── Priority 1: Resend HTTP API (best for verified domains and Render free tier) ──
-    if _send_via_resend(to_email, subject, html_content):
-        return True
+    """
+    Send email — tries providers in priority order:
+      1. Brevo HTTP API  (free, no domain verification, 300/day)
+      2. Resend HTTP API (requires verified sender domain)
+      3. SMTP            (local dev only — blocked on Railway/Render)
+    """
+    attempted = []
 
-    # ── Priority 2: Brevo HTTP API (good fallback if Resend is not configured) ──
+    # ── Priority 1: Brevo HTTP API (no domain verification needed) ──
+    attempted.append("Brevo")
     if _send_via_brevo(to_email, subject, html_content):
         return True
 
-    # ── Priority 3: Direct SMTP (local dev only — blocked on Render free tier) ──
+    # ── Priority 2: Resend HTTP API (verified domain required) ──
+    attempted.append("Resend")
+    if _send_via_resend(to_email, subject, html_content):
+        return True
+
+    # ── Priority 3: Direct SMTP (local dev only) ──
     smtp_host = os.environ.get("SMTP_HOST")
-    smtp_port = int(os.environ.get("SMTP_PORT", 465))
+    smtp_port = int(os.environ.get("SMTP_PORT", 587))
     smtp_user = os.environ.get("SMTP_USER")
     smtp_pass = os.environ.get("SMTP_PASSWORD")
     smtp_from = os.environ.get("SMTP_FROM", smtp_user)
 
-    print(f"DEBUG: SMTP Config - Host: {smtp_host}, Port: {smtp_port}, User: {smtp_user}")
+    if smtp_host and smtp_user and smtp_pass:
+        attempted.append("SMTP")
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = formataddr(("NEXOS Health", smtp_from))
+            msg["To"] = to_email
+            msg.attach(MIMEText(html_content, "html"))
 
-    if not smtp_host or not smtp_user or not smtp_pass:
-        log.warning("Neither RESEND_API_KEY nor SMTP credentials configured. Logging email to console.")
-        log.info(f"--- CONSOLE EMAIL TO {to_email} | Subject: {subject} ---")
-        return False
+            log.info(f"SMTP: connecting to {smtp_host}:{smtp_port}")
+            if smtp_port == 465:
+                server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15)
+            else:
+                server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
+                server.starttls()
 
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = formataddr(("NEXOS Health", smtp_from))
-        msg["To"] = to_email
-        msg.attach(MIMEText(html_content, "html"))
+            server.login(smtp_user, smtp_pass)
+            server.sendmail(smtp_from, to_email, msg.as_string())
+            server.quit()
+            log.info(f"SMTP: sent to {to_email}")
+            return True
+        except Exception as e:
+            log.error(f"SMTP: failed for {to_email}: {e}")
 
-        log.info(f"Connecting to SMTP server {smtp_host}:{smtp_port}...")
-        if smtp_port == 465:
-            server = smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=15)
-        else:
-            server = smtplib.SMTP(smtp_host, smtp_port, timeout=15)
-            server.starttls()
-
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_from, to_email, msg.as_string())
-        server.quit()
-
-        log.info(f"SMTP: Successfully sent email to {to_email}")
-        return True
-    except Exception as e:
-        print(f"DEBUG: SMTP FAILED for {to_email}: {e}")
-        log.error(f"SMTP CRITICAL: Failed to send to {to_email}: {e}")
-        log.info(f"--- FALLBACK EMAIL TO {to_email} | Subject: {subject} ---")
-        return False
+    log.error(f"EMAIL DELIVERY FAILED for {to_email} — tried: {', '.join(attempted)}. "
+              f"Configure BREVO_API_KEY in Railway env vars.")
+    return False
 
 def send_otp_email(email: str, username: str, otp_code: str) -> bool:
     """Sends the OTP email."""
