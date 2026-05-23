@@ -104,6 +104,7 @@ SYNC_INTERVAL_MINUTES=5
 ```
 
 ### Optional email provider vars
+If SMTP is blocked by your host, configure Resend or Brevo so the app can send verification and welcome emails over HTTPS.
 ```env
 RESEND_API_KEY=your_resend_api_key
 RESEND_FROM=your_from_address

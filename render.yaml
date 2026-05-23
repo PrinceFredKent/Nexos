@@ -30,6 +30,12 @@ services:
         sync: false   # Use a Gmail App Password, not your account password
       - key: SMTP_FROM
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
       # ── Google OAuth ────────────────────────────────────────────────────────
       - key: GOOGLE_CLIENT_ID
         sync: false
