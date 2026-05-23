@@ -1,6 +1,7 @@
 import bcrypt
 import os
 from datetime import datetime, timedelta
+import secrets
 from typing import Optional
 from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
@@ -31,7 +32,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        # Default to the configured session length (7 days)
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt

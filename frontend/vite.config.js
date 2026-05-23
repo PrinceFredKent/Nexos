@@ -34,4 +34,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        // Split large, stable libraries into their own chunks for better caching
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-pdf': ['jspdf', 'jspdf-autotable'],
+        },
+      },
+    },
+  },
 })

@@ -31,11 +31,23 @@ Base.metadata.create_all(bind=engine)
 # Background sync scheduler
 _scheduler = AsyncIOScheduler()
 
-app = FastAPI(title="AI Health Assistant API")
+app = FastAPI(
+    title="Nexos Health AI API",
+    description="Backend API for Nexos — an offline-first AI health assistant.",
+    version="1.0.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json",
+)
 
 # CORS — read allowed origins from env var
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "*")
 _origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else ["*"]
+
+if _raw_origins == "*":
+    log.warning("CORS is set to '*' — restrict ALLOWED_ORIGINS to your frontend URL in production.")
+else:
+    log.info(f"CORS restricted to: {_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,6 +56,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Health Check Endpoint ────────────────────────────────────────────────────
+@app.get("/health", tags=["System"])
+async def health_check():
+    """Render health check — returns 200 when the service is up."""
+    return {"status": "ok", "service": "nexos-api"}
 
 @app.on_event("startup")
 async def startup_event():
@@ -71,6 +89,16 @@ async def startup_event():
         log.error(f"Migration error: {e}")
     finally:
         db.close()
+
+    # Warn loudly if critical production env vars are missing
+    _jwt_secret = os.environ.get("JWT_SECRET_KEY", "nexos-dev-secret-change-in-production")
+    if _jwt_secret == "nexos-dev-secret-change-in-production":
+        log.warning("JWT_SECRET_KEY is using the insecure dev default — set it in Render environment variables!")
+    _frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
+    if "localhost" in _frontend_url:
+        log.warning(f"FRONTEND_URL is set to '{_frontend_url}' — update to your production Cloudflare Pages URL.")
+    else:
+        log.info(f"Frontend URL: {_frontend_url}")
 
     interval = int(os.environ.get("SYNC_INTERVAL_MINUTES", "5"))
     if interval > 0 and cloud_engine:

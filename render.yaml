@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: nexos-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # ── Database ────────────────────────────────────────────────────────────
+      - key: DATABASE_URL
+        sync: false   # Set in Render dashboard → Environment
+      # ── Auth ────────────────────────────────────────────────────────────────
+      - key: JWT_SECRET_KEY
+        sync: false   # Generate a strong random secret; e.g. openssl rand -hex 32
+      # ── CORS & Frontend ─────────────────────────────────────────────────────
+      - key: ALLOWED_ORIGINS
+        sync: false   # e.g. https://nexos.pages.dev,https://your-custom-domain.com
+      - key: FRONTEND_URL
+        sync: false   # e.g. https://nexos.pages.dev
+      # ── Email / SMTP ────────────────────────────────────────────────────────
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false   # Use a Gmail App Password, not your account password
+      - key: SMTP_FROM
+        sync: false
+      # ── Google OAuth ────────────────────────────────────────────────────────
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      # ── Sync ────────────────────────────────────────────────────────────────
+      - key: SYNC_INTERVAL_MINUTES
+        value: "5"

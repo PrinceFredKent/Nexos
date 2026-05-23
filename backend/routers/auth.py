@@ -8,6 +8,15 @@ import requests
 import os
 from typing import Optional
 
+try:
+    from google.oauth2 import id_token as google_id_token
+    from google.auth.transport import requests as google_requests
+    _GOOGLE_AUTH_AVAILABLE = True
+except ImportError:
+    _GOOGLE_AUTH_AVAILABLE = False
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+
 from database import get_db, cloud_engine
 from models.user import User as DBUser
 from schemas import (
@@ -301,4 +310,76 @@ def generate_formatted_username(full_name: str, email: str, db: Session) -> str:
 
 @router.post("/google-login")
 async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    raise HTTPException(status_code=501, detail="Google authentication is temporarily disabled until production.")
+    """Authenticate using a Google Identity Services credential (ID token)."""
+    if not _GOOGLE_AUTH_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Google auth library not installed on this server.")
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google OAuth is not configured on this server.")
+
+    # Verify the ID token with Google's servers
+    try:
+        id_info = google_id_token.verify_oauth2_token(
+            payload.credential,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=10,
+        )
+    except ValueError as e:
+        log.warning(f"Google token verification failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid Google credential.")
+
+    google_id = id_info.get("sub")
+    email = id_info.get("email")
+    full_name = id_info.get("name", "")
+    profile_picture = id_info.get("picture", "")
+
+    if not google_id or not email:
+        raise HTTPException(status_code=400, detail="Incomplete Google profile data.")
+
+    # Look up by google_id first, fall back to email
+    user = (
+        db.query(DBUser).filter(DBUser.google_id == google_id).first()
+        or db.query(DBUser).filter(DBUser.email == email).first()
+    )
+
+    if user:
+        # Existing user — update google_id and profile picture if needed
+        if not user.google_id:
+            user.google_id = google_id
+        if profile_picture and not user.profile_picture:
+            user.profile_picture = profile_picture
+        if not user.is_verified:
+            user.is_verified = 1
+        db.commit()
+        db.refresh(user)
+        is_new = False
+    else:
+        # New user via Google — auto-create and verify
+        username = generate_formatted_username(full_name, email, db)
+        user = DBUser(
+            username=username,
+            email=email,
+            google_id=google_id,
+            profile_picture=profile_picture,
+            is_verified=1,
+            gender="other",
+            blood_type="Unknown",
+            phone="0000000000",
+            hashed_password=get_password_hash(os.urandom(32).hex()),  # Unusable password
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        background_tasks.add_task(send_welcome_email, user.email, user.username)
+        background_tasks.add_task(initial_pull_all, user.username)
+        is_new = True
+
+    access_token = create_access_token(data={"sub": user.username})
+    log.info(f"Google login: user='{user.username}' new={is_new}")
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "username": user.username,
+        "role": "patient",
+        "is_new_device": is_new,
+    }
