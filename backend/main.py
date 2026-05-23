@@ -9,6 +9,8 @@ import logging
 import json
 
 from database import engine, get_db, Base, cloud_engine
+# Import all model modules so SQLAlchemy's metadata includes every table
+from models import appointment, cycle, health_data, health_knowledge, medication, outbox, sync_conflict, sync_meta, user
 from models.health_knowledge import HealthCondition
 from sync_service import run_sync
 
