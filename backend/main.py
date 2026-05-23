@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -93,7 +93,7 @@ async def startup_event():
     # Warn loudly if critical production env vars are missing
     _jwt_secret = os.environ.get("JWT_SECRET_KEY", "nexos-dev-secret-change-in-production")
     if _jwt_secret == "nexos-dev-secret-change-in-production":
-        log.warning("JWT_SECRET_KEY is using the insecure dev default — set it in Render environment variables!")
+        log.warning("JWT_SECRET_KEY is using the insecure dev default — Set it in your Railway/cloud environment variables!")
     _frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
     if "localhost" in _frontend_url:
         log.warning(f"FRONTEND_URL is set to '{_frontend_url}' — update to your production Cloudflare Pages URL.")
