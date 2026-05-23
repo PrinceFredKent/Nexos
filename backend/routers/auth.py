@@ -33,6 +33,27 @@ from sync_service import (
 from services.email_service import (
     send_otp_email, send_welcome_email, send_password_reset_email
 )
+from services.sms_service import send_otp_sms, send_password_reset_sms
+
+
+def _deliver_otp(phone: str | None, email: str, username: str, otp: str) -> bool:
+    """Try SMS first (Termii), fall back to email. Returns True if delivered."""
+    if phone:
+        if send_otp_sms(phone, otp, username):
+            log.info(f"OTP delivered via SMS to {phone}")
+            return True
+        log.warning(f"SMS failed for {phone}, falling back to email")
+    return send_otp_email(email, username, otp)
+
+
+def _deliver_reset_otp(phone: str | None, email: str, username: str, otp: str) -> bool:
+    """Try SMS first (Termii) for password reset OTP, fall back to email."""
+    if phone:
+        if send_password_reset_sms(phone, otp, username):
+            log.info(f"Password reset OTP delivered via SMS to {phone}")
+            return True
+        log.warning(f"SMS failed for {phone}, falling back to email")
+    return send_password_reset_email(email, username, otp)
 
 log = logging.getLogger("nexos.auth")
 
@@ -114,8 +135,8 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     new_user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
 
-    if not send_otp_email(new_user.email, new_user.username, otp):
-        raise HTTPException(status_code=500, detail="Failed to send verification email. Please try again.")
+    if not _deliver_otp(new_user.phone, new_user.email, new_user.username, otp):
+        raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
     background_tasks.add_task(run_sync)
     return {
@@ -165,8 +186,8 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
         user.otp_code = otp
         user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
         db.commit()
-        if not send_otp_email(user.email, user.username, otp):
-            raise HTTPException(status_code=500, detail="Failed to send verification email. Please try again.")
+        if not _deliver_otp(user.phone, user.email, user.username, otp):
+            raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
         return {
             "access_token": None,
@@ -233,8 +254,8 @@ async def resend_otp(email_data: dict, db: Session = Depends(get_db)):
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
     
-    if not send_otp_email(user.email, user.username, otp):
-        raise HTTPException(status_code=500, detail="Failed to resend verification email. Please try again.")
+    if not _deliver_otp(user.phone, user.email, user.username, otp):
+        raise HTTPException(status_code=500, detail="Failed to resend verification code. Please try again.")
     return {"message": "Verification code resent"}
 
 @router.post("/forgot-password")
@@ -248,7 +269,7 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
 
-    if not send_password_reset_email(user.email, user.username, otp):
+    if not _deliver_reset_otp(user.phone, user.email, user.username, otp):
         raise HTTPException(status_code=500, detail="Failed to send password reset code. Please try again.")
     return {"message": "Password reset code sent"}
 

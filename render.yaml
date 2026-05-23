@@ -36,6 +36,11 @@ services:
         sync: false
       - key: BREVO_API_KEY
         sync: false
+      # ── SMS via Termii ──────────────────────────────────────────────────────
+      - key: TERMII_API_KEY
+        sync: false   # Get from https://accounts.termii.com/#/
+      - key: TERMII_SENDER_ID
+        value: "NEXOS"  # Max 11 chars branded sender name
       # ── Google OAuth ────────────────────────────────────────────────────────
       - key: GOOGLE_CLIENT_ID
         sync: false

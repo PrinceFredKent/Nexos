@@ -94,7 +94,7 @@ const VerifyAccount = ({ email, onVerificationSuccess, onBackToLogin }) => {
         </button>
         
         <h2>Enter Verification Code</h2>
-        <p>Verification code sent to <span style={{color: 'var(--auth-accent)', fontWeight: '700'}}>{email}</span> . Enter the code to proceed.</p>
+        <p>A 6-digit code was sent to your <span style={{color: 'var(--auth-accent)', fontWeight: '700'}}>phone number</span> via SMS. If you didn't receive it, check your email <span style={{color: 'var(--auth-accent)', fontWeight: '700'}}>({email})</span> as a fallback.</p>
 
         {error && <p className="error-text" style={{color: '#ff4d4d', marginBottom: '1.5rem', fontSize: '0.85rem'}}>{error}</p>}
 
