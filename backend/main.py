@@ -9,6 +9,7 @@ import logging
 import json
 
 from database import engine, get_db, Base, cloud_engine
+from sqlalchemy import text
 # Import all model modules so SQLAlchemy's metadata includes every table
 from models import appointment, cycle, health_data, health_knowledge, medication, outbox, sync_conflict, sync_meta, user
 from models.health_knowledge import HealthCondition
@@ -110,6 +111,24 @@ async def startup_event():
         log.error(f"Migration error: {e}")
     finally:
         db.close()
+
+    # Ensure user columns exist (safe no-op if they already do).
+    try:
+        with engine.begin() as conn:
+            # SQLite will raise if column exists; wrap each in try/except
+            try:
+                conn.execute(text('ALTER TABLE users ADD COLUMN is_pregnant BOOLEAN DEFAULT 0'))
+                log.info('Added column users.is_pregnant')
+            except Exception:
+                log.debug('Column users.is_pregnant already exists or could not be added')
+
+            try:
+                conn.execute(text('ALTER TABLE users ADD COLUMN pregnancy_due_date DATE'))
+                log.info('Added column users.pregnancy_due_date')
+            except Exception:
+                log.debug('Column users.pregnancy_due_date already exists or could not be added')
+    except Exception as e:
+        log.warning(f'User column migration step failed: {e}')
 
     # Warn loudly if critical production env vars are missing
     _jwt_secret = os.environ.get("JWT_SECRET_KEY", "nexos-dev-secret-change-in-production")
