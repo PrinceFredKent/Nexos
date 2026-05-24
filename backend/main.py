@@ -42,19 +42,33 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
-# CORS — read allowed origins from env var
+# CORS — read allowed origins from env var and normalize them
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "*")
-_origins = [o.strip() for o in _raw_origins.split(",")] if _raw_origins != "*" else ["*"]
+origins = []
 
-if _raw_origins == "*":
+if not _raw_origins or _raw_origins.strip() == "*":
+    origins = ["*"]
+else:
+    origins = [o.strip().rstrip('/') for o in _raw_origins.split(",") if o.strip()]
+    if any(o == "*" for o in origins):
+        origins = ["*"]
+
+# If FRONTEND_URL is configured, ensure it is allowed too
+_frontend_url = os.environ.get("FRONTEND_URL")
+if _frontend_url:
+    normalized_frontend_url = _frontend_url.strip().rstrip('/')
+    if origins != ["*"] and normalized_frontend_url not in origins:
+        origins.append(normalized_frontend_url)
+
+if origins == ["*"]:
     log.warning("CORS is set to '*' — restrict ALLOWED_ORIGINS to your frontend URL in production.")
 else:
-    log.info(f"CORS restricted to: {_origins}")
+    log.info(f"CORS restricted to: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=_raw_origins != "*",
+    allow_origins=origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
