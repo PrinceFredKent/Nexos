@@ -455,7 +455,44 @@
 }
 
 /* Responsive */
-@media (max-width: 480px) {
+@media (max-width: 360px) {
+  .lock-content,
+  .lock-initial-setup,
+  .lock-loading {
+    padding: 25px 15px;
+    border-radius: 14px;
+    width: 95%;
+  }
+
+  .pin-digit {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .pin-display-row {
+    gap: 8px;
+  }
+
+  .pin-keypad {
+    gap: 8px;
+    max-width: 200px;
+  }
+
+  .biometric-unlock-container h3 {
+    font-size: 16px;
+  }
+
+  .lock-app-branding .material-icons-round {
+    font-size: 36px;
+  }
+
+  .lock-app-branding h2 {
+    font-size: 20px;
+  }
+}
+
+@media (min-width: 361px) and (max-width: 480px) {
   .lock-content,
   .lock-initial-setup,
   .lock-loading {
@@ -484,5 +521,42 @@
 
   .lock-app-branding .material-icons-round {
     font-size: 40px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .lock-content,
+  .lock-initial-setup,
+  .lock-loading {
+    padding: 40px 30px;
+    border-radius: 20px;
+    max-width: 500px;
+  }
+
+  .pin-digit {
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+  }
+
+  .pin-display-row {
+    gap: 12px;
+  }
+
+  .pin-keypad {
+    gap: 12px;
+    max-width: 300px;
+  }
+
+  .biometric-unlock-container h3 {
+    font-size: 22px;
+  }
+
+  .lock-app-branding .material-icons-round {
+    font-size: 48px;
+  }
+
+  .lock-app-branding h2 {
+    font-size: 28px;
   }
 }

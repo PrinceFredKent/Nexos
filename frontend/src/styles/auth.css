@@ -654,6 +654,7 @@ body:not(.dark-theme) {
     padding: 2rem 1rem;
     align-items: center;
     justify-content: center;
+    min-height: 100vh;
     min-height: 100dvh;
     height: auto;
     overflow-y: auto;
@@ -677,6 +678,7 @@ body:not(.dark-theme) {
     flex-direction: column !important;
     width: 100%;
     max-width: 420px;
+    min-height: 90vh;
     min-height: 90dvh;
     height: auto;
     border-radius: 32px;
@@ -1331,6 +1333,89 @@ body:not(.dark-theme) {
     right: 3rem;
   }
 }
+
+/* ── Extra Small Screens (≤ 360px) ── */
+@media (max-width: 360px) {
+  .auth-container {
+    padding: 1.5rem 0.75rem;
+  }
+
+  .auth-card {
+    max-width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    border-radius: 28px;
+  }
+
+  .image-overlay {
+    padding: 1.75rem 1rem 0.5rem;
+  }
+
+  .auth-branding > img {
+    width: 48px !important;
+    height: 48px !important;
+    padding: 8px;
+  }
+
+  .auth-branding-title {
+    font-size: 1.75rem;
+    letter-spacing: 3px;
+  }
+
+  .auth-form-side {
+    padding: 1.25rem 1rem 2.5rem;
+  }
+
+  .auth-form h2 {
+    font-size: 1.7rem;
+  }
+
+  .auth-form > p {
+    margin-bottom: 1.5rem;
+    margin-top: 2.5rem;
+  }
+
+  .input-group input,
+  .input-group select {
+    padding: 0.85rem 2.8rem 0.85rem 2.8rem;
+    min-height: 48px;
+    font-size: 0.9rem;
+  }
+
+  .input-group::before {
+    left: 0.75rem;
+    width: 16px;
+    height: 16px;
+  }
+
+  .input-group label {
+    left: 2.8rem;
+    font-size: 0.85rem;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .google-full {
+    padding: 0.9rem;
+    font-size: 0.9rem;
+    min-height: 48px;
+  }
+
+  .custom-select-trigger {
+    padding: 0.85rem 2.8rem 0.85rem 2.8rem;
+    min-height: 48px;
+  }
+
+  .otp-box {
+    max-width: 52px;
+    font-size: 1.2rem;
+  }
+
+  .auth-top-buttons-group {
+    right: 0.75rem;
+  }
+
+  .skip-btn-elite {\n    padding: 0.4rem 0.9rem;\n    font-size: 0.75rem;\n  }\n}\n\n/* ── Tablet Refinements (769px - 1024px) ── */\n@media (min-width: 769px) and (max-width: 1024px) {\n  .auth-container {\n    padding: 3rem 2rem;\n  }\n\n  .auth-card {\n    max-width: 100%;\n    width: 100%;\n    max-height: 90vh;\n    flex-direction: row;\n  }\n\n  .auth-image-side {\n    flex: 0.8;\n  }\n\n  .auth-form-side {\n    flex: 1;\n    padding: 2rem 2.5rem;\n  }\n\n  .auth-form h2 {\n    font-size: 2.2rem;\n  }\n\n  .input-group input,\n  .input-group select {\n    padding: 1rem 1.25rem;\n    min-height: 56px;\n  }\n\n  .btn-primary,\n  .btn-secondary,\n  .google-full {\n    padding: 1rem 1.25rem;\n    min-height: 56px;\n  }\n}\n
 
 .auth-top-buttons-group {
   position: absolute;

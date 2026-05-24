@@ -37,22 +37,14 @@ from services.sms_service import send_otp_sms, send_password_reset_sms
 
 
 def _deliver_otp(phone: str | None, email: str, username: str, otp: str) -> bool:
-    """Try SMS first (Termii), fall back to email. Returns True if delivered."""
-    if phone:
-        if send_otp_sms(phone, otp, username):
-            log.info(f"OTP delivered via SMS to {phone}")
-            return True
-        log.warning(f"SMS failed for {phone}, falling back to email")
+    """Always deliver OTP via email. SMS via Termii is disabled/bypassed for now."""
+    log.info(f"Bypassing SMS for {username}. Delivering OTP via email to {email}.")
     return send_otp_email(email, username, otp)
 
 
 def _deliver_reset_otp(phone: str | None, email: str, username: str, otp: str) -> bool:
-    """Try SMS first (Termii) for password reset OTP, fall back to email."""
-    if phone:
-        if send_password_reset_sms(phone, otp, username):
-            log.info(f"Password reset OTP delivered via SMS to {phone}")
-            return True
-        log.warning(f"SMS failed for {phone}, falling back to email")
+    """Always deliver password reset OTP via email. SMS via Termii is disabled/bypassed for now."""
+    log.info(f"Bypassing SMS for {username}. Delivering password reset OTP via email to {email}.")
     return send_password_reset_email(email, username, otp)
 
 log = logging.getLogger("nexos.auth")

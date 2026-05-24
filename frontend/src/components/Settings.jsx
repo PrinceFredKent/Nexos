@@ -447,7 +447,7 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
               ) : (
                 <div className="otp-verification-flow fade-in">
                   <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-                    Enter the 6-digit code sent to <strong>{patient.email}</strong> to confirm your password change.
+                    Enter the 6-digit code sent to <strong>{patient.email}</strong> to confirm your password change. (Be sure to check your spam/junk folder if you don't see it).
                   </p>
                   <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
                     <input 

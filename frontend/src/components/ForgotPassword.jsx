@@ -109,7 +109,7 @@ const ForgotPassword = ({ onSwitch }) => {
         <h2>{step === 4 ? 'Password Reset' : 'Reset Password'}</h2>
         <p>
           {step === 1 && "Enter your email address and we'll send you a code to reset your password."}
-          {step === 2 && `Enter the 6-digit verification code sent to ${email}.`}
+          {step === 2 && `Enter the 6-digit verification code sent to ${email}. (Be sure to check your spam/junk folder if you don't see it).`}
           {step === 3 && "Secure your account with a new password."}
           {step === 4 && "Your password has been reset successfully."}
         </p>
