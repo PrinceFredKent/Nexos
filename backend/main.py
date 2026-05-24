@@ -44,6 +44,7 @@ app = FastAPI(
 
 # CORS — read allowed origins from env var and normalize them
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "*")
+_frontend_url = os.environ.get("FRONTEND_URL")
 origins = []
 
 if not _raw_origins or _raw_origins.strip() == "*":
@@ -54,7 +55,6 @@ else:
         origins = ["*"]
 
 # If FRONTEND_URL is configured, ensure it is allowed too
-_frontend_url = os.environ.get("FRONTEND_URL")
 if _frontend_url:
     normalized_frontend_url = _frontend_url.strip().rstrip('/')
     if origins != ["*"] and normalized_frontend_url not in origins:
