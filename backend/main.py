@@ -60,6 +60,10 @@ if _frontend_url:
     if origins != ["*"] and normalized_frontend_url not in origins:
         origins.append(normalized_frontend_url)
 
+# Always include Cloudflare Pages deployment URL as fallback
+if origins != ["*"] and "https://nexos-health.pages.dev" not in origins:
+    origins.append("https://nexos-health.pages.dev")
+
 if origins == ["*"]:
     log.warning("CORS is set to '*' — restrict ALLOWED_ORIGINS to your frontend URL in production.")
 else:
