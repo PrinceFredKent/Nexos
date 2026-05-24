@@ -48,6 +48,7 @@ _frontend_url = os.environ.get("FRONTEND_URL")
 origins = []
 
 if not _raw_origins or _raw_origins.strip() == "*":
+    # Development default: allow localhost and all origins
     origins = ["*"]
 else:
     origins = [o.strip().rstrip('/') for o in _raw_origins.split(",") if o.strip()]
@@ -55,12 +56,12 @@ else:
         origins = ["*"]
 
 # If FRONTEND_URL is configured, ensure it is allowed too
-if _frontend_url:
+if _frontend_url and origins != ["*"]:
     normalized_frontend_url = _frontend_url.strip().rstrip('/')
-    if origins != ["*"] and normalized_frontend_url not in origins:
+    if normalized_frontend_url not in origins:
         origins.append(normalized_frontend_url)
 
-# Always include Cloudflare Pages deployment URL as fallback
+# Always include Cloudflare Pages deployment URL as fallback when not wildcard
 if origins != ["*"] and "https://nexos-health.pages.dev" not in origins:
     origins.append("https://nexos-health.pages.dev")
 
