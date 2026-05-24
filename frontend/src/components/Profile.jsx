@@ -17,6 +17,8 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
     if (name === 'birth_date') {
       const age = calculateAge(value);
       setEditData(prev => ({ ...prev, [name]: value, age: age === 'N/A' ? prev.age : age }));
+    } else if (name === 'is_pregnant') {
+      setEditData(prev => ({ ...prev, is_pregnant: value === 'yes' }));
     } else {
       setEditData(prev => ({ ...prev, [name]: value }));
     }
@@ -403,6 +405,35 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
               )}
             </div>
           </div>
+
+          <div className="info-row-elite">
+            <div className="info-icon-elite"><span className="material-icons-round">pregnant_woman</span></div>
+            <div className="info-content-elite">
+              <label>Pregnancy Status</label>
+              {isEditing ? (
+                <select name="is_pregnant" value={editData.is_pregnant ? 'yes' : 'no'} onChange={handleChange} className="profile-input-elite">
+                  <option value="no">Not pregnant</option>
+                  <option value="yes">Pregnant</option>
+                </select>
+              ) : (
+                <p>{patient.is_pregnant ? 'Pregnant' : 'Not pregnant'}</p>
+              )}
+            </div>
+          </div>
+
+          {((isEditing && editData.is_pregnant) || (!isEditing && patient.is_pregnant)) && (
+            <div className="info-row-elite">
+              <div className="info-icon-elite"><span className="material-icons-round">event</span></div>
+              <div className="info-content-elite">
+                <label>Expected Due Date</label>
+                {isEditing ? (
+                  <input type="date" name="pregnancy_due_date" value={editData.pregnancy_due_date || ''} onChange={handleChange} className="profile-input-elite" />
+                ) : (
+                  <p>{patient.pregnancy_due_date || 'Not specified'}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Medical History ── */}

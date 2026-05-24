@@ -21,6 +21,8 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     bloodType: 'A+',
     weight: '',
     height: '',
+    isPregnant: false,
+    pregnancyDueDate: '',
     // Step 3: Emergency
     allergies: '',
     chronicConditions: '',
@@ -178,6 +180,8 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
         phone: formData.phone,
         birth_date: formData.birthDate || null,
         gender: formData.gender,
+        is_pregnant: formData.isPregnant,
+        pregnancy_due_date: formData.isPregnant ? (formData.pregnancyDueDate || null) : null,
         blood_type: formData.bloodType,
         weight: formData.weight || null,
         height: formData.height || null,
@@ -196,6 +200,8 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
         password: formData.password || "oauth_managed_account",
         birth_date: formData.birthDate || null,
         gender: formData.gender,
+        is_pregnant: formData.isPregnant,
+        pregnancy_due_date: formData.isPregnant ? (formData.pregnancyDueDate || null) : null,
         blood_type: formData.bloodType,
         weight: formData.weight,
         height: formData.height,
@@ -376,6 +382,29 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                   flex={1}
                 />
             </div>
+            {formData.gender === 'Female' && (
+              <div style={{display: 'flex', gap: '1rem', marginTop: '1rem'}}>
+                <div className={`input-group filled`} style={{flex: 1}}>
+                  <label htmlFor="isPregnant">Pregnancy Status</label>
+                  <select
+                    id="isPregnant"
+                    value={formData.isPregnant ? 'yes' : 'no'}
+                    onChange={(e) => setFormData({...formData, isPregnant: e.target.value === 'yes'})}
+                    className="profile-input-elite"
+                    style={{ padding: '0.8rem 1rem' }}
+                  >
+                    <option value="no">Not Pregnant</option>
+                    <option value="yes">Pregnant</option>
+                  </select>
+                </div>
+                {formData.isPregnant && (
+                  <div className={`input-group ${formData.pregnancyDueDate ? 'filled' : ''}`} style={{flex: 1}}>
+                    <input type="date" id="pregnancyDueDate" placeholder=" " value={formData.pregnancyDueDate} onChange={(e) => setFormData({...formData, pregnancyDueDate: e.target.value})} />
+                    <label htmlFor="pregnancyDueDate">Expected Due Date</label>
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{display: 'flex', gap: '1rem'}}>
                 <div className={`input-group ${formData.weight ? 'filled' : ''}`} style={{flex: 1}}>
                   <input type="text" id="weight" placeholder=" " value={formData.weight} onChange={(e) => setFormData({...formData, weight: e.target.value})} />

@@ -15,7 +15,7 @@ router = APIRouter(tags=["AI Symptom Analysis"])
 @router.post("/analyze-symptoms")
 async def analyze_symptoms(request: SymptomAnalysisRequest, db: Session = Depends(get_db)):
     """Analyze symptoms with optional female cycle context and store result if user is known."""
-    result = await get_symptom_analysis(request.symptoms, cycle_context=request.cycle_context, db=db)
+    result = await get_symptom_analysis(request.symptoms, cycle_context=request.cycle_context, is_pregnant=request.is_pregnant, db=db)
     if result["status"] == "Error":
         raise HTTPException(status_code=500, detail=result.get("analysis", "Unknown error"))
     return result

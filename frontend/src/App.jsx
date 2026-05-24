@@ -1074,7 +1074,8 @@ function App() {
       const isFemale = patient?.gender?.toLowerCase() === 'female';
       const requestBody = {
         symptoms: allSymptoms,
-        ...(isFemale && cycleContext && { cycle_context: cycleContext })
+        ...(isFemale && cycleContext && { cycle_context: cycleContext }),
+        ...(patient?.is_pregnant !== undefined && { is_pregnant: patient.is_pregnant })
       };
 
       const response = await fetch(`${API_BASE_URL}/analyze-symptoms`, {

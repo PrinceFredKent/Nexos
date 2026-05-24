@@ -139,6 +139,14 @@ LOCAL_CONDITION_REGISTRY = {
         "female_only": True,
         "required_any": ["Abdominal cramps", "Cramps", "Lower back pain"]
     },
+    "Pregnancy / Prenatal Care": {
+        "symptoms": ["Missed period", "Nausea", "Breast tenderness", "Fatigue", "Frequent urination", "Food aversions", "Mood swings"],
+        "explanation": "These symptoms can be indicative of early pregnancy or prenatal changes. Confirm with a pregnancy test and follow up with prenatal care.",
+        "action_steps": ["Take a home pregnancy test", "Schedule a prenatal appointment with a healthcare provider", "Avoid alcohol and tobacco", "Maintain a balanced diet and stay hydrated"],
+        "is_emergency": False,
+        "female_only": True,
+        "required_any": ["Missed period", "Nausea", "Breast tenderness"]
+    },
     "PMS (Premenstrual Syndrome)": {
         "symptoms": ["Mood swings", "Bloating", "Breast tenderness", "Fatigue", "Irritability", "Headache", "Food cravings", "Anxiety"],
         "explanation": "Premenstrual Syndrome (PMS) is a group of physical and emotional symptoms that typically occur 1-2 weeks before a period begins. Symptoms usually improve once menstruation starts.",
@@ -252,7 +260,7 @@ def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
     scores.sort(key=lambda x: x["score"], reverse=True)
     return scores if scores else None
 
-async def call_gemini_analysis(symptoms: List[str], risk_level: str, cycle_context: str = None) -> Dict:
+async def call_gemini_analysis(symptoms: List[str], risk_level: str, cycle_context: str = None, is_pregnant: bool = False) -> Dict:
     """[TEMPORARILY DISABLED] Single Gemini call for both diagnosis and formatting."""
     print("DEBUG: Gemini Analysis is temporarily disabled. Using local logic.")
     return None
@@ -270,11 +278,20 @@ The patient is female. {cycle_context}
 Please factor this menstrual cycle context into your analysis. Consider conditions such as Dysmenorrhea, PMS, or hormonal fluctuations if clinically relevant to the reported symptoms.
 """
 
+    pregnancy_section = ""
+    if is_pregnant:
+        pregnancy_section = f"""
+
+IMPORTANT PREGNANCY CONTEXT:
+The patient is currently pregnant. Prioritize prenatal-safe advice, avoid recommending contraindicated medications, and consider pregnancy-specific conditions such as gestational diabetes, preeclampsia, or prenatal care needs.
+"""
+
     prompt = f"""
 You are a global health assistant based strictly on CDC and WHO clinical guidelines. 
 Your goal is to provide evidence-based information, prioritize emergency screening (triage), 
 and remain culturally neutral. Do not provide local folk remedies; stick to peer-reviewed 
 medical standards. Always include a disclaimer that you are an AI, not a doctor.
+{pregnancy_section}
 {cycle_section}
 A patient reports the following symptoms: {', '.join(symptoms)}.
 The assessed risk level is: {risk_level}.
@@ -328,7 +345,7 @@ Return ONLY a valid JSON object (no markdown) with this exact structure:
         return None
 
 
-async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = None, db: Session = None):
+async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = None, is_pregnant: bool = False, db: Session = None):
     """Resilient Pipeline: Dynamic Local Analysis (Database) -> Static Fallback."""
     if not user_symptoms:
         return {"status": "Empty", "results": "Please select symptoms."}
@@ -337,7 +354,7 @@ async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = No
     risk_level = analyze_local_risk(user_symptoms)
 
     # Step 2: [TEMPORARILY DISABLED] Single Gemini 2.5 Flash call for full analysis
-    # gemini_result = await call_gemini_analysis(user_symptoms, risk_level, cycle_context=cycle_context)
+    # gemini_result = await call_gemini_analysis(user_symptoms, risk_level, cycle_context=cycle_context, is_pregnant=is_pregnant)
     gemini_result = None # Force local fallback
 
     # If Gemini succeeded, return the rich AI response

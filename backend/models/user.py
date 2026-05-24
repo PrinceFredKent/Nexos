@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -14,6 +14,8 @@ class User(Base):
     birth_date = Column(Date, nullable=True)
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
+    is_pregnant = Column(Boolean, default=False, nullable=False)
+    pregnancy_due_date = Column(Date, nullable=True)
     blood_type = Column(String, nullable=True)
     weight = Column(String, nullable=True)
     height = Column(String, nullable=True)

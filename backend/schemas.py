@@ -19,6 +19,8 @@ class UserSignup(BaseModel):
     emergency_contact_phone: Optional[str] = None
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
+    is_pregnant: Optional[bool] = False
+    pregnancy_due_date: Optional[date] = None
     google_id: Optional[str] = None
 
     @validator('email')
@@ -45,6 +47,8 @@ class UserUpdate(BaseModel):
     emergency_contact_phone: Optional[str] = None
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
+    is_pregnant: Optional[bool] = None
+    pregnancy_due_date: Optional[date] = None
     phone: Optional[str] = None
 
 class UserLogin(BaseModel):
@@ -86,6 +90,7 @@ class Symptom(BaseModel):
 class SymptomAnalysisRequest(BaseModel):
     symptoms: List[str]
     cycle_context: Optional[str] = None
+    is_pregnant: Optional[bool] = None
 
 class CycleLogCreate(BaseModel):
     period_start: date
