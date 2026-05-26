@@ -3410,6 +3410,7 @@ body.dark-theme .emergency-card-aside {
   gap: 2rem;
   padding-bottom: 2rem;
   position: relative;
+  align-items: center;
 }
 
 /* Toast */
@@ -3626,7 +3627,8 @@ body.dark-theme .emergency-card-aside {
   gap: 2.5rem;
   align-items: start;
   justify-content: center;
-  max-width: 900px;
+  max-width: 1000px;
+  width: min(100%, 1000px);
   margin: 0 auto;
 }
 
@@ -3641,6 +3643,7 @@ body.dark-theme .emergency-card-aside {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  width: 100%;
 }
 
 @keyframes slideUpStaggered {
