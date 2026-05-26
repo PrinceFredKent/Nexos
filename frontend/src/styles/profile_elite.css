@@ -555,3 +555,57 @@ body.dark-theme .profile-input-elite:disabled {
   }
 }
 
+/* Custom Segmented Control for Pregnancy Picker */
+.custom-segmented-picker {
+  display: flex;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  padding: 4px;
+  margin-top: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.02);
+  gap: 4px;
+}
+
+body.dark-theme .custom-segmented-picker {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.03);
+}
+
+.picker-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--profile-muted);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.picker-option .material-icons-round {
+  font-size: 1.2rem;
+}
+
+.picker-option.active {
+  background: var(--profile-primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+}
+
+.picker-option:hover:not(.active) {
+  color: var(--profile-text-light);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+body.dark-theme .picker-option:hover:not(.active) {
+  color: var(--profile-text-dark);
+  background: rgba(255, 255, 255, 0.02);
+}
+

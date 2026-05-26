@@ -411,10 +411,24 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
             <div className="info-content-elite">
               <label>Pregnancy Status</label>
               {isEditing ? (
-                <select name="is_pregnant" value={editData.is_pregnant ? 'yes' : 'no'} onChange={handleChange} className="profile-input-elite">
-                  <option value="no">Not pregnant</option>
-                  <option value="yes">Pregnant</option>
-                </select>
+                <div className="custom-segmented-picker">
+                  <button 
+                    type="button" 
+                    className={`picker-option ${!editData.is_pregnant ? 'active' : ''}`}
+                    onClick={() => setEditData(prev => ({ ...prev, is_pregnant: false }))}
+                  >
+                    <span className="material-icons-round">female</span>
+                    Not pregnant
+                  </button>
+                  <button 
+                    type="button" 
+                    className={`picker-option ${editData.is_pregnant ? 'active' : ''}`}
+                    onClick={() => setEditData(prev => ({ ...prev, is_pregnant: true }))}
+                  >
+                    <span className="material-icons-round">pregnant_woman</span>
+                    Pregnant
+                  </button>
+                </div>
               ) : (
                 <p>{patient.is_pregnant ? 'Pregnant' : 'Not pregnant'}</p>
               )}

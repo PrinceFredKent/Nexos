@@ -7366,3 +7366,188 @@ body.dark-theme .bottom-nav-item.tour-highlight {
   0% { transform: scale(1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
   100% { transform: scale(1.08); box-shadow: 0 0 35px rgba(239, 68, 68, 0.9), 0 0 60px rgba(239, 68, 68, 0.5); }
 }
+
+/* ─── Pregnancy Tracker Styles ───────────────────────────────────────────── */
+.pregnancy-theme .cycle-icon-badge {
+  background: rgba(236, 72, 153, 0.12);
+  color: #ec4899;
+}
+
+body.dark-theme .pregnancy-theme .cycle-icon-badge {
+  background: rgba(236, 72, 153, 0.22);
+  color: #f472b6;
+}
+
+.cycle-empty-icon-wrap.pregnancy-theme {
+  background: rgba(236, 72, 153, 0.08);
+}
+
+.cycle-empty-state.pregnancy-empty h3 {
+  color: #ec4899;
+}
+
+.pregnancy-setup-guide {
+  background: rgba(236, 72, 153, 0.04);
+  border: 1px dashed rgba(236, 72, 153, 0.2);
+  border-radius: 16px;
+  padding: 1rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+body.dark-theme .pregnancy-setup-guide {
+  background: rgba(236, 72, 153, 0.02);
+  border-color: rgba(236, 72, 153, 0.15);
+}
+
+/* Pregnancy progress ring styles */
+.pregnancy-theme-wrapper .phase-ring-svg text {
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+.phase-card.pregnancy-card {
+  border-color: rgba(236, 72, 153, 0.2);
+}
+
+body.dark-theme .phase-card.pregnancy-card {
+  border-color: rgba(236, 72, 153, 0.15);
+}
+
+/* Quick Stats Row for Pregnancy */
+.cycle-quick-stats.pregnancy-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.cycle-stat-pill.pregnancy-stat-pill {
+  border: 1px solid rgba(236, 72, 153, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.dark-theme .cycle-stat-pill.pregnancy-stat-pill {
+  border-color: rgba(236, 72, 153, 0.08);
+  background: rgba(21, 30, 50, 0.6);
+}
+
+.cycle-stat-pill.pregnancy-stat-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(236, 72, 153, 0.05);
+  border-color: rgba(236, 72, 153, 0.3);
+}
+
+.cycle-stat-pill.pregnancy-stat-pill.primary {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(236, 72, 153, 0.12) 100%);
+  border-color: rgba(236, 72, 153, 0.25);
+}
+
+body.dark-theme .cycle-stat-pill.pregnancy-stat-pill.primary {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(236, 72, 153, 0.2) 100%);
+}
+
+/* Baby Size Milestone Card */
+.baby-milestone-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 28px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+}
+
+body.dark-theme .baby-milestone-card {
+  border-color: var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.baby-milestone-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(236, 72, 153, 0.25);
+}
+
+.milestone-content {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.milestone-badge-icon {
+  width: 90px;
+  height: 90px;
+  border-radius: 24px;
+  background: rgba(236, 72, 153, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(236, 72, 153, 0.12);
+  animation: floatIcon 4s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.milestone-details {
+  flex: 1;
+}
+
+.milestone-stats {
+  display: flex;
+  gap: 1.2rem;
+  margin: 0.5rem 0;
+  flex-wrap: wrap;
+}
+
+.milestone-stats span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.milestone-stats span .material-icons-round {
+  font-size: 1rem;
+  color: #ec4899;
+}
+
+.milestone-desc {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  opacity: 0.95;
+}
+
+.cycle-insights-card.pregnancy-insights {
+  border-color: rgba(236, 72, 153, 0.15);
+}
+
+body.dark-theme .cycle-insights-card.pregnancy-insights {
+  border-color: rgba(236, 72, 153, 0.08);
+}
+
+/* Responsive fixes for pregnancy view */
+@media (max-width: 768px) {
+  .cycle-main-grid.pregnancy-main-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .milestone-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .milestone-stats {
+    justify-content: center;
+  }
+}
