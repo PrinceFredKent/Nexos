@@ -91,6 +91,10 @@ class SymptomAnalysisRequest(BaseModel):
     symptoms: List[str]
     cycle_context: Optional[str] = None
     is_pregnant: Optional[bool] = None
+    gender: Optional[str] = None
+    age: Optional[int] = None
+    allergies: Optional[str] = None
+    chronic_conditions: Optional[str] = None
 
 class CycleLogCreate(BaseModel):
     period_start: date

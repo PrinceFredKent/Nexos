@@ -1075,12 +1075,20 @@ function App() {
       const requestBody = {
         symptoms: allSymptoms,
         ...(isFemale && cycleContext && { cycle_context: cycleContext }),
-        ...(patient?.is_pregnant !== undefined && { is_pregnant: patient.is_pregnant })
+        ...(patient?.is_pregnant !== undefined && { is_pregnant: patient.is_pregnant }),
+        gender: patient?.gender || null,
+        age: patient?.birth_date ? calculateAge(patient.birth_date) : (patient?.age || null),
+        allergies: patient?.allergies || null,
+        chronic_conditions: patient?.chronic_conditions || null
       };
 
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/analyze-symptoms`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify(requestBody)
       });
 

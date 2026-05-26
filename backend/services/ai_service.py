@@ -164,13 +164,26 @@ LOCAL_CONDITION_REGISTRY = {
         "required_any": ["Irregular periods", "Weight gain"]
     }
 }
-
-def refined_local_analysis(user_symptoms: List[str]) -> Dict:
-    """Algorithm to match symptoms to localized conditions with priority weighting."""
+def refined_local_analysis(
+    user_symptoms: List[str],
+    gender: str = None,
+    is_pregnant: bool = False,
+    cycle_context: str = None,
+    allergies: str = None,
+    chronic_conditions: str = None
+) -> Dict:
+    """Algorithm to match symptoms to localized conditions with priority weighting and patient context."""
     scores = []
     user_symptoms_text = " ".join(user_symptoms).lower()
     
+    # 1. Gender Filtering
+    is_male = gender and gender.lower() == 'male'
+    
     for condition, data in LOCAL_CONDITION_REGISTRY.items():
+        # Exclude female-only conditions if patient is male
+        if is_male and data.get("female_only"):
+            continue
+            
         # Clean current symptoms and registry symptoms
         registry_symptoms_lower = [s.lower() for s in data["symptoms"]]
         
@@ -179,11 +192,7 @@ def refined_local_analysis(user_symptoms: List[str]) -> Dict:
         match_count = len(matches)
         
         if match_count > 0:
-            # Calculate match percentage based on the SPECIFIC condition's symptoms
-            # If a user has 3 symptoms of 'Malaria' (out of 7), that's relevant.
             percentage = int((match_count / len(data["symptoms"])) * 100)
-            
-            # Weighted Score: base count + emergency weight + percentage bonus
             score = match_count * 10 # Base importance
             
             # Indicator Check: Penalize if a required indicator is missing
@@ -196,10 +205,37 @@ def refined_local_analysis(user_symptoms: List[str]) -> Dict:
             if data["is_emergency"]: score += 15 # Emergency priority
             if match_count >= 3: score += 5 # Cluster bonus
             
+            # 2. Cycle Context Boost
+            if cycle_context:
+                ctx_lower = cycle_context.lower()
+                if "late" in ctx_lower or "overdue" in ctx_lower:
+                    if condition == "Pregnancy / Prenatal Care":
+                        score += 25
+                if any(x in ctx_lower for x in ["cramp", "period", "menstrual", "cycle"]):
+                    if condition in ["Dysmenorrhea (Period Cramps)", "PMS (Premenstrual Syndrome)"]:
+                        score += 25
+                        
+            # 3. Pregnancy Boost
+            if is_pregnant and condition == "Pregnancy / Prenatal Care":
+                score += 40
+                
+            # 4. Chronic Condition Boost
+            if chronic_conditions:
+                cc_lower = chronic_conditions.lower()
+                if "asthma" in cc_lower and condition == "Asthma":
+                    if any(x in user_symptoms_text for x in ["cough", "shortness of breath", "difficulty breathing", "wheezing", "chest tightness"]):
+                        score += 35
+                if "diabetes" in cc_lower and condition == "Diabetes":
+                    if any(x in user_symptoms_text for x in ["frequent urination", "excess thirst", "fatigue", "blurred vision", "weight loss"]):
+                        score += 35
+                if ("hypertension" in cc_lower or "blood pressure" in cc_lower) and condition == "Hypertension":
+                    if any(x in user_symptoms_text for x in ["headache", "dizziness", "blurred vision"]):
+                        score += 35
+            
             scores.append({
                 "condition": condition,
                 "score": score,
-                "percentage": percentage,
+                "percentage": min(percentage + 15 if (is_pregnant and condition == "Pregnancy / Prenatal Care") or (chronic_conditions and condition in ["Asthma", "Diabetes", "Hypertension"]) else percentage, 100),
                 "data": data
             })
             
@@ -211,15 +247,28 @@ def refined_local_analysis(user_symptoms: List[str]) -> Dict:
         
     return scores
 
-def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
-    """Algorithm to match symptoms to localized conditions stored in the database."""
+
+def db_refined_local_analysis(
+    user_symptoms: List[str],
+    db: Session,
+    gender: str = None,
+    is_pregnant: bool = False,
+    cycle_context: str = None,
+    allergies: str = None,
+    chronic_conditions: str = None
+) -> Dict:
+    """Algorithm to match symptoms to localized conditions stored in the database with patient context."""
     from models.health_knowledge import HealthCondition
     
     conditions = db.query(HealthCondition).all()
     scores = []
     user_symptoms_text = " ".join(user_symptoms).lower()
+    is_male = gender and gender.lower() == 'male'
     
     for cond in conditions:
+        if is_male and cond.female_only:
+            continue
+            
         try:
             registry_symptoms = json.loads(cond.symptoms)
             required_any = json.loads(cond.required_any) if cond.required_any else []
@@ -229,7 +278,6 @@ def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
             
         registry_symptoms_lower = [s.lower() for s in registry_symptoms]
         
-        # Calculate Overlap
         matches = [reg_symp for reg_symp in registry_symptoms_lower if reg_symp in user_symptoms_text]
         match_count = len(matches)
         
@@ -245,10 +293,37 @@ def db_refined_local_analysis(user_symptoms: List[str], db: Session) -> Dict:
             if cond.is_emergency: score += 15
             if match_count >= 3: score += 5
             
+            # Cycle Context Boost
+            if cycle_context:
+                ctx_lower = cycle_context.lower()
+                if "late" in ctx_lower or "overdue" in ctx_lower:
+                    if cond.name == "Pregnancy / Prenatal Care":
+                        score += 25
+                if any(x in ctx_lower for x in ["cramp", "period", "menstrual", "cycle"]):
+                    if cond.name in ["Dysmenorrhea (Period Cramps)", "PMS (Premenstrual Syndrome)"]:
+                        score += 25
+                        
+            # Pregnancy Boost
+            if is_pregnant and cond.name == "Pregnancy / Prenatal Care":
+                score += 40
+                
+            # Chronic Condition Boost
+            if chronic_conditions:
+                cc_lower = chronic_conditions.lower()
+                if "asthma" in cc_lower and cond.name == "Asthma":
+                    if any(x in user_symptoms_text for x in ["cough", "shortness of breath", "difficulty breathing", "wheezing", "chest tightness"]):
+                        score += 35
+                if "diabetes" in cc_lower and cond.name == "Diabetes":
+                    if any(x in user_symptoms_text for x in ["frequent urination", "excess thirst", "fatigue", "blurred vision", "weight loss"]):
+                        score += 35
+                if ("hypertension" in cc_lower or "blood pressure" in cc_lower) and cond.name == "Hypertension":
+                    if any(x in user_symptoms_text for x in ["headache", "dizziness", "blurred vision"]):
+                        score += 35
+            
             scores.append({
                 "condition": cond.name,
                 "score": score,
-                "percentage": percentage,
+                "percentage": min(percentage + 15 if (is_pregnant and cond.name == "Pregnancy / Prenatal Care") or (chronic_conditions and cond.name in ["Asthma", "Diabetes", "Hypertension"]) else percentage, 100),
                 "data": {
                     "explanation": cond.explanation,
                     "action_steps": action_steps,
@@ -345,13 +420,39 @@ Return ONLY a valid JSON object (no markdown) with this exact structure:
         return None
 
 
-async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = None, is_pregnant: bool = False, db: Session = None):
-    """Resilient Pipeline: Dynamic Local Analysis (Database) -> Static Fallback."""
+async def get_symptom_analysis(
+    user_symptoms: List[str],
+    cycle_context: str = None,
+    is_pregnant: bool = False,
+    gender: str = None,
+    age: int = None,
+    allergies: str = None,
+    chronic_conditions: str = None,
+    user_id: int = None,
+    db: Session = None
+):
+    """Resilient Pipeline: Dynamic Local Analysis (Database) -> Static Fallback, enhanced with personalized clinical context."""
     if not user_symptoms:
         return {"status": "Empty", "results": "Please select symptoms."}
 
     # Step 1: Local Risk Assessment
     risk_level = analyze_local_risk(user_symptoms)
+    
+    # Auto-escalation of risk for pregnant patients reporting high-risk symptoms
+    high_risk_symptom_found = False
+    if is_pregnant:
+        pregnant_high_risk = [
+            "fever", "severe headache", "headache", "abdominal pain", "cramps", 
+            "stomach pain", "sudden weakness", "blurred vision", "dizziness", 
+            "vomiting", "shortness of breath", "difficulty breathing", "wheezing", 
+            "chest pain"
+        ]
+        user_symptoms_lower = [s.lower() for s in user_symptoms]
+        for hrs in pregnant_high_risk:
+            if any(hrs in us for us in user_symptoms_lower):
+                high_risk_symptom_found = True
+                risk_level = "High"
+                break
 
     # Step 2: [TEMPORARILY DISABLED] Single Gemini 2.5 Flash call for full analysis
     # gemini_result = await call_gemini_analysis(user_symptoms, risk_level, cycle_context=cycle_context, is_pregnant=is_pregnant)
@@ -371,59 +472,138 @@ async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = No
 
     # Step 3: Dynamic Local Analysis if DB is available
     if db:
-        print("Using Dynamic Knowledge Base for analysis...")
-        local_results = db_refined_local_analysis(user_symptoms, db)
+        print("Using Dynamic Knowledge Base for personalized analysis...")
+        local_results = db_refined_local_analysis(
+            user_symptoms, db, gender, is_pregnant, cycle_context, allergies, chronic_conditions
+        )
     else:
         print("Falling back to Static Local Registry.")
-        local_results = refined_local_analysis(user_symptoms)
+        local_results = refined_local_analysis(
+            user_symptoms, gender, is_pregnant, cycle_context, allergies, chronic_conditions
+        )
+
+    # Step 4: Analysis History Evaluation (Check past 30 days)
+    history_warning = ""
+    if db and user_id and local_results:
+        from models.symptom_log import SymptomLog
+        from datetime import datetime, timedelta
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        try:
+            past_logs = db.query(SymptomLog).filter(
+                SymptomLog.user_id == user_id,
+                SymptomLog.timestamp >= thirty_days_ago
+            ).all()
+            if past_logs:
+                recent_conditions = [log.top_condition for log in past_logs if log.top_condition]
+                top_matched = local_results[0]["condition"]
+                if top_matched in recent_conditions:
+                    history_warning = f"🕒 RECURRING SYMPTOM WARNING: You have logged similar symptoms leading to '{top_matched}' in the last 30 days. Persistent patterns warrant a professional medical consultation."
+        except Exception as e:
+            print(f"Error checking symptom history: {e}")
+
+    # Step 5: Personalization and Safety Warnings Construction
+    personalized_warnings = []
+    
+    if is_pregnant:
+        if high_risk_symptom_found:
+            personalized_warnings.append("🤰 PREGNANCY WARNING: High-risk symptoms (like fever, pain, or dizziness) during pregnancy require immediate clinical evaluation. Auto-escalated to HIGH risk.")
+        else:
+            personalized_warnings.append("🤰 PREGNANCY SAFETY ADVICE: Prioritize prenatal-safe care, avoid contraindicated medications (like Ibuprofen/Aspirin), and consult your healthcare provider.")
+            
+    if chronic_conditions:
+        cc_lower = chronic_conditions.lower()
+        symptom_text = " ".join(user_symptoms).lower()
+        if "asthma" in cc_lower and any(x in symptom_text for x in ["cough", "shortness of breath", "difficulty", "wheezing", "tightness"]):
+            personalized_warnings.append("🩺 CHRONIC CONDITION EXACERBATION: Your symptoms suggest a potential Asthma flare-up. Keep your rescue inhaler close.")
+        if "diabetes" in cc_lower and any(x in symptom_text for x in ["urination", "thirst", "fatigue", "vision"]):
+            personalized_warnings.append("🩺 CHRONIC CONDITION EXACERBATION: These symptoms may indicate fluctuations in blood sugar. Please check your blood glucose.")
+        if ("hypertension" in cc_lower or "blood pressure" in cc_lower) and any(x in symptom_text for x in ["headache", "dizziness", "vision"]):
+            personalized_warnings.append("🩺 CHRONIC CONDITION EXACERBATION: These symptoms could indicate elevated blood pressure. Check your blood pressure immediately.")
+
+    if history_warning:
+        personalized_warnings.append(history_warning)
 
     if not local_results:
-        return {
-            "status": "Success",
-            "risk_level": risk_level,
-            "top_condition": "Non-specific Viral Syndrome",
-            "explanation": "Your symptoms are common across various mild illnesses and require further observation.",
-            "safe_wording": "⚠️ This is a local assessment only. Please consult a healthcare professional.",
-            "action_steps": ["Monitor your symptoms closely", "Stay hydrated and rest", "Seek medical advice if symptoms worsen"],
-            "possibilities": [
-                {"condition": "Non-specific Viral Syndrome", "match_percentage": 50},
-                {"condition": "General Health Concern", "match_percentage": 30}
-            ]
-        }
-
-    top = local_results[0]
-    second = local_results[1] if len(local_results) > 1 else None
-
-    # Escalate risk level to High if the matched top condition is an emergency
-    if top.get("data", {}).get("is_emergency"):
-        risk_level = "High"
-
-    return {
-        "status": "Success",
-        "risk_level": risk_level,
-        "top_condition": top["condition"],
-        "explanation": top["data"]["explanation"],
-        "safe_wording": "⚠️ AI Analysis is currently operating in regional optimization mode. Please consult a professional for critical concerns.",
-        "action_steps": top["data"]["action_steps"],
-        "possibilities": [
+        action_steps = ["Monitor your symptoms closely", "Stay hydrated and rest", "Seek medical advice if symptoms worsen"]
+        explanation = "Your symptoms are common across various mild illnesses and require further observation."
+        possibilities = [
+            {"condition": "Non-specific Viral Syndrome", "match_percentage": 50},
+            {"condition": "General Health Concern", "match_percentage": 30}
+        ]
+        top_condition = "Non-specific Viral Syndrome"
+    else:
+        top = local_results[0]
+        second = local_results[1] if len(local_results) > 1 else None
+        top_condition = top["condition"]
+        explanation = top["data"]["explanation"]
+        action_steps = list(top["data"]["action_steps"])
+        
+        possibilities = [
             {
                 "condition": top["condition"], 
                 "match_percentage": top["percentage"],
                 "explanation": top["data"]["explanation"],
                 "action_steps": top["data"]["action_steps"]
-            },
-            {
+            }
+        ]
+        if second:
+            possibilities.append({
                 "condition": second["condition"], 
                 "match_percentage": second["percentage"],
                 "explanation": second["data"]["explanation"],
                 "action_steps": second["data"]["action_steps"]
-            } if second else {
+            })
+        else:
+            possibilities.append({
                 "condition": "General Health Concern", 
                 "match_percentage": 20,
                 "explanation": "Your symptoms are general and could be related to various minor conditions.",
                 "action_steps": ["Rest", "Stay hydrated"]
-            }
-        ]
+            })
+            
+        if top.get("data", {}).get("is_emergency"):
+            risk_level = "High"
+
+    # Step 6: Allergy Interlocking on Action Steps
+    if allergies:
+        # Normalize and split allergies to catch matches
+        allergies_clean = [a.strip().lower() for a in allergies.replace(",", " ").split() if len(a.strip()) > 2]
+        modified_steps = []
+        allergy_alerts_triggered = []
+        
+        for step in action_steps:
+            step_lower = step.lower()
+            has_allergy_conflict = False
+            matched_allergen = ""
+            for alg in allergies_clean:
+                if alg in step_lower:
+                    has_allergy_conflict = True
+                    matched_allergen = alg
+                    break
+            if has_allergy_conflict:
+                modified_steps.append(f"❌ AVOID: {step} (Contraindicated due to your recorded '{matched_allergen.capitalize()}' allergy)")
+                allergy_alerts_triggered.append(matched_allergen.capitalize())
+            else:
+                modified_steps.append(step)
+        action_steps = modified_steps
+        
+        if allergy_alerts_triggered:
+            unique_allergens = ", ".join(set(allergy_alerts_triggered))
+            personalized_warnings.insert(0, f"🚫 ALLERGY CONTRAINDICATION: Recommended treatment conflicts with your recorded allergy to: {unique_allergens}. Do NOT take contraindicated medications!")
+
+    # Step 7: Prepend Personalized Safety Warnings to Explanation
+    if personalized_warnings:
+        warnings_str = "\n\n".join(personalized_warnings)
+        explanation = f"{warnings_str}\n\n👉 Clinical Details: {explanation}"
+
+    return {
+        "status": "Success",
+        "risk_level": risk_level,
+        "top_condition": top_condition,
+        "explanation": explanation,
+        "safe_wording": "⚠️ AI Analysis is currently operating in personalized local mode. Please consult a healthcare professional for absolute safety.",
+        "action_steps": action_steps,
+        "possibilities": possibilities
     }
 
 # Local Symptom Mapping for instant suggestions (Comprehensive)
