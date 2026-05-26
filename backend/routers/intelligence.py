@@ -6,6 +6,7 @@ from database import get_db
 from models.user import User as DBUser
 from models.health_knowledge import HealthCondition, HealthInsight
 from auth_service import get_current_user
+from services.ai_service import generate_condition_with_ai
 
 router = APIRouter(tags=["Admin Intelligence curation"])
 
@@ -20,6 +21,19 @@ def verify_admin(user: str = Depends(get_current_user), db: Session = Depends(ge
 @router.get("/intelligence/conditions")
 async def get_conditions(db: Session = Depends(get_db)):
     return db.query(HealthCondition).all()
+
+@router.post("/intelligence/conditions/generate")
+async def generate_condition(data: dict, admin: DBUser = Depends(verify_admin)):
+    name = data.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="Condition name is required")
+    try:
+        result = await generate_condition_with_ai(name)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/intelligence/conditions")
 async def create_condition(data: dict, admin: DBUser = Depends(verify_admin), db: Session = Depends(get_db)):

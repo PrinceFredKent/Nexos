@@ -12,6 +12,18 @@ const IntelligenceManager = ({ adminEmail }) => {
     const [modalTags, setModalTags] = useState([]);
     const [currentTagInput, setCurrentTagInput] = useState('');
 
+    // Controlled form states for medical conditions
+    const [formName, setFormName] = useState('');
+    const [formIcon, setFormIcon] = useState('medical_services');
+    const [formIsEmergency, setFormIsEmergency] = useState(false);
+    const [formFemaleOnly, setFormFemaleOnly] = useState(false);
+    const [formSymptoms, setFormSymptoms] = useState('');
+    const [formRequiredAny, setFormRequiredAny] = useState('');
+    const [formExplanation, setFormExplanation] = useState('');
+    const [formActionSteps, setFormActionSteps] = useState('');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [apiKeyMissing, setApiKeyMissing] = useState(false);
+
     const MEDICAL_ICONS = [
         { id: 'medical_services', name: 'General Medical' },
         { id: 'monitor_heart', name: 'Heart/Cardio' },
@@ -159,10 +171,69 @@ const IntelligenceManager = ({ adminEmail }) => {
 
     const openModal = (type, data = null) => {
         setIsEditing({ type, ...data });
+        setApiKeyMissing(false); // Reset key warning
+        if (type === 'conditions') {
+            setFormName(data ? data.name : '');
+            setFormIcon(data ? (data.icon || 'medical_services') : 'medical_services');
+            setFormIsEmergency(data ? !!data.is_emergency : false);
+            setFormFemaleOnly(data ? !!data.female_only : false);
+            setFormSymptoms(data && data.symptoms ? JSON.parse(data.symptoms).join(', ') : '');
+            setFormRequiredAny(data && data.required_any ? JSON.parse(data.required_any).join(', ') : '');
+            setFormExplanation(data ? data.explanation : '');
+            setFormActionSteps(data && data.action_steps ? JSON.parse(data.action_steps).join('\n') : '');
+        }
         if (data && data.tags) {
             setModalTags(data.tags.split(',').map(t => t.trim()).filter(t => t));
         } else {
             setModalTags([]);
+        }
+    };
+
+    const handleAiGenerate = async () => {
+        if (!formName.trim()) return;
+        setIsGenerating(true);
+        setApiKeyMissing(false);
+        try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const res = await fetch(`${API_BASE_URL}/intelligence/conditions/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ name: formName })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                if (errData.detail && errData.detail.includes("GEMINI_API_KEY")) {
+                    setApiKeyMissing(true);
+                    throw new Error(errData.detail);
+                }
+                throw new Error(errData.detail || 'Failed to auto-generate condition data');
+            }
+
+            const data = await res.json();
+            
+            // Auto-fill controlled form states
+            if (data.name) setFormName(data.name);
+            if (data.icon) setFormIcon(data.icon);
+            if (data.is_emergency !== undefined) setFormIsEmergency(data.is_emergency);
+            if (data.female_only !== undefined) setFormFemaleOnly(data.female_only);
+            if (data.symptoms) setFormSymptoms(Array.isArray(data.symptoms) ? data.symptoms.join(', ') : data.symptoms);
+            if (data.required_any) setFormRequiredAny(Array.isArray(data.required_any) ? data.required_any.join(', ') : data.required_any);
+            if (data.explanation) setFormExplanation(data.explanation);
+            if (data.action_steps) setFormActionSteps(Array.isArray(data.action_steps) ? data.action_steps.join('\n') : data.action_steps);
+            if (data.tags) {
+                setModalTags(data.tags.split(',').map(t => t.trim()).filter(t => t));
+            }
+        } catch (err) {
+            console.error("AI Generation failed:", err);
+            if (!apiKeyMissing) {
+                alert(err.message);
+            }
+        } finally {
+            setIsGenerating(false);
         }
     };
 
@@ -262,14 +333,64 @@ const IntelligenceManager = ({ adminEmail }) => {
                                 <>
                                     <div className="form-section">
                                         <div className="form-section-title">Identity & Role</div>
+                                        {apiKeyMissing && (
+                                            <div className="alert-banner" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '1rem', borderRadius: '16px', color: '#ff6b6b', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
+                                                <span className="material-icons-round">warning</span>
+                                                <span><strong>GEMINI_API_KEY is not configured:</strong> Please add `GEMINI_API_KEY="your_api_key"` to your backend <code>.env</code> file and restart the backend server to enable AI autocomplete.</span>
+                                            </div>
+                                        )}
                                         <div className="form-group">
                                             <label><span className="material-icons-round">label</span> Condition Name</label>
-                                            <input name="name" defaultValue={isEditing.name} required placeholder="e.g. Malaria" />
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                <input 
+                                                    name="name" 
+                                                    value={formName} 
+                                                    onChange={(e) => setFormName(e.target.value)} 
+                                                    required 
+                                                    placeholder="e.g. Malaria" 
+                                                    style={{ flex: 1 }}
+                                                />
+                                                <button 
+                                                    type="button" 
+                                                    className="btn-primary-mini" 
+                                                    onClick={handleAiGenerate}
+                                                    disabled={isGenerating || !formName.trim()}
+                                                    style={{ 
+                                                        minWidth: '160px', 
+                                                        height: '56px', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        justifyContent: 'center', 
+                                                        gap: '8px', 
+                                                        background: 'var(--primary)', 
+                                                        color: 'white',
+                                                        borderRadius: '18px',
+                                                        border: 'none',
+                                                        fontWeight: '800',
+                                                        cursor: formName.trim() ? 'pointer' : 'not-allowed',
+                                                        opacity: formName.trim() ? 1 : 0.6,
+                                                        boxShadow: '0 4px 15px var(--primary-glow)',
+                                                        transition: 'all 0.3s'
+                                                    }}
+                                                >
+                                                    {isGenerating ? (
+                                                        <>
+                                                            <span className="material-icons-round spin">sync</span>
+                                                            Generating...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="material-icons-round">search</span>
+                                                            Search
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
                                                 <label><span className="material-icons-round">category</span> Clinical Icon</label>
-                                                <select name="icon" defaultValue={isEditing.icon || 'medical_services'}>
+                                                <select name="icon" value={formIcon} onChange={(e) => setFormIcon(e.target.value)}>
                                                     {MEDICAL_ICONS.map(icon => (
                                                         <option key={icon.id} value={icon.id}>{icon.name}</option>
                                                     ))}
@@ -278,12 +399,22 @@ const IntelligenceManager = ({ adminEmail }) => {
                                             <div className="form-group">
                                                 <label><span className="material-icons-round">tune</span> Flags</label>
                                                 <div className="checkbox-card-group">
-                                                    <label className="checkbox-card">
-                                                        <input type="checkbox" name="is_emergency" defaultChecked={isEditing.is_emergency} />
+                                                    <label className={`checkbox-card ${formIsEmergency ? 'active' : ''}`}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name="is_emergency" 
+                                                            checked={formIsEmergency} 
+                                                            onChange={(e) => setFormIsEmergency(e.target.checked)} 
+                                                        />
                                                         <span>Emergency?</span>
                                                     </label>
-                                                    <label className="checkbox-card">
-                                                        <input type="checkbox" name="female_only" defaultChecked={isEditing.female_only} />
+                                                    <label className={`checkbox-card ${formFemaleOnly ? 'active' : ''}`}>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            name="female_only" 
+                                                            checked={formFemaleOnly} 
+                                                            onChange={(e) => setFormFemaleOnly(e.target.checked)} 
+                                                        />
                                                         <span>Female Only?</span>
                                                     </label>
                                                 </div>
@@ -295,11 +426,21 @@ const IntelligenceManager = ({ adminEmail }) => {
                                         <div className="form-section-title">Diagnostic Logic</div>
                                         <div className="form-group">
                                             <label><span className="material-icons-round">checklist</span> Symptoms (comma separated)</label>
-                                            <input name="symptoms" defaultValue={isEditing.symptoms ? JSON.parse(isEditing.symptoms).join(', ') : ''} placeholder="Fever, Chills, Headache..." />
+                                            <input 
+                                                name="symptoms" 
+                                                value={formSymptoms} 
+                                                onChange={(e) => setFormSymptoms(e.target.value)} 
+                                                placeholder="Fever, Chills, Headache..." 
+                                            />
                                         </div>
                                         <div className="form-group">
                                             <label><span className="material-icons-round">priority_high</span> Core Indicators (required symbols)</label>
-                                            <input name="required_any" defaultValue={isEditing.required_any ? JSON.parse(isEditing.required_any).join(', ') : ''} placeholder="Fever, Chills..." />
+                                            <input 
+                                                name="required_any" 
+                                                value={formRequiredAny} 
+                                                onChange={(e) => setFormRequiredAny(e.target.value)} 
+                                                placeholder="Fever, Chills..." 
+                                            />
                                         </div>
                                     </div>
 
@@ -307,11 +448,24 @@ const IntelligenceManager = ({ adminEmail }) => {
                                         <div className="form-section-title">Clinical Guidance</div>
                                         <div className="form-group">
                                             <label><span className="material-icons-round">description</span> Patient-Facing Explanation</label>
-                                            <textarea name="explanation" defaultValue={isEditing.explanation} required rows="3" placeholder="Provide a professional overview of the condition..."></textarea>
+                                            <textarea 
+                                                name="explanation" 
+                                                value={formExplanation} 
+                                                onChange={(e) => setFormExplanation(e.target.value)} 
+                                                required 
+                                                rows="3" 
+                                                placeholder="Provide a professional overview of the condition..."
+                                            ></textarea>
                                         </div>
                                         <div className="form-group">
                                             <label><span className="material-icons-round">list_alt</span> Treatment/Action Steps (one per line)</label>
-                                            <textarea name="action_steps" defaultValue={isEditing.action_steps ? JSON.parse(isEditing.action_steps).join('\n') : ''} rows="4" placeholder="Visit lab for tests...&#10;Consult a physician immediately...&#10;Stay hydrated..."></textarea>
+                                            <textarea 
+                                                name="action_steps" 
+                                                value={formActionSteps} 
+                                                onChange={(e) => setFormActionSteps(e.target.value)} 
+                                                rows="4" 
+                                                placeholder="Visit lab for tests...&#10;Consult a physician immediately...&#10;Stay hydrated..."
+                                            ></textarea>
                                         </div>
                                     </div>
 
@@ -422,6 +576,14 @@ const IntelligenceManager = ({ adminEmail }) => {
             )}
 
             <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .spin {
+                    animation: spin 1.5s linear infinite;
+                    display: inline-block;
+                }
                 .intelligence-manager { 
                     padding: 0 1.5rem 3rem 1.5rem; 
                     max-width: 1300px; 

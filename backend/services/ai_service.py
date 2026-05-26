@@ -394,6 +394,10 @@ async def get_symptom_analysis(user_symptoms: List[str], cycle_context: str = No
     top = local_results[0]
     second = local_results[1] if len(local_results) > 1 else None
 
+    # Escalate risk level to High if the matched top condition is an emergency
+    if top.get("data", {}).get("is_emergency"):
+        risk_level = "High"
+
     return {
         "status": "Success",
         "risk_level": risk_level,
@@ -573,3 +577,63 @@ async def get_ai_medication_recommendation(name: str, age: int, weight: str) -> 
     except Exception as e:
         print(f"AI Medication Recommendation Error: {e}")
         return None
+
+async def generate_condition_with_ai(name: str) -> Dict:
+    """Uses Gemini 2.5 Flash to automatically generate symptoms, indicators,
+    explanation, action steps, tags, and flags for a medical condition
+    based on WHO and CDC clinical guidelines.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is not configured on the server. Please add it to your backend .env file.")
+
+    prompt = f"""
+    You are a clinical database assistant based strictly on WHO and CDC standards.
+    Generate standard medical knowledge for the following condition/infection: "{name}".
+
+    Please provide:
+    1. Symptoms (a comprehensive list of key clinical symptoms, e.g. ["Fever", "Chills", ...])
+    2. Explanation (a professional, patient-facing explanation in 2-3 sentences)
+    3. Action steps (3-5 clear evidence-based clinical actions, one per line)
+    4. Icon (select the most relevant one from: 'medical_services', 'monitor_heart', 'vaccines', 'coronavirus', 'healing', 'psychology', 'biotech', 'bloodtype', 'medication', 'pregnant_woman', 'masks', 'emergency')
+    5. Flags: is_emergency (boolean, is it a medical emergency?), female_only (boolean, is it specific to biological females?)
+    6. Required any (a list of 1-3 core indicator symptoms, e.g. ["Fever"])
+    7. Tags (comma-separated tags, e.g. "Virus, Epidemic, WHO")
+
+    Return ONLY a valid JSON object (no markdown, no backticks, no other text) with this exact structure:
+    {{
+      "name": "{name}",
+      "symptoms": ["Symptom 1", "Symptom 2", ...],
+      "explanation": "Patient-facing explanation.",
+      "action_steps": ["Step 1", "Step 2", ...],
+      "icon": "icon_name",
+      "is_emergency": true/false,
+      "female_only": true/false,
+      "required_any": ["Indicator 1", "Indicator 2", ...],
+      "tags": "tag1, tag2, tag3"
+    }}
+    """
+
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        model_name = 'models/gemini-2.5-flash'
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model_name,
+            contents=prompt
+        )
+        text = response.text.strip()
+
+        # Clean markdown fences if present
+        if "```json" in text:
+            text = text.split("```json")[-1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+
+        data = json.loads(text)
+        return data
+    except Exception as e:
+        raise RuntimeError(f"Failed to generate condition with Gemini: {str(e)}")
+
