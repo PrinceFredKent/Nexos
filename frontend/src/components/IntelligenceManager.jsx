@@ -22,7 +22,14 @@ const IntelligenceManager = ({ adminEmail }) => {
     const [formExplanation, setFormExplanation] = useState('');
     const [formActionSteps, setFormActionSteps] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
     const [apiKeyMissing, setApiKeyMissing] = useState(false);
+
+    // Controlled form states for insights
+    const [formInsightTitle, setFormInsightTitle] = useState('');
+    const [formInsightContent, setFormInsightContent] = useState('');
+    const [formInsightCategory, setFormInsightCategory] = useState('Insight');
+    const [formInsightIcon, setFormInsightIcon] = useState('lightbulb');
 
     const MEDICAL_ICONS = [
         { id: 'medical_services', name: 'General Medical' },
@@ -171,7 +178,7 @@ const IntelligenceManager = ({ adminEmail }) => {
 
     const openModal = (type, data = null) => {
         setIsEditing({ type, ...data });
-        setApiKeyMissing(false); // Reset key warning
+        setApiKeyMissing(false);
         if (type === 'conditions') {
             setFormName(data ? data.name : '');
             setFormIcon(data ? (data.icon || 'medical_services') : 'medical_services');
@@ -181,6 +188,12 @@ const IntelligenceManager = ({ adminEmail }) => {
             setFormRequiredAny(data && data.required_any ? JSON.parse(data.required_any).join(', ') : '');
             setFormExplanation(data ? data.explanation : '');
             setFormActionSteps(data && data.action_steps ? JSON.parse(data.action_steps).join('\n') : '');
+        }
+        if (type === 'insights') {
+            setFormInsightTitle(data ? data.title : '');
+            setFormInsightContent(data ? data.content : '');
+            setFormInsightCategory(data ? (data.category || 'Insight') : 'Insight');
+            setFormInsightIcon(data ? (data.icon || 'lightbulb') : 'lightbulb');
         }
         if (data && data.tags) {
             setModalTags(data.tags.split(',').map(t => t.trim()).filter(t => t));
@@ -234,6 +247,49 @@ const IntelligenceManager = ({ adminEmail }) => {
             }
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    const handleAiGenerateInsight = async () => {
+        if (!formInsightTitle.trim()) return;
+        setIsGeneratingInsight(true);
+        setApiKeyMissing(false);
+        try {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            const res = await fetch(`${API_BASE_URL}/intelligence/insights/generate`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ title: formInsightTitle })
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                if (errData.detail && errData.detail.includes("GEMINI_API_KEY")) {
+                    setApiKeyMissing(true);
+                    throw new Error(errData.detail);
+                }
+                throw new Error(errData.detail || 'Failed to auto-generate insight data');
+            }
+
+            const data = await res.json();
+
+            if (data.title) setFormInsightTitle(data.title);
+            if (data.content) setFormInsightContent(data.content);
+            if (data.category) setFormInsightCategory(data.category);
+            if (data.icon) setFormInsightIcon(data.icon);
+            if (data.tags) {
+                setModalTags(data.tags.split(',').map(t => t.trim()).filter(t => t));
+            }
+        } catch (err) {
+            console.error("AI Insight Generation failed:", err);
+            if (!apiKeyMissing) {
+                alert(err.message);
+            }
+        } finally {
+            setIsGeneratingInsight(false);
         }
     };
 
@@ -502,14 +558,68 @@ const IntelligenceManager = ({ adminEmail }) => {
                                 <>
                                     <div className="form-section">
                                         <div className="form-section-title">Content Details</div>
+                                        {apiKeyMissing && (
+                                            <div className="alert-banner" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '1rem', borderRadius: '16px', color: '#ff6b6b', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.5rem' }}>
+                                                <span className="material-icons-round">warning</span>
+                                                <span><strong>GEMINI_API_KEY is not configured:</strong> Please add <code>GEMINI_API_KEY="your_api_key"</code> to your backend <code>.env</code> file and restart the backend server to enable AI autocomplete.</span>
+                                            </div>
+                                        )}
                                         <div className="form-group">
                                             <label><span className="material-icons-round">title</span> Insight Title</label>
-                                            <input name="title" defaultValue={isEditing.title} required placeholder="e.g. How to Sleep Better" />
+                                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                                <input
+                                                    name="title"
+                                                    value={formInsightTitle}
+                                                    onChange={(e) => setFormInsightTitle(e.target.value)}
+                                                    required
+                                                    placeholder="e.g. How to Sleep Better"
+                                                    style={{ flex: 1 }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn-primary-mini"
+                                                    onClick={handleAiGenerateInsight}
+                                                    disabled={isGeneratingInsight || !formInsightTitle.trim()}
+                                                    style={{
+                                                        minWidth: '160px',
+                                                        height: '56px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        background: 'var(--primary)',
+                                                        color: 'white',
+                                                        borderRadius: '18px',
+                                                        border: 'none',
+                                                        fontWeight: '800',
+                                                        cursor: formInsightTitle.trim() ? 'pointer' : 'not-allowed',
+                                                        opacity: formInsightTitle.trim() ? 1 : 0.6,
+                                                        boxShadow: '0 4px 15px var(--primary-glow)',
+                                                        transition: 'all 0.3s'
+                                                    }}
+                                                >
+                                                    {isGeneratingInsight ? (
+                                                        <>
+                                                            <span className="material-icons-round spin">sync</span>
+                                                            Generating...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span className="material-icons-round">search</span>
+                                                            Search
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group">
                                                 <label><span className="material-icons-round">sell</span> Category</label>
-                                                <select name="category" defaultValue={isEditing.category || 'Insight'}>
+                                                <select
+                                                    name="category"
+                                                    value={formInsightCategory}
+                                                    onChange={(e) => setFormInsightCategory(e.target.value)}
+                                                >
                                                     <option>Insight</option>
                                                     <option>Tip</option>
                                                     <option>Warning</option>
@@ -518,7 +628,11 @@ const IntelligenceManager = ({ adminEmail }) => {
                                             </div>
                                             <div className="form-group">
                                                 <label><span className="material-icons-round">face</span> Visual Icon</label>
-                                                <select name="icon" defaultValue={isEditing.icon || 'lightbulb'}>
+                                                <select
+                                                    name="icon"
+                                                    value={formInsightIcon}
+                                                    onChange={(e) => setFormInsightIcon(e.target.value)}
+                                                >
                                                     {MEDICAL_ICONS.map(icon => (
                                                         <option key={icon.id} value={icon.id}>{icon.name}</option>
                                                     ))}
@@ -531,7 +645,14 @@ const IntelligenceManager = ({ adminEmail }) => {
                                         <div className="form-section-title">Rich Content</div>
                                         <div className="form-group">
                                             <label><span className="material-icons-round">subject</span> Body Content</label>
-                                            <textarea name="content" defaultValue={isEditing.content} required rows="8" placeholder="Enter the full content of the health insight or tip..."></textarea>
+                                            <textarea
+                                                name="content"
+                                                value={formInsightContent}
+                                                onChange={(e) => setFormInsightContent(e.target.value)}
+                                                required
+                                                rows="8"
+                                                placeholder="Enter the full content of the health insight or tip..."
+                                            ></textarea>
                                         </div>
                                     </div>
 
@@ -547,7 +668,7 @@ const IntelligenceManager = ({ adminEmail }) => {
                                                             <span className="material-icons-round remove-chip" onClick={() => removeTag(tag)}>close</span>
                                                         </span>
                                                     ))}
-                                                    <input 
+                                                    <input
                                                         value={currentTagInput}
                                                         onChange={(e) => setCurrentTagInput(e.target.value)}
                                                         onKeyDown={(e) => {
@@ -556,7 +677,7 @@ const IntelligenceManager = ({ adminEmail }) => {
                                                                 addTag();
                                                             }
                                                         }}
-                                                        placeholder={modalTags.length === 0 ? "e.g. Malaria, Sleep..." : "Add more..."}
+                                                        placeholder={modalTags.length === 0 ? "e.g. Sleep, Nutrition..." : "Add more..."}
                                                         className="chip-bare-input"
                                                     />
                                                 </div>

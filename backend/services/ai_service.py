@@ -637,3 +637,54 @@ async def generate_condition_with_ai(name: str) -> Dict:
     except Exception as e:
         raise RuntimeError(f"Failed to generate condition with Gemini: {str(e)}")
 
+async def generate_insight_with_ai(title: str) -> Dict:
+    """Uses Gemini 2.5 Flash to automatically generate a detailed health insight
+    or tip based on WHO, CDC, and general medical wellness guidelines.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is not configured on the server. Please add it to your backend .env file.")
+
+    prompt = f"""
+    You are a professional health educator and wellness writer based on clinical CDC and WHO guidelines.
+    Generate a detailed, evidence-based health tip or insight for the title: "{title}".
+
+    Please provide:
+    1. Body Content (a detailed, helpful 1-2 paragraph overview or action plan for patients, explaining the clinical or general health context, with clear suggestions)
+    2. Category (must be one of: 'Insight', 'Tip', 'Warning', 'Nutrition')
+    3. Visual Icon (select the most relevant one from: 'medical_services', 'monitor_heart', 'healing', 'psychology', 'biotech', 'bloodtype', 'medication', 'emergency', 'lightbulb', 'restaurant', 'fitness_center', 'bedtime')
+    4. Tags (comma-separated tags, e.g. "Sleep, Wellness, Recovery")
+
+    Return ONLY a valid JSON object (no markdown, no backticks, no other text) with this exact structure:
+    {{
+      "title": "{title}",
+      "content": "Full detailed body content.",
+      "category": "Category name",
+      "icon": "icon_name",
+      "tags": "tag1, tag2, tag3"
+    }}
+    """
+
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        model_name = 'models/gemini-2.5-flash'
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model_name,
+            contents=prompt
+        )
+        text = response.text.strip()
+
+        # Clean markdown fences if present
+        if "```json" in text:
+            text = text.split("```json")[-1].split("```")[0].strip()
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0].strip()
+
+        data = json.loads(text)
+        return data
+    except Exception as e:
+        raise RuntimeError(f"Failed to generate health insight with Gemini: {str(e)}")
+
