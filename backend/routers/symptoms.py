@@ -8,7 +8,7 @@ from database import get_db
 from models.user import User as DBUser
 from models.symptom_log import SymptomLog as DBSymptomLog
 from schemas import SymptomAnalysisRequest
-from auth_service import SECRET_KEY, ALGORITHM
+from auth_service import SECRET_KEY, ALGORITHM, get_current_user
 from services.ai_service import get_symptom_analysis, get_suggested_symptoms
 
 router = APIRouter(tags=["AI Symptom Analysis"])
