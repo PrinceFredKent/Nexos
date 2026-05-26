@@ -2122,20 +2122,62 @@ function App() {
       </nav>
 
       {/* ── Floating Cycle / Period Button (female only, all screens) ── */}
-      {patient?.gender?.toLowerCase() === 'female' && (
-        <div
-          className={`cycle-fab ${activeTab === 'cycle-tracker' ? 'active' : ''}`}
-          onClick={() => setActiveTab('cycle-tracker')}
-          title={currentCycleDay ? `Day ${currentCycleDay} of cycle` : 'Track Cycle'}
-        >
-          <div className="cycle-fab-btn">
-            <span className="material-icons-round">favorite</span>
+      {patient?.gender?.toLowerCase() === 'female' && (() => {
+        const isPregnant = !!patient?.is_pregnant;
+        const dueDateStr = patient?.pregnancy_due_date;
+        
+        let fabIcon = 'favorite';
+        let fabLabel = 'My Cycle';
+        let fabTitle = 'Track Cycle';
+        let fabClass = '';
+        
+        if (isPregnant) {
+          fabClass = 'pregnancy-fab';
+          fabIcon = 'child_care';
+          if (dueDateStr) {
+            try {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const dueDate = new Date(dueDateStr);
+              dueDate.setHours(0, 0, 0, 0);
+              
+              const diffTime = dueDate - today;
+              const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
+              const totalDuration = 280; // 40 weeks in days
+              const daysPregnant = Math.max(0, totalDuration - daysRemaining);
+              const weeksPregnant = Math.floor(daysPregnant / 7);
+              const daysPregnantRemainder = Math.floor(daysPregnant % 7);
+              
+              fabLabel = `Wk ${weeksPregnant}`;
+              fabTitle = `Pregnancy: Wk ${weeksPregnant}, Day ${daysPregnantRemainder}`;
+            } catch (e) {
+              fabLabel = 'Pregnancy';
+              fabTitle = 'Pregnancy Tracker';
+            }
+          } else {
+            fabLabel = 'Pregnancy';
+            fabTitle = 'Pregnancy Tracker';
+          }
+        } else if (currentCycleDay) {
+          fabLabel = `Day ${currentCycleDay}`;
+          fabTitle = `Day ${currentCycleDay} of cycle`;
+        }
+
+        return (
+          <div
+            className={`cycle-fab ${activeTab === 'cycle-tracker' ? 'active' : ''} ${fabClass}`}
+            onClick={() => setActiveTab('cycle-tracker')}
+            title={fabTitle}
+          >
+            <div className="cycle-fab-btn">
+              <span className="material-icons-round">{fabIcon}</span>
+            </div>
+            <span className="cycle-fab-label">
+              {fabLabel}
+            </span>
           </div>
-          <span className="cycle-fab-label">
-            {currentCycleDay ? `Day ${currentCycleDay}` : 'My Cycle'}
-          </span>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Sync Progress Toast (new-device first launch) ── */}
       {showSyncToast && (

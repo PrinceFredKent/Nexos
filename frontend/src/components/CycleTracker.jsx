@@ -200,14 +200,14 @@ function PregnancyRing({ weeks, days, trimester, progress }) {
           filter="url(#pregnancyGlow)"
           style={{ transition: 'all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
         />
-        {/* Week & Day inside */}
-        <text x={cx} y={cx - 16} textAnchor="middle" fill="#ec4899" fontSize="36" fontWeight="900" fontFamily="Outfit, Inter, sans-serif" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>
+        {/* Week & Day inside (perfectly vertically balanced around cx) */}
+        <text x={cx} y={cx - 6} textAnchor="middle" fill="#ec4899" fontSize="36" fontWeight="900" fontFamily="Outfit, Inter, sans-serif" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}>
           Week {weeks}
         </text>
-        <text x={cx} y={cx + 12} textAnchor="middle" fill="var(--text-muted)" fontSize="11" fontWeight="800" letterSpacing="1.5" style={{ textTransform: 'uppercase', opacity: 0.8 }}>
+        <text x={cx} y={cx + 18} textAnchor="middle" fill="var(--text-muted)" fontSize="11" fontWeight="800" letterSpacing="1.5" style={{ textTransform: 'uppercase', opacity: 0.8 }}>
           Day {days}
         </text>
-        <text x={cx} y={cx + 32} textAnchor="middle" fill="#db2777" fontSize="12" fontWeight="700" style={{ letterSpacing: '0.4px' }}>
+        <text x={cx} y={cx + 38} textAnchor="middle" fill="#db2777" fontSize="12" fontWeight="700" style={{ letterSpacing: '0.4px' }}>
           Trimester {trimester}
         </text>
       </svg>
