@@ -1033,6 +1033,7 @@ function App() {
       <Signup 
         startingStep={2}
         isCompletingProfile={true}
+        patientData={patient}
         onSignupAutoLogin={() => {
           fetchPatientData(); // Re-fetch to clear incomplete state and update patient info
           setIsProfileIncomplete(false); // Direct return to the dashboard

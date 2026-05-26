@@ -5,33 +5,58 @@ import signup1 from '../assets/img/signup1.jpg';
 import signup2 from '../assets/img/signup2.jpg';
 import signup3 from '../assets/img/signup3.jpg';
 
-const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingProfile = false }) => {
+const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingProfile = false, patientData = null }) => {
+  // Initialize form data: use existing patient data if completing profile, otherwise use defaults
+  const getInitialFormData = () => {
+    if (isCompletingProfile && patientData) {
+      return {
+        username: patientData.username || '',
+        email: patientData.email || '',
+        phone: patientData.phone || '',
+        password: '',
+        confirmPassword: '',
+        showPassword: false,
+        showConfirmPassword: false,
+        birthDate: patientData.birth_date || '',
+        gender: patientData.gender || 'Other',
+        bloodType: patientData.blood_type || 'A+',
+        weight: patientData.weight || '',
+        height: patientData.height || '',
+        isPregnant: patientData.is_pregnant || false,
+        pregnancyDueDate: patientData.pregnancy_due_date || '',
+        allergies: patientData.allergies || '',
+        chronicConditions: patientData.chronic_conditions || '',
+        emergencyName: patientData.emergency_contact_name || '',
+        emergencyPhone: patientData.emergency_contact_phone || '',
+      };
+    }
+    // Default values for new signup
+    return {
+      username: '',
+      email: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+      showPassword: false,
+      showConfirmPassword: false,
+      birthDate: '',
+      gender: 'Other',
+      bloodType: 'A+',
+      weight: '',
+      height: '',
+      isPregnant: false,
+      pregnancyDueDate: '',
+      allergies: '',
+      chronicConditions: '',
+      emergencyName: '',
+      emergencyPhone: '',
+    };
+  };
+
   const [step, setStep] = useState(startingStep);
-  const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    showPassword: false,
-    showConfirmPassword: false,
-    // Step 2: Health/Bio
-    birthDate: '',
-    gender: 'Other',
-    bloodType: 'A+',
-    weight: '',
-    height: '',
-    isPregnant: false,
-    pregnancyDueDate: '',
-    // Step 3: Emergency
-    allergies: '',
-    chronicConditions: '',
-    emergencyName: '',
-    emergencyPhone: '',
-    // role: 'patient', // Removed roles
-    // specialization: '',
-    // licenseNo: '',
-  });
+  const [formData, setFormData] = useState(getInitialFormData());
+  // Track which fields were actually modified by the user
+  const [modifiedFields, setModifiedFields] = useState(new Set());
   const [error, setError] = useState('');
   const [signupResult, setSignupResult] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null); // 'gender' | 'bloodType' | null
@@ -175,21 +200,46 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     // Build payload — different shapes for signup vs profile completion
     let payload;
     if (isCompletingProfile || isGoogleSignupFlow) {
-      // Only send fields that UserUpdate accepts; strip empty strings so we don't overwrite with blanks
-      const raw = {
-        phone: formData.phone,
-        birth_date: formData.birthDate || null,
-        gender: formData.gender,
-        is_pregnant: formData.isPregnant,
-        pregnancy_due_date: formData.isPregnant ? (formData.pregnancyDueDate || null) : null,
-        blood_type: formData.bloodType,
-        weight: formData.weight || null,
-        height: formData.height || null,
-        allergies: formData.allergies || null,
-        chronic_conditions: formData.chronicConditions || null,
-        emergency_contact_name: formData.emergencyName || null,
-        emergency_contact_phone: formData.emergencyPhone || null,
-      };
+      // Only send fields that were actually modified (for updates)
+      // This prevents overwriting fields like is_pregnant with default values
+      const raw = {};
+      
+      // Always include these required fields if updating
+      if (formData.phone) raw.phone = formData.phone;
+      
+      // Include optional fields only if they differ from initial data or were explicitly modified
+      if (isCompletingProfile && patientData) {
+        // Only include fields if they changed from the original patient data
+        if (formData.birth_date !== patientData.birth_date) raw.birth_date = formData.birthDate || null;
+        if (formData.gender !== patientData.gender) raw.gender = formData.gender;
+        // CRITICAL FIX: Only include is_pregnant if it was actually changed by the user
+        if (formData.isPregnant !== patientData.is_pregnant) raw.is_pregnant = formData.isPregnant;
+        if (formData.pregnancyDueDate !== patientData.pregnancy_due_date) {
+          raw.pregnancy_due_date = formData.isPregnant ? (formData.pregnancyDueDate || null) : null;
+        }
+        if (formData.bloodType !== patientData.blood_type) raw.blood_type = formData.bloodType;
+        if (formData.weight !== patientData.weight) raw.weight = formData.weight || null;
+        if (formData.height !== patientData.height) raw.height = formData.height || null;
+        if (formData.allergies !== patientData.allergies) raw.allergies = formData.allergies || null;
+        if (formData.chronicConditions !== patientData.chronic_conditions) raw.chronic_conditions = formData.chronicConditions || null;
+        if (formData.emergencyName !== patientData.emergency_contact_name) raw.emergency_contact_name = formData.emergencyName || null;
+        if (formData.emergencyPhone !== patientData.emergency_contact_phone) raw.emergency_contact_phone = formData.emergencyPhone || null;
+      } else {
+        // Google signup flow - send more fields as they're new
+        raw.phone = formData.phone;
+        raw.birth_date = formData.birthDate || null;
+        raw.gender = formData.gender;
+        raw.is_pregnant = formData.isPregnant;
+        raw.pregnancy_due_date = formData.isPregnant ? (formData.pregnancyDueDate || null) : null;
+        raw.blood_type = formData.bloodType;
+        raw.weight = formData.weight || null;
+        raw.height = formData.height || null;
+        raw.allergies = formData.allergies || null;
+        raw.chronic_conditions = formData.chronicConditions || null;
+        raw.emergency_contact_name = formData.emergencyName || null;
+        raw.emergency_contact_phone = formData.emergencyPhone || null;
+      }
+      
       // Remove null/empty values so backend exclude_unset skips them correctly
       payload = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== null && v !== ''));
     } else {
