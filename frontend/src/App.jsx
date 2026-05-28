@@ -781,6 +781,8 @@ function App() {
     else if (username === 'Prince Fred Kent') setAdminEmail('princefredkent@gmail.com');
     // Initialize app lock on successful login
     initializeAppLock();
+    // Navigate to dashboard immediately to avoid blank screen
+    navigate('/dashboard');
     // New device: show progressive sync toast while background pull runs
     if (isNewDevice) {
         setShowSyncToast(true);
