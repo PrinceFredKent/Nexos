@@ -6,7 +6,7 @@ import '../styles/profile_elite.css';
 
 const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistory = [] }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({ ...patient });
+  const [editData, setEditData] = useState(patient || {});
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -14,8 +14,20 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
 
   // Sync editData whenever patient data changes (e.g., after login/logout)
   useEffect(() => {
-    setEditData({ ...patient });
+    setEditData(patient || {});
   }, [patient]);
+
+  if (!patient) {
+    return (
+      <div className="profile-loading-screen" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', color: 'var(--text-muted)' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="loader" style={{ width: '48px', height: '48px', margin: '0 auto 1rem', border: '4px solid rgba(255,255,255,0.15)', borderTop: '4px solid var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+          <p>Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
