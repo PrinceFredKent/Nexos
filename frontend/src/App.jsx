@@ -1218,7 +1218,6 @@ function App() {
             style={{ marginRight: '0.25rem' }}
           >
             <span className="material-icons-round" style={{ fontSize: '0.95rem' }}>explore</span>
-            <span>Tour</span>
           </div>
 
           <div 
