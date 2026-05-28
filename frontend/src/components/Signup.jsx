@@ -23,6 +23,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
         weight: patientData.weight || '',
         height: patientData.height || '',
         isPregnant: patientData.is_pregnant || false,
+        pregnancyConceptionDate: patientData.pregnancy_conception_date || '',
         pregnancyDueDate: patientData.pregnancy_due_date || '',
         allergies: patientData.allergies || '',
         chronicConditions: patientData.chronic_conditions || '',
@@ -45,6 +46,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
       weight: '',
       height: '',
       isPregnant: false,
+      pregnancyConceptionDate: '',
       pregnancyDueDate: '',
       allergies: '',
       chronicConditions: '',
@@ -214,8 +216,17 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
         if (formData.gender !== patientData.gender) raw.gender = formData.gender;
         // CRITICAL FIX: Only include is_pregnant if it was actually changed by the user
         if (formData.isPregnant !== patientData.is_pregnant) raw.is_pregnant = formData.isPregnant;
-        if (formData.pregnancyDueDate !== patientData.pregnancy_due_date) {
-          raw.pregnancy_due_date = formData.isPregnant ? (formData.pregnancyDueDate || null) : null;
+          if (formData.pregnancyConceptionDate !== patientData.pregnancy_conception_date) {
+            raw.pregnancy_conception_date = formData.isPregnant ? (formData.pregnancyConceptionDate || null) : null;
+            // Auto-calculate due date (280 days from conception)
+            if (formData.isPregnant && formData.pregnancyConceptionDate) {
+              const conceptionDate = new Date(formData.pregnancyConceptionDate);
+              const dueDate = new Date(conceptionDate);
+              dueDate.setDate(dueDate.getDate() + 280);
+              raw.pregnancy_due_date = dueDate.toISOString().split('T')[0];
+            } else {
+              raw.pregnancy_due_date = null;
+            }
         }
         if (formData.bloodType !== patientData.blood_type) raw.blood_type = formData.bloodType;
         if (formData.weight !== patientData.weight) raw.weight = formData.weight || null;
@@ -230,7 +241,16 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
         raw.birth_date = formData.birthDate || null;
         raw.gender = formData.gender;
         raw.is_pregnant = formData.isPregnant;
-        raw.pregnancy_due_date = formData.isPregnant ? (formData.pregnancyDueDate || null) : null;
+        raw.pregnancy_conception_date = formData.isPregnant ? (formData.pregnancyConceptionDate || null) : null;
+        // Auto-calculate due date (280 days from conception)
+        if (formData.isPregnant && formData.pregnancyConceptionDate) {
+          const conceptionDate = new Date(formData.pregnancyConceptionDate);
+          const dueDate = new Date(conceptionDate);
+          dueDate.setDate(dueDate.getDate() + 280);
+          raw.pregnancy_due_date = dueDate.toISOString().split('T')[0];
+        } else {
+          raw.pregnancy_due_date = null;
+        }
         raw.blood_type = formData.bloodType;
         raw.weight = formData.weight || null;
         raw.height = formData.height || null;
@@ -251,7 +271,14 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
         birth_date: formData.birthDate || null,
         gender: formData.gender,
         is_pregnant: formData.isPregnant,
-        pregnancy_due_date: formData.isPregnant ? (formData.pregnancyDueDate || null) : null,
+        pregnancy_conception_date: formData.isPregnant ? (formData.pregnancyConceptionDate || null) : null,
+        // Auto-calculate due date (280 days from conception)
+        pregnancy_due_date: formData.isPregnant && formData.pregnancyConceptionDate ? (() => {
+          const conceptionDate = new Date(formData.pregnancyConceptionDate);
+          const dueDate = new Date(conceptionDate);
+          dueDate.setDate(dueDate.getDate() + 280);
+          return dueDate.toISOString().split('T')[0];
+        })() : null,
         blood_type: formData.bloodType,
         weight: formData.weight,
         height: formData.height,
@@ -448,9 +475,20 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                   </select>
                 </div>
                 {formData.isPregnant && (
-                  <div className={`input-group ${formData.pregnancyDueDate ? 'filled' : ''}`} style={{flex: 1}}>
-                    <input type="date" id="pregnancyDueDate" placeholder=" " value={formData.pregnancyDueDate} onChange={(e) => setFormData({...formData, pregnancyDueDate: e.target.value})} />
-                    <label htmlFor="pregnancyDueDate">Expected Due Date</label>
+                  <div style={{display: 'flex', gap: '1rem'}}>
+                    <div className={`input-group ${formData.pregnancyConceptionDate ? 'filled' : ''}`} style={{flex: 1}}>
+                      <input type="date" id="pregnancyConceptionDate" placeholder=" " value={formData.pregnancyConceptionDate} onChange={(e) => setFormData({...formData, pregnancyConceptionDate: e.target.value})} />
+                      <label htmlFor="pregnancyConceptionDate">Conception Date</label>
+                    </div>
+                    <div className={`input-group filled`} style={{flex: 1}}>
+                      <label htmlFor="pregnancyDueDate">Estimated Due Date</label>
+                      <input type="text" id="pregnancyDueDate" placeholder=" " value={formData.pregnancyConceptionDate ? (() => {
+                        const conceptionDate = new Date(formData.pregnancyConceptionDate);
+                        const dueDate = new Date(conceptionDate);
+                        dueDate.setDate(dueDate.getDate() + 280);
+                        return dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                      })() : 'Select conception date'} disabled style={{backgroundColor: 'var(--bg-secondary)', cursor: 'not-allowed'}} />
+                    </div>
                   </div>
                 )}
               </div>

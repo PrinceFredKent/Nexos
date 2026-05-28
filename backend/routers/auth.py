@@ -88,6 +88,7 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
         age=user.age,
         gender=user.gender,
         is_pregnant=user.is_pregnant,
+        pregnancy_conception_date=user.pregnancy_conception_date,
         pregnancy_due_date=user.pregnancy_due_date,
         blood_type=user.blood_type,
         weight=user.weight,

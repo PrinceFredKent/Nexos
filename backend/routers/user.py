@@ -49,6 +49,7 @@ async def get_patient_info(username: str = Depends(get_current_user), db: Sessio
         "profile_picture": user.profile_picture,
         "birth_date": user.birth_date,
         "is_pregnant": user.is_pregnant,
+        "pregnancy_conception_date": user.pregnancy_conception_date,
         "pregnancy_due_date": user.pregnancy_due_date
     }
     return user_data
@@ -77,6 +78,7 @@ async def update_profile(update: UserUpdate, background_tasks: BackgroundTasks, 
         "age": user.age,
         "gender": user.gender,
         "is_pregnant": user.is_pregnant,
+        "pregnancy_conception_date": user.pregnancy_conception_date,
         "pregnancy_due_date": user.pregnancy_due_date,
         "blood_type": user.blood_type,
         "weight": user.weight,

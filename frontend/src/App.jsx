@@ -751,8 +751,13 @@ function App() {
     setMeds([]);
     setUserEvents([]);
     setNotifications([]);
+    setCycleLogs([]);
+    setCycleContext(null);
+    setAnalysis(null);
     const { logout } = useAuthStore.getState();
     logout();
+    // Redirect to login after logout
+    navigate('/login');
   };
 
   const handleLoginSuccess = (token, username, rememberMe = true, role = 'patient', isNewDevice = false, email = '') => {

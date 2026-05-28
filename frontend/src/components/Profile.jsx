@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,6 +12,11 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
   const [isDownloading, setIsDownloading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Sync editData whenever patient data changes (e.g., after login/logout)
+  useEffect(() => {
+    setEditData({ ...patient });
+  }, [patient]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === 'birth_date') {
@@ -19,6 +24,11 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
       setEditData(prev => ({ ...prev, [name]: value, age: age === 'N/A' ? prev.age : age }));
     } else if (name === 'is_pregnant') {
       setEditData(prev => ({ ...prev, is_pregnant: value === 'yes' }));
+    } else if (name === 'pregnancy_conception_date') {
+      // Auto-calculate due date when conception date changes
+      const dueDate = new Date(value);
+      dueDate.setDate(dueDate.getDate() + 280);
+      setEditData(prev => ({ ...prev, [name]: value, pregnancy_due_date: dueDate.toISOString().split('T')[0] }));
     } else {
       setEditData(prev => ({ ...prev, [name]: value }));
     }
@@ -436,15 +446,38 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
           </div>
 
           {((isEditing && editData.is_pregnant) || (!isEditing && patient.is_pregnant)) && (
-            <div className="info-row-elite">
-              <div className="info-icon-elite"><span className="material-icons-round">event</span></div>
-              <div className="info-content-elite">
-                <label>Expected Due Date</label>
-                {isEditing ? (
-                  <input type="date" name="pregnancy_due_date" value={editData.pregnancy_due_date || ''} onChange={handleChange} className="profile-input-elite" />
-                ) : (
-                  <p>{patient.pregnancy_due_date || 'Not specified'}</p>
-                )}
+            <div style={{display: 'flex', gap: '1rem'}}>
+              <div className="info-row-elite" style={{flex: 1}}>
+                <div className="info-icon-elite"><span className="material-icons-round">favorite</span></div>
+                <div className="info-content-elite">
+                  <label>Conception Date</label>
+                  {isEditing ? (
+                    <input type="date" name="pregnancy_conception_date" value={editData.pregnancy_conception_date || ''} onChange={handleChange} className="profile-input-elite" />
+                  ) : (
+                    <p>{patient.pregnancy_conception_date || 'Not specified'}</p>
+                  )}
+                </div>
+              </div>
+              <div className="info-row-elite" style={{flex: 1}}>
+                <div className="info-icon-elite"><span className="material-icons-round">event</span></div>
+                <div className="info-content-elite">
+                  <label>Estimated Due Date</label>
+                  {isEditing ? (
+                    <input 
+                      type="text" 
+                      value={editData.pregnancy_conception_date ? (() => {
+                        const dueDate = new Date(editData.pregnancy_conception_date);
+                        dueDate.setDate(dueDate.getDate() + 280);
+                        return dueDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                      })() : 'Select conception date'} 
+                      disabled 
+                      className="profile-input-elite" 
+                      style={{backgroundColor: 'var(--bg-secondary)', cursor: 'not-allowed'}}
+                    />
+                  ) : (
+                    <p>{patient.pregnancy_due_date || 'Not specified'}</p>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -15,6 +15,7 @@ class User(Base):
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
     is_pregnant = Column(Boolean, default=False, nullable=False)
+    pregnancy_conception_date = Column(Date, nullable=True)
     pregnancy_due_date = Column(Date, nullable=True)
     blood_type = Column(String, nullable=True)
     weight = Column(String, nullable=True)

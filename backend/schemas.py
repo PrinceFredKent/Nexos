@@ -20,6 +20,7 @@ class UserSignup(BaseModel):
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
     is_pregnant: Optional[bool] = False
+    pregnancy_conception_date: Optional[date] = None
     pregnancy_due_date: Optional[date] = None
     google_id: Optional[str] = None
 
@@ -48,6 +49,7 @@ class UserUpdate(BaseModel):
     profile_picture: Optional[str] = None
     birth_date: Optional[date] = None
     is_pregnant: Optional[bool] = None
+    pregnancy_conception_date: Optional[date] = None
     pregnancy_due_date: Optional[date] = None
     phone: Optional[str] = None
 
