@@ -85,14 +85,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
         </div>
 
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem'}}>
-          <label className="remember-me" style={{margin: 0}}>
-            <input 
-              type="checkbox" 
-              checked={rememberMe} 
-              onChange={(e) => setRememberMe(e.target.checked)} 
-            />
-            <span>Remember Me</span>
-          </label>
+          
           <span className="auth-link" style={{fontSize: '0.88rem'}} onClick={() => onSwitch('forgot-password')}>Forgotten Password?</span>
         </div>
 
