@@ -46,8 +46,8 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
   return (
     <AuthLayout image={loginImg}>
       <div className="auth-form">
-        <h2>Welcome Back</h2>
-        <p>Access your unified health intelligence and continue your journey to wellness.</p>
+        <h2 style={{ textAlign: 'center' }}>Welcome Back</h2>
+        <p style={{ textAlign: 'center' }}>Access your unified health intelligence and continue your journey to wellness.</p>
 
         {error && <p className="error-text" style={{color: '#ff4d4d', marginBottom: '0.75rem', fontSize: '0.85rem'}}>{error}</p>}
 
@@ -84,7 +84,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
           </button>
         </div>
 
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'right', marginBottom: '0.25rem'}}>
+        <div style={{ textAlign: 'right', marginBottom: '0.25rem'}}>
           
           <span className="auth-link" style={{fontSize: '0.88rem'}} onClick={() => onSwitch('forgot-password')}>Forgotten Password?</span>
         </div>
