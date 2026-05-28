@@ -84,7 +84,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
           </button>
         </div>
 
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem'}}>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'right', marginBottom: '0.25rem'}}>
           
           <span className="auth-link" style={{fontSize: '0.88rem'}} onClick={() => onSwitch('forgot-password')}>Forgotten Password?</span>
         </div>
