@@ -127,6 +127,12 @@ async def startup_event():
                 log.info('Added column users.pregnancy_due_date')
             except Exception:
                 log.debug('Column users.pregnancy_due_date already exists or could not be added')
+
+            try:
+                conn.execute(text('ALTER TABLE users ADD COLUMN pregnancy_conception_date DATE'))
+                log.info('Added column users.pregnancy_conception_date')
+            except Exception:
+                log.debug('Column users.pregnancy_conception_date already exists or could not be added')
     except Exception as e:
         log.warning(f'User column migration step failed: {e}')
 
