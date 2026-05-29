@@ -7,6 +7,13 @@ from email.utils import formataddr
 
 log = logging.getLogger("nexos")
 
+def get_logo_url() -> str:
+    """Returns the correct public URL for the Nexos app-icon logo."""
+    frontend_url = os.environ.get("FRONTEND_URL", "https://nexos-health.pages.dev").rstrip('/')
+    if "localhost" in frontend_url or "127.0.0.1" in frontend_url:
+        return "https://nexos-health.pages.dev/app-icon.jpg"
+    return f"{frontend_url}/app-icon.jpg"
+
 def get_otp_email_template(otp_code: str, username: str):
     """Returns a premium, polished HTML template for OTP verification."""
     return f"""
@@ -32,7 +39,7 @@ def get_otp_email_template(otp_code: str, username: str):
     <body>
         <div class="container">
             <div class="header">
-                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <img src="{get_logo_url()}" alt="Nexos" class="logo" />
                 <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
@@ -243,7 +250,7 @@ def get_welcome_email_template(username: str):
     <body>
         <div class="container">
             <div class="header">
-                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <img src="{get_logo_url()}" alt="Nexos" class="logo" />
                 <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
@@ -295,7 +302,7 @@ def get_password_reset_email_template(otp_code: str, username: str):
     <body>
         <div class="container">
             <div class="header">
-                <img src="https://nexos.pages.dev/app-icon.jpg" alt="Nexos" class="logo" />
+                <img src="{get_logo_url()}" alt="Nexos" class="logo" />
                 <div style="font-size: 18px; font-weight: 800; letter-spacing: 4px; color: white; opacity: 0.9;">NEXOS</div>
             </div>
             <div class="content">
