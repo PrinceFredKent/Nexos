@@ -291,12 +291,33 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
     now = datetime.utcnow()
 
     try:
-        # Get all pending changes from outbox, ordered by ID to preserve chronological order
+        # Get all pending changes from outbox
         outbox_entries = local.execute(
             text("SELECT * FROM local_changes_outbox ORDER BY id ASC")
         ).mappings().all()
 
-        for entry in outbox_entries:
+        # Sort outbox entries to prevent ForeignKeyViolations on DELETE actions
+        def get_sync_order_key(entry):
+            action = entry["action"]
+            table = entry["table_name"]
+            entry_id = entry["id"]
+            
+            # Non-deletes run first in chronological order
+            if action != "DELETE":
+                return (0, entry_id)
+                
+            # Deletes run after, child-first
+            if table == "medication_intakes":
+                return (1, entry_id)
+            elif table in ("medications", "cycle_logs", "appointments", "symptom_logs"):
+                return (2, entry_id)
+            elif table == "users":
+                return (3, entry_id)
+            return (4, entry_id)
+
+        sorted_entries = sorted(outbox_entries, key=get_sync_order_key)
+
+        for entry in sorted_entries:
             table = entry["table_name"]
             row_id = entry["row_id"]
             action = entry["action"]

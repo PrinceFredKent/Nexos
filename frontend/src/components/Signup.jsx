@@ -111,21 +111,22 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
   );
   // Debounced email check
   useEffect(() => {
-    if (!formData.email || !formData.email.includes('@')) {
+    const trimmedEmail = (formData.email || '').trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
       setFieldErrors(prev => ({ ...prev, email: '' }));
       return;
     }
 
     const timer = setTimeout(async () => {
       // Basic regex check first
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
         setFieldErrors(prev => ({ ...prev, email: 'Invalid email format' }));
         return;
       }
 
       setIsCheckingEmail(true);
       try {
-        const res = await fetch(`${API_BASE_URL}/check-email?email=${encodeURIComponent(formData.email)}`);
+        const res = await fetch(`${API_BASE_URL}/check-email?email=${encodeURIComponent(trimmedEmail)}`);
         const data = await res.json();
         if (data.exists) {
           setFieldErrors(prev => ({ ...prev, email: 'This email is already registered' }));
@@ -144,9 +145,10 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
   const validateStep1 = () => {
     const errors = {};
+    const trimmedEmail = (formData.email || '').trim();
     if (!formData.username || formData.username.length < 3) errors.username = 'Name must be at least 3 characters';
-    if (!formData.email) errors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = 'Invalid email format';
+    if (!trimmedEmail) errors.email = 'Email is required';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) errors.email = 'Invalid email format';
 
     if (!formData.phone) errors.phone = 'Phone number is required';
     else if (!/^\+?1?\d{9,15}$/.test(formData.phone)) errors.phone = 'Invalid phone format';
@@ -265,7 +267,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
     } else {
       payload = {
         username: formData.username,
-        email: formData.email,
+        email: (formData.email || '').trim(),
         phone: formData.phone,
         password: formData.password || "oauth_managed_account",
         birth_date: formData.birthDate || null,

@@ -24,7 +24,7 @@ def get_status(username: str = Depends(get_current_user), db: Session = Depends(
 @router.get("/check-email")
 def check_email(email: str, db: Session = Depends(get_db)):
     """Check if an email is already registered."""
-    user = db.query(DBUser).filter(DBUser.email == email).first()
+    user = db.query(DBUser).filter(DBUser.email == email.strip()).first()
     return {"exists": user is not None}
 
 @router.get("/patient-info")

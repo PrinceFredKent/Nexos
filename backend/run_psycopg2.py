@@ -26,6 +26,7 @@ MIGRATIONS = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expiry TIMESTAMP;",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pregnant BOOLEAN DEFAULT FALSE;",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS pregnancy_due_date DATE;",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS pregnancy_conception_date DATE;",
     "CREATE INDEX IF NOT EXISTS ix_users_email ON users(email);",
     "ALTER TABLE medications ADD COLUMN IF NOT EXISTS last_modified TIMESTAMP DEFAULT NOW();",
     "ALTER TABLE medications ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP;",
@@ -37,7 +38,8 @@ MIGRATIONS = [
     "ALTER TABLE symptom_logs ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP;",
     "CREATE TABLE IF NOT EXISTS sync_meta (id SERIAL PRIMARY KEY, username VARCHAR UNIQUE NOT NULL, last_push_at TIMESTAMP, last_pull_at TIMESTAMP, initial_pull_done BOOLEAN DEFAULT FALSE, initial_pull_progress INTEGER, initial_pull_status_msg VARCHAR, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW());",
     "CREATE INDEX IF NOT EXISTS ix_sync_meta_username ON sync_meta(username);",
-    "ALTER TABLE medication_intakes ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP;"
+    "ALTER TABLE medication_intakes ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP;",
+    "ALTER TABLE medication_intakes ADD COLUMN IF NOT EXISTS last_modified TIMESTAMP DEFAULT NOW();"
 ]
 
 print(f"Connecting to {host}:{port} as {user}...")

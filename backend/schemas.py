@@ -26,6 +26,7 @@ class UserSignup(BaseModel):
 
     @validator('email')
     def validate_email(cls, v):
+        v = v.strip() if isinstance(v, str) else v
         if not re.match(r"[^@]+@[^@]+\.[^@]+", v):
             raise ValueError('Invalid email format')
         return v
