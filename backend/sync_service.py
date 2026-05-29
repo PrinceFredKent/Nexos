@@ -25,6 +25,47 @@ from database import LocalSession, CloudSession, cloud_engine
 
 log = logging.getLogger("sync_service")
 
+# ─── Column Safety Cache ─────────────────────────────────────────────────────
+# Caches the column names of each Supabase table so we can strip any locally-
+# added columns that haven't been migrated to Supabase yet.  Cleared on error
+# so it re-fetches after schema changes.
+_cloud_col_cache: dict = {}
+
+
+def _get_cloud_columns(cloud: Session, table: str) -> set:
+    """Return the set of column names that exist in the cloud (Supabase) table."""
+    if table in _cloud_col_cache:
+        return _cloud_col_cache[table]
+    try:
+        rows = cloud.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = :t"
+            ),
+            {"t": table},
+        ).fetchall()
+        cols = {r[0] for r in rows}
+        if cols:
+            _cloud_col_cache[table] = cols
+            log.debug(f"Cached {len(cols)} cloud columns for '{table}'")
+        return cols
+    except Exception as e:
+        log.warning(f"Could not fetch cloud columns for '{table}': {e}")
+        return set()
+
+
+def _filter_to_cloud_cols(cloud: Session, table: str, row_dict: dict) -> dict:
+    """Strip any local-only keys that don't exist in the cloud table."""
+    cloud_cols = _get_cloud_columns(cloud, table)
+    if not cloud_cols:
+        return row_dict  # unknown schema — try as-is
+    filtered = {k: v for k, v in row_dict.items() if k in cloud_cols}
+    skipped = set(row_dict.keys()) - cloud_cols
+    if skipped:
+        log.debug(f"Skipping local-only cols for '{table}': {skipped}")
+    return filtered
+
+
 
 # ─── Sync State (in-memory, reset on restart) ─────────────────────────────────
 
@@ -327,13 +368,13 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
                     text(f"SELECT * FROM {table} WHERE id = :id"),
                     {"id": row_id}
                 ).mappings().first()
-                
+
                 if not row:
                     # Row was deleted locally after this update was queued, skip it.
                     local.execute(text("DELETE FROM local_changes_outbox WHERE id = :id"), {"id": entry["id"]})
                     continue
-                    
-                row_dict = dict(row)
+
+                row_dict = _filter_to_cloud_cols(cloud, table, dict(row))
                 col_list = ", ".join(row_dict.keys())
                 placeholders = ", ".join([f":{k}" for k in row_dict.keys()])
                 update_set = ", ".join([f"{k} = EXCLUDED.{k}" for k in row_dict.keys() if k != "id"])
@@ -345,7 +386,7 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
                     """),
                     row_dict
                 )
-                
+
                 if "synced_at" in row_dict:
                     local.execute(
                         text(f"UPDATE {table} SET synced_at = :now WHERE id = :id"),
@@ -356,7 +397,7 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
                     text(f"DELETE FROM {table} WHERE id = :id"),
                     {"id": row_id}
                 )
-            
+
             # Remove from outbox
             local.execute(text("DELETE FROM local_changes_outbox WHERE id = :id"), {"id": entry["id"]})
             total_pushed += 1
@@ -367,6 +408,8 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
             
     except Exception as e:
         log.warning(f"Push from outbox failed: {e}")
+        # Clear column cache so we re-fetch schema on next sync attempt
+        _cloud_col_cache.clear()
         try:
             cloud.rollback()
             local.rollback()

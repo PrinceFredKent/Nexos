@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -136,6 +136,58 @@ async def startup_event():
     except Exception as e:
         log.warning(f'User column migration step failed: {e}')
 
+    # ── Cloud (Supabase) schema migration ────────────────────────────────────
+    # Ensure every column that exists locally is also present in Supabase.
+    # PostgreSQL's ADD COLUMN IF NOT EXISTS makes these safe no-ops when the
+    # column already exists, so this block is safe to run on every startup.
+    # This MUST run before the re-queue step below so columns exist before push.
+    if cloud_engine:
+        cloud_user_migrations = [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pregnant BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS pregnancy_due_date DATE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS pregnancy_conception_date DATE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS birth_date DATE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_modified TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS synced_at TIMESTAMP",
+        ]
+        try:
+            with cloud_engine.begin() as conn:
+                for stmt in cloud_user_migrations:
+                    try:
+                        conn.execute(text(stmt))
+                    except Exception as col_err:
+                        log.debug(f"Cloud migration no-op: {col_err}")
+            log.info("Cloud (Supabase) schema migration complete.")
+        except Exception as e:
+            log.warning(f"Cloud schema migration failed (non-fatal): {e}")
+
+    # Re-queue any users who have never been synced to Supabase (synced_at IS NULL).
+    # Safe to run on every startup: once a user is pushed, synced_at is set and they
+    # won't be re-queued. This self-heals accounts that were stuck due to schema errors.
+    if cloud_engine:
+        try:
+            with engine.begin() as conn:
+                unsynced = conn.execute(
+                    text("SELECT id FROM users WHERE synced_at IS NULL")
+                ).fetchall()
+                for (uid,) in unsynced:
+                    # Only insert if not already in outbox
+                    existing = conn.execute(
+                        text("SELECT 1 FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+                        {"id": uid}
+                    ).first()
+                    if not existing:
+                        conn.execute(
+                            text("INSERT INTO local_changes_outbox (table_name, row_id, action) VALUES ('users', :id, 'INSERT')"),
+                            {"id": uid}
+                        )
+                if unsynced:
+                    log.info(f"Re-queued {len(unsynced)} unsynced user(s) for Supabase push.")
+        except Exception as e:
+            log.warning(f"Re-queue unsynced users failed (non-fatal): {e}")
+
     # Warn loudly if critical production env vars are missing
     _jwt_secret = os.environ.get("JWT_SECRET_KEY", "nexos-dev-secret-change-in-production")
     if _jwt_secret == "nexos-dev-secret-change-in-production":
@@ -146,13 +198,14 @@ async def startup_event():
     else:
         log.info(f"Frontend URL: {_frontend_url}")
 
+
     interval = int(os.environ.get("SYNC_INTERVAL_MINUTES", "5"))
     if interval > 0 and cloud_engine:
         _scheduler.add_job(run_sync, "interval", minutes=interval, id="periodic_sync")
         _scheduler.start()
         log.info(f"Sync scheduler started — interval: {interval} min")
     else:
-        log.info("Sync scheduler disabled (no cloud engine or interval=0).")
+        log.info("Sync scheduler disabled (no cloud engine or interval=0.)")
 
 @app.on_event("shutdown")
 async def shutdown_event():

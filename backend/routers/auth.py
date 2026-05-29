@@ -133,9 +133,10 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     if not _deliver_otp(new_user.phone, new_user.email, new_user.username, otp):
         raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
+    # Push new user to Supabase immediately (don't wait for the periodic scheduler).
     background_tasks.add_task(run_sync)
     return {
-        "message": "Account created. Please verify your email.", 
+        "message": "Account created. Please verify your email.",
         "username": new_user.username,
         "email": new_user.email,
         "is_verified": False
@@ -256,6 +257,15 @@ async def resend_otp(email_data: dict, db: Session = Depends(get_db)):
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.email == req.email).first()
+
+    # Fallback: if not found locally (e.g. after a Railway restart wiped SQLite),
+    # pull credentials from Supabase and merge into local so OTP flow can proceed.
+    if not user and cloud_engine:
+        cloud_data = await initial_pull_credentials(req.email)
+        if cloud_data:
+            user = _merge_cloud_user_into_local(db, None, cloud_data)
+            log.info(f"forgot_password: pulled user '{req.email}' from Supabase into local DB")
+
     if not user:
         raise HTTPException(status_code=404, detail="No account found with this email address")
 
@@ -283,22 +293,27 @@ async def verify_password_otp(req: VerifyPasswordOTPRequest, db: Session = Depen
     return {"message": "Code verified"}
 
 @router.post("/reset-password")
-async def reset_password(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+async def reset_password(req: ResetPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.email == req.email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     if user.otp_code != req.otp_code:
         raise HTTPException(status_code=400, detail="Invalid verification code")
-    
+
     if user.otp_expiry is None or datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="Code expired")
-        
+
     user.hashed_password = get_password_hash(req.new_password)
+    user.last_modified = datetime.utcnow()  # ensure outbox picks this up as a dirty row
     user.otp_code = None
     user.otp_expiry = None
     db.commit()
-    
+
+    # Push the updated password hash to Supabase immediately so the user
+    # survives a server restart (Railway ephemeral storage).
+    background_tasks.add_task(run_sync)
+
     return {"message": "Password has been reset successfully"}
 
 
