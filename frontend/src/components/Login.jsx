@@ -10,17 +10,50 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [touched, setTouched] = useState({ email: false, password: false });
+
+  const validateEmail = (val) => {
+    if (!val) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Invalid email format';
+    return '';
+  };
+
+  const validatePassword = (val) => {
+    if (!val) return 'Password is required';
+    return '';
+  };
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    setFieldErrors(prev => ({ ...prev, email: touched.email ? validateEmail(val) : '' }));
+  };
+
+  const handleEmailBlur = () => {
+    setTouched(prev => ({ ...prev, email: true }));
+    setFieldErrors(prev => ({ ...prev, email: validateEmail(email) }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const val = e.target.value;
+    setPassword(val);
+    setFieldErrors(prev => ({ ...prev, password: touched.password ? validatePassword(val) : '' }));
+  };
+
+  const handlePasswordBlur = () => {
+    setTouched(prev => ({ ...prev, password: true }));
+    setFieldErrors(prev => ({ ...prev, password: validatePassword(password) }));
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Email and password are required');
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Invalid email format');
-      return;
-    }
+    // Mark all fields as touched and validate on submit
+    const emailErr = validateEmail(email);
+    const passwordErr = validatePassword(password);
+    setTouched({ email: true, password: true });
+    setFieldErrors({ email: emailErr, password: passwordErr });
+    if (emailErr || passwordErr) return;
     setError('');
     setIsLoading(true);
     try {
@@ -57,18 +90,21 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
             id="email"
             placeholder=" " 
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={handleEmailChange}
+            onBlur={handleEmailBlur}
             required
           />
           <label htmlFor="email">Email Address</label>
+          {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
         </div>
-        <div className={`input-group ${password ? 'filled' : ''}`}>
+        <div className={`input-group ${password ? 'filled' : ''}`} style={{ marginTop: fieldErrors.email ? '1.2rem' : undefined }}>
           <input 
             type={showPassword ? "text" : "password"} 
             id="password"
             placeholder=" " 
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={handlePasswordChange}
+            onBlur={handlePasswordBlur}
             required
           />
           <label htmlFor="password">Password</label>
@@ -82,6 +118,7 @@ const Login = ({ onSwitch, onLoginSuccess }) => {
               {showPassword ? 'visibility_off' : 'visibility'}
             </span>
           </button>
+          {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
         </div>
 
         <div style={{ textAlign: 'right', marginBottom: '0.25rem'}}>

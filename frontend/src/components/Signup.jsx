@@ -67,11 +67,84 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
   const [fieldErrors, setFieldErrors] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
     phone: '',
-    username: ''
+    username: '',
+    weight: '',
+    height: '',
+    emergencyPhone: ''
   });
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── Real-time validation helpers ──────────────────────────────────────────
+  const validateUsername = (val) => {
+    if (!val || val.length < 3) return 'Name must be at least 3 characters';
+    return '';
+  };
+  const validatePhone = (val) => {
+    if (!val) return 'Phone number is required';
+    if (!/^\+?1?\d{9,15}$/.test(val.replace(/[\s\-()]/g, ''))) return 'Invalid format (e.g. +254700000000)';
+    return '';
+  };
+  const validatePasswordStrength = (val) => {
+    if (!val) return 'Password is required';
+    if (val.length < 8) return 'Password must be at least 8 characters';
+    return '';
+  };
+  const validateConfirmPwd = (val, pwd) => {
+    if (!val) return 'Please confirm your password';
+    if (val !== pwd) return 'Passwords do not match';
+    return '';
+  };
+  const validateNumericField = (val, label) => {
+    if (!val) return '';
+    const num = parseFloat(val);
+    if (isNaN(num) || num <= 0) return `${label} must be a valid positive number`;
+    return '';
+  };
+  const validateOptionalPhone = (val) => {
+    if (!val) return '';
+    if (!/^\+?1?\d{9,15}$/.test(val.replace(/[\s\-()]/g, ''))) return 'Invalid phone format';
+    return '';
+  };
+
+  // Central field-change handler with real-time validation
+  const handleFieldChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    switch (field) {
+      case 'username':
+        setFieldErrors(prev => ({ ...prev, username: validateUsername(value) }));
+        break;
+      case 'phone':
+        setFieldErrors(prev => ({ ...prev, phone: validatePhone(value) }));
+        break;
+      case 'password': {
+        const pwdErr = validatePasswordStrength(value);
+        const confirmVal = formData.confirmPassword;
+        setFieldErrors(prev => ({
+          ...prev,
+          password: pwdErr,
+          confirmPassword: confirmVal ? validateConfirmPwd(confirmVal, value) : prev.confirmPassword
+        }));
+        break;
+      }
+      case 'confirmPassword':
+        setFieldErrors(prev => ({ ...prev, confirmPassword: validateConfirmPwd(value, formData.password) }));
+        break;
+      case 'weight':
+        setFieldErrors(prev => ({ ...prev, weight: validateNumericField(value, 'Weight') }));
+        break;
+      case 'height':
+        setFieldErrors(prev => ({ ...prev, height: validateNumericField(value, 'Height') }));
+        break;
+      case 'emergencyPhone':
+        setFieldErrors(prev => ({ ...prev, emergencyPhone: validateOptionalPhone(value) }));
+        break;
+      default:
+        break;
+    }
+  };
 
   // Close dropdowns when clicking outside
   const closeDropdowns = () => setOpenDropdown(null);
@@ -364,7 +437,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
           {step === 1 && (
             <div className="step-content" key="step1">
               <div className={`input-group ${formData.username ? 'filled' : ''}`}>
-                <input type="text" id="username" placeholder=" " value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
+                <input type="text" id="username" placeholder=" " value={formData.username} onChange={(e) => handleFieldChange('username', e.target.value)} />
                 <label htmlFor="username">Full Name</label>
                 {fieldErrors.username && <span className="field-error">{fieldErrors.username}</span>}
               </div>
@@ -376,7 +449,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                   {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
                 </div>
                 <div className={`input-group ${formData.phone ? 'filled' : ''}`} style={{ flex: 1 }}>
-                  <input type="tel" id="phone" placeholder=" " value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <input type="tel" id="phone" placeholder=" " value={formData.phone} onChange={(e) => handleFieldChange('phone', e.target.value)} />
                   <label htmlFor="phone">Phone Number</label>
                   {fieldErrors.phone && <span className="field-error">{fieldErrors.phone}</span>}
                 </div>
@@ -388,7 +461,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                     id="password"
                     placeholder=" "
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => handleFieldChange('password', e.target.value)}
                   />
                   <label htmlFor="password">Password</label>
                   {fieldErrors.password && <span className="field-error">{fieldErrors.password}</span>}
@@ -409,7 +482,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                     id="confirm"
                     placeholder=" "
                     value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    onChange={(e) => handleFieldChange('confirmPassword', e.target.value)}
                   />
                   <label htmlFor="confirm">Confirm</label>
                   <button
@@ -422,6 +495,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                       {formData.showConfirmPassword ? 'visibility_off' : 'visibility'}
                     </span>
                   </button>
+                  {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
                 </div>
               </div>
               <button className="btn-primary" onClick={handleNext}>Continue</button>
@@ -438,7 +512,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
               {isCompletingProfile && (
                 <div className={`input-group ${formData.phone ? 'filled' : ''}`}>
-                  <input type="tel" id="phone_comp" placeholder=" " value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                  <input type="tel" id="phone_comp" placeholder=" " value={formData.phone} onChange={(e) => handleFieldChange('phone', e.target.value)} />
                   <label htmlFor="phone_comp">Phone Number</label>
                 </div>
               )}
@@ -497,12 +571,14 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
               )}
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div className={`input-group ${formData.weight ? 'filled' : ''}`} style={{ flex: 1 }}>
-                  <input type="text" id="weight" placeholder=" " value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: e.target.value })} />
+                  <input type="text" id="weight" placeholder=" " value={formData.weight} onChange={(e) => handleFieldChange('weight', e.target.value)} />
                   <label htmlFor="weight">Weight (kg)</label>
+                  {fieldErrors.weight && <span className="field-error">{fieldErrors.weight}</span>}
                 </div>
                 <div className={`input-group ${formData.height ? 'filled' : ''}`} style={{ flex: 1 }}>
-                  <input type="text" id="height" placeholder=" " value={formData.height} onChange={(e) => setFormData({ ...formData, height: e.target.value })} />
+                  <input type="text" id="height" placeholder=" " value={formData.height} onChange={(e) => handleFieldChange('height', e.target.value)} />
                   <label htmlFor="height">Height (cm)</label>
+                  {fieldErrors.height && <span className="field-error">{fieldErrors.height}</span>}
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
@@ -549,8 +625,9 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
                 <label htmlFor="emergName">Emergency Contact Name</label>
               </div>
               <div className={`input-group ${formData.emergencyPhone ? 'filled' : ''}`}>
-                <input type="tel" id="emergPhone" placeholder=" " value={formData.emergencyPhone} onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })} />
+                <input type="tel" id="emergPhone" placeholder=" " value={formData.emergencyPhone} onChange={(e) => handleFieldChange('emergencyPhone', e.target.value)} />
                 <label htmlFor="emergPhone">Emergency Contact Phone</label>
+                {fieldErrors.emergencyPhone && <span className="field-error">{fieldErrors.emergencyPhone}</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.5rem' }}>
                 <div style={{ display: 'flex', gap: '1rem' }}>

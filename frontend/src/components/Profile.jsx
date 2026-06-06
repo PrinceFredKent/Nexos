@@ -11,6 +11,13 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [message, setMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ phone: '', emergencyPhone: '' });
+
+  const validatePhoneFmt = (val) => {
+    if (!val) return '';
+    if (!/^\+?1?\d{9,15}$/.test(val.replace(/[\s\-()]/g, ''))) return 'Invalid phone format (e.g. +254700000000)';
+    return '';
+  };
 
   // Sync editData whenever patient data changes (e.g., after login/logout)
   useEffect(() => {
@@ -43,6 +50,12 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
       setEditData(prev => ({ ...prev, [name]: value, pregnancy_due_date: dueDate.toISOString().split('T')[0] }));
     } else {
       setEditData(prev => ({ ...prev, [name]: value }));
+    }
+    // Real-time validation for phone fields
+    if (name === 'phone') {
+      setFieldErrors(prev => ({ ...prev, phone: validatePhoneFmt(value) }));
+    } else if (name === 'emergency_contact_phone') {
+      setFieldErrors(prev => ({ ...prev, emergencyPhone: validatePhoneFmt(value) }));
     }
   };
 
@@ -409,7 +422,10 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
             <div className="info-content-elite">
               <label>Phone Number</label>
               {isEditing ? (
-                <input type="tel" name="phone" value={editData.phone || ''} onChange={handleChange} className="profile-input-elite" />
+                <>
+                  <input type="tel" name="phone" value={editData.phone || ''} onChange={handleChange} className="profile-input-elite" />
+                  {fieldErrors.phone && <p style={{ color: '#ff4d4d', fontSize: '0.72rem', fontWeight: 700, margin: '0.3rem 0 0' }}>{fieldErrors.phone}</p>}
+                </>
               ) : (
                 <p>{patient.phone || 'N/A'}</p>
               )}
@@ -537,7 +553,10 @@ const Profile = ({ patient, onUpdate, meds = [], userEvents = [], analysisHistor
             <div className="info-content-elite">
               <label>Contact Phone</label>
               {isEditing ? (
-                <input name="emergency_contact_phone" value={editData.emergency_contact_phone || ''} onChange={handleChange} className="profile-input-elite" />
+                <>
+                  <input name="emergency_contact_phone" value={editData.emergency_contact_phone || ''} onChange={handleChange} className="profile-input-elite" />
+                  {fieldErrors.emergencyPhone && <p style={{ color: '#ff4d4d', fontSize: '0.72rem', fontWeight: 700, margin: '0.3rem 0 0' }}>{fieldErrors.emergencyPhone}</p>}
+                </>
               ) : (
                 <p>{patient.emergency_contact_phone || 'N/A'}</p>
               )}

@@ -14,13 +14,35 @@ const ForgotPassword = ({ onSwitch }) => {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ email: '', otp: '', newPassword: '', confirmPassword: '' });
+
+  const validateEmailFmt = (val) => {
+    if (!val) return 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) return 'Invalid email address';
+    return '';
+  };
+  const validateOtpFmt = (val) => {
+    if (!val) return 'Verification code is required';
+    if (!/^\d{6}$/.test(val)) return 'Enter the complete 6-digit code';
+    return '';
+  };
+  const validateNewPwd = (val) => {
+    if (!val) return 'Password is required';
+    if (val.length < 8) return 'Password must be at least 8 characters';
+    return '';
+  };
+  const validateConfirmPwd = (val, pwd) => {
+    if (!val) return 'Please confirm your password';
+    if (val !== pwd) return 'Passwords do not match';
+    return '';
+  };
+
 
   const handleSendCode = async (e) => {
     e.preventDefault();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
+    const emailErr = validateEmailFmt(email);
+    if (emailErr) { setFieldErrors(prev => ({ ...prev, email: emailErr })); return; }
+    setFieldErrors(prev => ({ ...prev, email: '' }));
     setError('');
     setMessage('');
     setIsLoading(true);
@@ -74,14 +96,13 @@ const ForgotPassword = ({ onSwitch }) => {
     setError('');
     setMessage('');
     
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match');
+    const pwdErr = validateNewPwd(newPassword);
+    const confirmErr = validateConfirmPwd(confirmPassword, newPassword);
+    if (pwdErr || confirmErr) {
+      setFieldErrors(prev => ({ ...prev, newPassword: pwdErr, confirmPassword: confirmErr }));
       return;
     }
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
+    setFieldErrors(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
 
     setIsLoading(true);
     try {
@@ -125,10 +146,14 @@ const ForgotPassword = ({ onSwitch }) => {
                 id="email"
                 placeholder=" " 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setFieldErrors(prev => ({ ...prev, email: validateEmailFmt(e.target.value) }));
+                }}
                 required
               />
               <label htmlFor="email">Email Address</label>
+              {fieldErrors.email && <span className="field-error">{fieldErrors.email}</span>}
             </div>
             <button type="submit" className="btn-primary" disabled={isLoading}>
               {isLoading ? 'Sending...' : 'Send Reset Code'}
@@ -144,11 +169,17 @@ const ForgotPassword = ({ onSwitch }) => {
                 id="otp"
                 placeholder=" " 
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setOtp(val);
+                  setFieldErrors(prev => ({ ...prev, otp: validateOtpFmt(val) }));
+                }}
                 required
                 maxLength={6}
+                inputMode="numeric"
               />
               <label htmlFor="otp">6-Digit Code</label>
+              {fieldErrors.otp && <span className="field-error">{fieldErrors.otp}</span>}
             </div>
             <div style={{display: 'flex', gap: '1rem'}}>
                 <button type="button" className="btn-secondary" style={{flex: 1}} onClick={() => setStep(1)}>Back</button>
@@ -167,7 +198,14 @@ const ForgotPassword = ({ onSwitch }) => {
                 id="newPassword"
                 placeholder=" " 
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  setFieldErrors(prev => ({
+                    ...prev,
+                    newPassword: validateNewPwd(e.target.value),
+                    confirmPassword: confirmPassword ? validateConfirmPwd(confirmPassword, e.target.value) : prev.confirmPassword
+                  }));
+                }}
                 required
               />
               <label htmlFor="newPassword">New Password</label>
@@ -181,15 +219,19 @@ const ForgotPassword = ({ onSwitch }) => {
                   {showPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
+              {fieldErrors.newPassword && <span className="field-error">{fieldErrors.newPassword}</span>}
             </div>
             
-            <div className={`input-group ${confirmPassword ? 'filled' : ''}`}>
+            <div className={`input-group ${confirmPassword ? 'filled' : ''}`} style={{ marginTop: fieldErrors.newPassword ? '1.2rem' : undefined }}>
               <input 
                 type={showConfirmPassword ? "text" : "password"} 
                 id="confirmPassword"
                 placeholder=" " 
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  setFieldErrors(prev => ({ ...prev, confirmPassword: validateConfirmPwd(e.target.value, newPassword) }));
+                }}
                 required
               />
               <label htmlFor="confirmPassword">Confirm Password</label>
@@ -203,6 +245,7 @@ const ForgotPassword = ({ onSwitch }) => {
                   {showConfirmPassword ? 'visibility_off' : 'visibility'}
                 </span>
               </button>
+              {fieldErrors.confirmPassword && <span className="field-error">{fieldErrors.confirmPassword}</span>}
             </div>
             <button type="submit" className="btn-primary" disabled={isLoading}>
               {isLoading ? 'Saving...' : 'Save New Password'}

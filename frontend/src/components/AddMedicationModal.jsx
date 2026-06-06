@@ -25,8 +25,24 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
   const [recommendation, setRecommendation] = useState(null);
 
   const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ name: '', dosage: '', stock: '' });
   
   if (!isOpen && !isAnimatingOut) return null;
+
+  const validateName = (val) => {
+    if (!val || val.trim().length < 2) return 'Medication name is required (min 2 characters)';
+    return '';
+  };
+  const validateDosage = (val) => {
+    if (!val || !val.trim()) return 'Dosage is required (e.g. 500mg)';
+    return '';
+  };
+  const validateStock = (val) => {
+    const n = parseInt(val);
+    if (isNaN(n) || n < 0) return 'Stock must be a non-negative number';
+    if (n > 9999) return 'Stock cannot exceed 9999';
+    return '';
+  };
 
   const handleSelfClose = () => {
     setIsAnimatingOut(true);
@@ -75,6 +91,7 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
   const handleNameChange = (e) => {
     const value = e.target.value;
     setFormData({ ...formData, name: value });
+    setFieldErrors(prev => ({ ...prev, name: validateName(value) }));
     setRecommendation(null); // Clear recommendation when name is manually changed
     
     if (value.length > 0) {
@@ -125,6 +142,13 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const nameErr = validateName(formData.name);
+    const dosageErr = validateDosage(formData.dosage);
+    const stockErr = validateStock(formData.stock);
+    if (nameErr || dosageErr || stockErr) {
+      setFieldErrors({ name: nameErr, dosage: dosageErr, stock: stockErr });
+      return;
+    }
     onAdd(formData);
     handleSelfClose();
   };
@@ -165,6 +189,7 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             />
             <label htmlFor="medName">Medication Name</label>
+            {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
             {showSuggestions && (
               <div className="suggestions-dropdown fade-in">
                 {suggestions.map((name, idx) => (
@@ -190,11 +215,16 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
                 required 
                 placeholder=" "
                 value={formData.dosage}
-                onChange={e => setFormData({...formData, dosage: e.target.value})}
+                onChange={e => {
+                  const val = e.target.value;
+                  setFormData({...formData, dosage: val});
+                  setFieldErrors(prev => ({ ...prev, dosage: validateDosage(val) }));
+                }}
               />
               <label htmlFor="dosage">
                 Dosage {recommendation && <span className="smart-badge">AI</span>}
               </label>
+              {fieldErrors.dosage && <span className="field-error" style={{ bottom: '-1rem' }}>{fieldErrors.dosage}</span>}
             </div>
             <div className="form-group input-group filled">
               <select 
@@ -248,9 +278,16 @@ const AddMedicationModal = ({ isOpen, onClose, onAdd, patient }) => {
               id="stock"
               placeholder=" "
               value={formData.stock}
-              onChange={e => setFormData({...formData, stock: parseInt(e.target.value), total_stock: parseInt(e.target.value)})}
+              min="0"
+              max="9999"
+              onChange={e => {
+                const val = e.target.value;
+                setFormData({...formData, stock: parseInt(val) || 0, total_stock: parseInt(val) || 0});
+                setFieldErrors(prev => ({ ...prev, stock: validateStock(val) }));
+              }}
             />
             <label htmlFor="stock">Initial Stock</label>
+            {fieldErrors.stock && <span className="field-error">{fieldErrors.stock}</span>}
           </div>
 
           <div className="form-group">
