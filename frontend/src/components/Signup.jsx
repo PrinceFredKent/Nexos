@@ -79,7 +79,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
 
   // ── Real-time validation helpers ──────────────────────────────────────────
   const validateUsername = (val) => {
-    if (!val || val.length < 3) return 'Name must be at least 3 characters';
+    if (!val || val.trim().length < 3) return 'Name must be at least 3 characters';
     return '';
   };
   const validatePhone = (val) => {
@@ -219,7 +219,7 @@ const Signup = ({ onSwitch, onSignupAutoLogin, startingStep = 1, isCompletingPro
   const validateStep1 = () => {
     const errors = {};
     const trimmedEmail = (formData.email || '').trim();
-    if (!formData.username || formData.username.length < 3) errors.username = 'Name must be at least 3 characters';
+    if (!formData.username || formData.username.trim().length < 3) errors.username = 'Name must be at least 3 characters';
     if (!trimmedEmail) errors.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) errors.email = 'Invalid email format';
 
