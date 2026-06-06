@@ -3249,6 +3249,100 @@ body.dark-theme .emergency-card-aside {
   }
 }
 
+/* ── Notification Toggle Rows ────────────────────────────────────────── */
+.notif-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem;
+  background: var(--bg-main);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  min-height: 64px; /* ensures adequate touch target */
+}
+
+.notif-toggle-row:hover,
+.notif-toggle-row:focus-visible {
+  background: var(--bg-card);
+  border-color: var(--primary);
+}
+
+.notif-toggle-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  line-height: 1.3;
+}
+
+.notif-toggle-desc {
+  margin: 0.35rem 0 0;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* The track — bigger than before, flex-shrink:0 so it never squishes */
+.notif-switch-track {
+  flex-shrink: 0;
+  width: 54px;
+  height: 30px;
+  border-radius: 30px;
+  position: relative;
+  transition: background 0.3s ease;
+}
+
+/* The knob — uses transform instead of left/right so transition is smooth */
+.notif-switch-knob {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 480px) {
+  .notif-toggle-row {
+    padding: 1rem 0.9rem;
+    gap: 0.9rem;
+  }
+
+  .notif-toggle-title {
+    font-size: 0.92rem;
+  }
+
+  .notif-toggle-desc {
+    font-size: 0.78rem;
+  }
+
+  .notif-switch-track {
+    width: 50px;
+    height: 28px;
+  }
+
+  .notif-switch-knob {
+    width: 20px;
+    height: 20px;
+    top: 4px;
+  }
+}
+
+
+
 
 .profile-message {
   padding: 1rem;
@@ -7583,3 +7677,367 @@ body.dark-theme .cycle-fab.pregnancy-fab .cycle-fab-btn {
 body.dark-theme .cycle-fab.pregnancy-fab .cycle-fab-label {
   color: #f472b6 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CPR GUIDE & COMPRESSION METRONOME STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.emergency-icon-box.cpr {
+  background: rgba(244, 63, 94, 0.12) !important;
+  color: #f43f5e !important;
+}
+
+.cpr-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cpr-card:hover {
+  border-color: rgba(244, 63, 94, 0.35) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(244, 63, 94, 0.08) !important;
+}
+
+.cpr-body {
+  position: relative;
+  padding: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.cpr-icon.bg {
+  position: absolute;
+  right: -5px;
+  bottom: 35px;
+  font-size: 6.5rem;
+  opacity: 0.04;
+  color: #f43f5e;
+  pointer-events: none;
+}
+
+.btn-cpr-action {
+  background: linear-gradient(135deg, #f43f5e, #e11d48) !important;
+  border: none !important;
+  color: white !important;
+  box-shadow: 0 4px 15px rgba(244, 63, 94, 0.25) !important;
+  font-weight: 700;
+  justify-content: center;
+}
+
+.btn-cpr-action:hover {
+  background: linear-gradient(135deg, #e11d48, #be123c) !important;
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.35) !important;
+  transform: translateY(-1px);
+}
+
+/* CPR Modal Layout & Transitions */
+.cpr-modal-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.cpr-slide-wrapper {
+  width: 100%;
+  min-height: 330px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.cpr-illustration-box {
+  width: 100%;
+  max-width: 320px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.cpr-illustration-box svg {
+  width: 100%;
+  height: 100%;
+  max-height: 190px;
+}
+
+.cpr-instructions {
+  text-align: center;
+  padding: 0 0.5rem;
+  min-height: 70px;
+}
+
+.cpr-step-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin: 0 0 0.4rem 0;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cpr-step-desc {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Hands-Only CPR Controls */
+.cpr-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  background: var(--bg-main);
+  border-radius: 14px;
+  margin: 0.5rem 0;
+  border: 1px solid var(--border-light);
+}
+
+body.dark-theme .cpr-controls-row {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.cpr-toggle-label {
+  display: flex;
+  flex-direction: column;
+}
+
+.cpr-toggle-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.cpr-toggle-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* CPR Footer & Nav */
+.cpr-modal-footer {
+  width: 100%;
+  margin-top: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border-top: 1px solid var(--border-light);
+  padding-top: 1rem;
+}
+
+body.dark-theme .cpr-modal-footer {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.cpr-nav-buttons {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.8rem;
+}
+
+.btn-cpr-nav {
+  flex: 1;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cpr-nav.back {
+  background: var(--bg-main);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+}
+
+.btn-cpr-nav.back:hover {
+  background: var(--border-light);
+}
+
+body.dark-theme .btn-cpr-nav.back:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-cpr-nav.next {
+  background: var(--primary);
+  border: none;
+  color: white;
+}
+
+.btn-cpr-nav.next:hover {
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.btn-cpr-nav.urgent-call {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  width: 100%;
+  padding: 0.75rem;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cpr-nav.urgent-call:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+/* Metronome visual elements */
+.metronome-visual-anchor {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metronome-outer-ring {
+  position: absolute;
+  inset: -15px;
+  border-radius: 50%;
+  border: 2px dashed rgba(244, 63, 94, 0.25);
+}
+
+.metronome-active .metronome-outer-ring {
+  animation: rotateDashed 12s linear infinite;
+}
+
+@keyframes rotateDashed {
+  to { transform: rotate(360deg); }
+}
+
+.cpr-metronome-wave {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(244, 63, 94, 0.15);
+  transform: scale(1);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.metronome-active .cpr-metronome-wave {
+  animation: metronomePulse 0.545s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+@keyframes metronomePulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+/* Sound Indicator overlay */
+.metronome-sound-status {
+  position: absolute;
+  bottom: 0px;
+  right: 15px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  padding: 4px 10px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text-muted);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  z-index: 10;
+  transition: all 0.2s;
+}
+
+body.dark-theme .metronome-sound-status {
+  background: var(--bg-input);
+  border-color: var(--border);
+}
+
+.metronome-sound-status:hover {
+  color: var(--text-main);
+  transform: scale(1.05);
+}
+
+.metronome-sound-status.active {
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.2);
+  background: rgba(244, 63, 94, 0.04);
+}
+
+/* Step bullets */
+.cpr-step-indicator-dots {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.cpr-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.3s ease;
+}
+
+.cpr-indicator-dot.active {
+  background: #f43f5e;
+  transform: scale(1.3);
+}
+
+/* SVG Line Animations */
+.svg-animate-compress {
+  animation: compressAnimation 0.545s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: center;
+}
+
+@keyframes compressAnimation {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+
+.svg-animate-breath {
+  animation: breathAnimation 3s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes breathAnimation {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+.svg-pulse-glow {
+  animation: svgGlow 2s ease-in-out infinite;
+}
+
+@keyframes svgGlow {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/main.css';
+import CprGuideModal from './CprGuideModal';
 
 const Emergency = ({ patient, autoEngaged = false }) => {
     const [hospitalsFetching, setHospitalsFetching] = useState(false);
     const [hospitalError, setHospitalError] = useState('');
     const [alertStatus, setAlertStatus] = useState(autoEngaged ? 'ENGAGING PROTOCOL...' : 'IDLE');
+    const [showCprModal, setShowCprModal] = useState(false);
 
     useEffect(() => {
         if (autoEngaged) {
@@ -138,12 +140,37 @@ const Emergency = ({ patient, autoEngaged = false }) => {
                         </button>
                     </div>
                 </div>
+
+                {/* CPR Guide Card */}
+                <div className="emergency-card cpr-card glass-modal cursor-pointer" onClick={() => setShowCprModal(true)}>
+                    <div className="card-top">
+                        <div className="emergency-icon-box cpr">
+                            <span className="material-icons-round">medical_information</span>
+                        </div>
+                        <h3>CPR Resuscitation</h3>
+                    </div>
+                    <div className="cpr-body">
+                        <span className="material-icons-round cpr-icon bg">heart_broken</span>
+                        <p>Interactive CPR instruction walkthrough with built-in metronome (110 BPM) and hands-only mode.</p>
+                        <button className="btn-emergency btn-cpr-action" onClick={(e) => { e.stopPropagation(); setShowCprModal(true); }}>
+                            <span className="material-icons-round">play_arrow</span>
+                            Start CPR Guide
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <div className="emergency-info-box">
                 <span className="material-icons-round">info</span>
                 <p>If you are experiencing a life-threatening medical emergency, do not wait. Call your local emergency dispatch immediately.</p>
             </div>
+
+            {/* CPR Resuscitation Guide Modal */}
+            <CprGuideModal 
+                isOpen={showCprModal} 
+                onClose={() => setShowCprModal(false)} 
+                patient={patient} 
+            />
         </div>
     );
 };

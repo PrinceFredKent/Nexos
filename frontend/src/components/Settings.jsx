@@ -548,40 +548,47 @@ const Settings = ({ patient, onUpdate, theme, setTheme, adminEmail, onSwitchTab 
         {activeSegment === 'notifications' && (
           <div className={`settings-panel glass-card ${animationClass}`}>
             <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '1rem', marginBottom: '2rem' }}>
-              <h2 style={{ fontSize: '1.8rem', color: 'var(--primary)', margin: 0 }}>Notification Preferences</h2>
+              <h2 style={{ fontSize: 'clamp(1.3rem, 5vw, 1.8rem)', color: 'var(--primary)', margin: 0 }}>Notification Preferences</h2>
               <p style={{ color: 'var(--text-muted)', marginTop: '0.5rem' }}>Control how Nexos communicates with you.</p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              <div onClick={() => toggleNotification('reminders')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem', background: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span className="material-icons-round" style={{color: 'var(--primary)'}}>alarm</span> Medication Reminders</h4>
-                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Get alerted on your device when it's time to take your daily dose.</p>
-                </div>
-                <div style={{ background: notifications.reminders ? 'var(--primary)' : 'var(--border)', width: '50px', height: '26px', borderRadius: '30px', position: 'relative', transition: 'background 0.3s' }}>
-                  <div style={{ background: 'white', width: '20px', height: '20px', borderRadius: '50%', position: 'absolute', top: '3px', right: notifications.reminders ? '4px' : 'auto', left: !notifications.reminders ? '4px' : 'auto', transition: 'all 0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></div>
-                </div>
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {[
+                { key: 'reminders', icon: 'alarm',     label: 'Medication Reminders',  desc: "Get alerted on your device when it's time to take your daily dose." },
+                { key: 'summaries', icon: 'summarize', label: 'Weekly Health Summary',  desc: 'Receive an email breakdown of your vitals and logging consistency.' },
+                { key: 'alerts',    icon: 'gpp_maybe', label: 'Security Alerts',        desc: 'Get notified of new logins from unrecognized devices.' },
+              ].map(({ key, icon, label, desc }) => (
+                <div
+                  key={key}
+                  role="switch"
+                  aria-checked={notifications[key]}
+                  tabIndex={0}
+                  onClick={() => toggleNotification(key)}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleNotification(key)}
+                  className="notif-toggle-row"
+                >
+                  {/* Text block */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 className="notif-toggle-title">
+                      <span className="material-icons-round" style={{ color: 'var(--primary)', fontSize: '1.2rem' }}>{icon}</span>
+                      {label}
+                    </h4>
+                    <p className="notif-toggle-desc">{desc}</p>
+                  </div>
 
-              <div onClick={() => toggleNotification('summaries')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem', background: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span className="material-icons-round" style={{color: 'var(--primary)'}}>summarize</span> Weekly Health Summary</h4>
-                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Receive an email breakdown of your vitals and logging consistency.</p>
+                  {/* Toggle switch — flex-shrink:0 so it never squishes */}
+                  <div
+                    className="notif-switch-track"
+                    style={{ background: notifications[key] ? 'var(--primary)' : 'var(--border)' }}
+                    aria-hidden="true"
+                  >
+                    <div
+                      className="notif-switch-knob"
+                      style={{ transform: notifications[key] ? 'translateX(26px)' : 'translateX(0px)' }}
+                    />
+                  </div>
                 </div>
-                <div style={{ background: notifications.summaries ? 'var(--primary)' : 'var(--border)', width: '50px', height: '26px', borderRadius: '30px', position: 'relative', transition: 'background 0.3s' }}>
-                  <div style={{ background: 'white', width: '20px', height: '20px', borderRadius: '50%', position: 'absolute', top: '3px', right: notifications.summaries ? '4px' : 'auto', left: !notifications.summaries ? '4px' : 'auto', transition: 'all 0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></div>
-                </div>
-              </div>
-
-              <div onClick={() => toggleNotification('alerts')} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.2rem', background: 'var(--bg-main)', borderRadius: '16px', border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span className="material-icons-round" style={{color: 'var(--primary)'}}>gpp_maybe</span> Security Alerts</h4>
-                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Get notified of new logins from unrecognized devices.</p>
-                </div>
-                <div style={{ background: notifications.alerts ? 'var(--primary)' : 'var(--border)', width: '50px', height: '26px', borderRadius: '30px', position: 'relative', transition: 'background 0.3s' }}>
-                  <div style={{ background: 'white', width: '20px', height: '20px', borderRadius: '50%', position: 'absolute', top: '3px', right: notifications.alerts ? '4px' : 'auto', left: !notifications.alerts ? '4px' : 'auto', transition: 'all 0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
