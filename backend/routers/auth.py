@@ -218,18 +218,26 @@ async def login(credentials: UserLogin, background_tasks: BackgroundTasks, db: S
         is_new_device = True
 
     # Step 3: Validate local password first
-    if user and verify_password(credentials.password, user.hashed_password):
+    local_ok = user and verify_password(credentials.password, user.hashed_password)
+    cloud_hash = cloud_data.get("hashed_password") if cloud_data else None
+    cloud_ok = bool(cloud_hash) and verify_password(credentials.password, cloud_hash)
+
+    if local_ok:
         if cloud_engine and cloud_data:
             local_last_modified = user.last_modified or datetime.min
             cloud_last_modified = cloud_data.get("last_modified")
             if cloud_last_modified and cloud_last_modified > local_last_modified:
-                if not verify_password(credentials.password, cloud_data["hashed_password"]):
+                if not cloud_ok:
+                    # Cloud has a newer record but wrong/corrupt hash — reject login
                     raise HTTPException(status_code=401, detail="Invalid email or password")
                 user = _merge_cloud_user_into_local(db, user, cloud_data)
                 background_tasks.add_task(initial_pull_all, user.username)
+        # If cloud hash was corrupt but local is fine, repair Supabase in background
+        if not cloud_ok and cloud_engine:
+            background_tasks.add_task(push_user_to_cloud, user.id)
 
     # Step 4: Fallback to cloud verification when local password is stale or invalid
-    elif user and cloud_engine and cloud_data and verify_password(credentials.password, cloud_data["hashed_password"]):
+    elif user and cloud_ok:
         user = _merge_cloud_user_into_local(db, user, cloud_data)
         background_tasks.add_task(initial_pull_all, user.username)
 

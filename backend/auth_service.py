@@ -18,8 +18,21 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days — better for mobile users
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
-def verify_password(plain_password: str, hashed_password: str):
-    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Compare plain text password against a bcrypt hash.
+    Returns False (instead of crashing) if the stored hash is invalid/corrupt.
+    """
+    if not hashed_password:
+        return False
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    except (ValueError, Exception):
+        # ValueError: Invalid salt — hash is malformed (e.g. from a failed sync write)
+        import logging
+        logging.getLogger('nexos.auth').warning(
+            'verify_password: invalid bcrypt hash encountered — treating as wrong password'
+        )
+        return False
 
 def get_password_hash(password: str):
     # Hash password using bcrypt directly to avoid passlib bugs
