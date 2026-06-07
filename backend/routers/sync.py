@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends
 import os
 
-from database import cloud_engine
+from database import cloud_engine, get_db
 from auth_service import get_current_user
 from sync_service import (
-    get_sync_status, estimate_pending_push, run_sync
+    get_sync_status, estimate_pending_push, run_sync, push_user_to_cloud
 )
+from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 router = APIRouter(tags=["Sync Operations"])
 
@@ -99,3 +101,82 @@ async def resolve_sync_conflict(conflict_id: int, req: ResolveConflictRequest, d
     db.execute(text("UPDATE sync_conflicts SET status = 'RESOLVED' WHERE id = :id"), {"id": conflict_id})
     db.commit()
     return {"status": "success", "resolved_with": req.resolution}
+
+
+@router.get("/cloud-diagnostics")
+async def cloud_diagnostics(username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Diagnostic endpoint: shows whether Railway has DATABASE_URL configured,
+    whether Supabase is reachable, and how many local users are unsynced.
+    Call this from the Railway app to debug missing users.
+    """
+    result = {
+        "database_url_set": bool(os.environ.get("DATABASE_URL")),
+        "cloud_engine_ready": cloud_engine is not None,
+        "local_users": [],
+        "supabase_users": [],
+        "unsynced_count": 0,
+        "supabase_error": None,
+    }
+
+    # Local users
+    try:
+        rows = db.execute(text(
+            "SELECT id, username, email, synced_at, last_modified FROM users ORDER BY id DESC LIMIT 20"
+        )).mappings().all()
+        result["local_users"] = [
+            {"id": r["id"], "username": r["username"], "email": r["email"],
+             "synced_at": str(r["synced_at"]), "last_modified": str(r["last_modified"])}
+            for r in rows
+        ]
+        unsynced = db.execute(text("SELECT COUNT(*) FROM users WHERE synced_at IS NULL")).scalar()
+        result["unsynced_count"] = unsynced or 0
+    except Exception as e:
+        result["local_error"] = str(e)
+
+    # Supabase users
+    if cloud_engine:
+        try:
+            from database import CloudSession
+            cloud = CloudSession()
+            rows = cloud.execute(text(
+                "SELECT id, username, email, synced_at, last_modified FROM users ORDER BY id DESC LIMIT 20"
+            )).mappings().all()
+            result["supabase_users"] = [
+                {"id": r["id"], "username": r["username"], "email": r["email"],
+                 "synced_at": str(r["synced_at"]), "last_modified": str(r["last_modified"])}
+                for r in rows
+            ]
+            cloud.close()
+        except Exception as e:
+            result["supabase_error"] = str(e)
+    else:
+        result["supabase_error"] = "cloud_engine is None — DATABASE_URL not set or invalid on this server"
+
+    return result
+
+
+@router.post("/force-push-users")
+async def force_push_users(username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    """
+    Recovery endpoint: immediately push ALL local users (especially those with
+    synced_at IS NULL) directly to Supabase using push_user_to_cloud().
+    Call this once to fix accounts that were created before the auto-push fix.
+    """
+    if not cloud_engine:
+        return {"status": "error", "message": "DATABASE_URL not configured on this server — Supabase sync is disabled."}
+
+    rows = db.execute(text("SELECT id, username, email FROM users")).mappings().all()
+    results = []
+    for r in rows:
+        ok = await push_user_to_cloud(r["id"])
+        results.append({"id": r["id"], "username": r["username"], "pushed": ok})
+
+    pushed = sum(1 for r in results if r["pushed"])
+    return {
+        "status": "done",
+        "total": len(results),
+        "pushed_ok": pushed,
+        "failed": len(results) - pushed,
+        "details": results,
+    }
