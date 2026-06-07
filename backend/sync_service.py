@@ -30,37 +30,68 @@ log = logging.getLogger("sync_service")
 # added columns that haven't been migrated to Supabase yet.  Cleared on error
 # so it re-fetches after schema changes.
 _cloud_col_cache: dict = {}
+_cloud_col_types_cache: dict = {}
 
 
-def _get_cloud_columns(cloud: Session, table: str) -> set:
-    """Return the set of column names that exist in the cloud (Supabase) table."""
-    if table in _cloud_col_cache:
-        return _cloud_col_cache[table]
+def _get_cloud_column_types(cloud: Session, table: str) -> dict:
+    """Return a dict mapping column names to their PostgreSQL data types."""
+    if table in _cloud_col_types_cache:
+        return _cloud_col_types_cache[table]
     try:
         rows = cloud.execute(
             text(
-                "SELECT column_name FROM information_schema.columns "
+                "SELECT column_name, data_type FROM information_schema.columns "
                 "WHERE table_schema = 'public' AND table_name = :t"
             ),
             {"t": table},
         ).fetchall()
-        cols = {r[0] for r in rows}
-        if cols:
-            _cloud_col_cache[table] = cols
-            log.debug(f"Cached {len(cols)} cloud columns for '{table}'")
-        return cols
+        types = {r[0]: r[1] for r in rows}
+        if types:
+            _cloud_col_types_cache[table] = types
+            log.debug(f"Cached {len(types)} cloud column types for '{table}'")
+        return types
     except Exception as e:
-        log.warning(f"Could not fetch cloud columns for '{table}': {e}")
+        log.warning(f"Could not fetch cloud column types for '{table}': {e}")
+        return {}
+
+
+def _get_cloud_columns(cloud: Session, table: str) -> set:
+    """Return the set of column names that exist in the cloud (Supabase) table."""
+    types = _get_cloud_column_types(cloud, table)
+    if not types:
+        if table in _cloud_col_cache:
+            return _cloud_col_cache[table]
         return set()
+    cols = set(types.keys())
+    _cloud_col_cache[table] = cols
+    return cols
 
 
 def _filter_to_cloud_cols(cloud: Session, table: str, row_dict: dict) -> dict:
-    """Strip any local-only keys that don't exist in the cloud table."""
-    cloud_cols = _get_cloud_columns(cloud, table)
-    if not cloud_cols:
+    """Strip any local-only keys that don't exist in the cloud table, and normalize boolean fields."""
+    col_types = _get_cloud_column_types(cloud, table)
+    if not col_types:
         return row_dict  # unknown schema — try as-is
-    filtered = {k: v for k, v in row_dict.items() if k in cloud_cols}
-    skipped = set(row_dict.keys()) - cloud_cols
+    
+    filtered = {}
+    for k, v in row_dict.items():
+        if k in col_types:
+            col_type = col_types[k]
+            if col_type == 'boolean':
+                if v is None:
+                    filtered[k] = None
+                elif isinstance(v, bool):
+                    filtered[k] = v
+                elif isinstance(v, int):
+                    filtered[k] = (v != 0)
+                elif isinstance(v, str):
+                    filtered[k] = (v.lower() in ('true', '1', 'yes', 't'))
+                else:
+                    filtered[k] = bool(v)
+            else:
+                filtered[k] = v
+
+    skipped = set(row_dict.keys()) - set(col_types.keys())
     if skipped:
         log.debug(f"Skipping local-only cols for '{table}': {skipped}")
     return filtered
@@ -410,6 +441,7 @@ async def _push_dirty_rows(local: Session, cloud: Session) -> int:
         log.warning(f"Push from outbox failed: {e}")
         # Clear column cache so we re-fetch schema on next sync attempt
         _cloud_col_cache.clear()
+        _cloud_col_types_cache.clear()
         try:
             cloud.rollback()
             local.rollback()
