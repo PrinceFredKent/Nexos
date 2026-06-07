@@ -2,8 +2,12 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import random
+import logging
 
-from database import get_db
+log = logging.getLogger("nexos.user")
+
+from database import get_db, cloud_engine, get_cloud_db
+from sqlalchemy import text
 from models.user import User as DBUser
 from schemas import UserUpdate, PasswordChangeRequest, PasswordChange, PasswordVerifyRequest
 from auth_service import verify_password, get_password_hash, get_current_user
@@ -24,8 +28,21 @@ def get_status(username: str = Depends(get_current_user), db: Session = Depends(
 @router.get("/check-email")
 def check_email(email: str, db: Session = Depends(get_db)):
     """Check if an email is already registered."""
-    user = db.query(DBUser).filter(DBUser.email == email.strip()).first()
-    return {"exists": user is not None}
+    email_clean = email.strip()
+    user = db.query(DBUser).filter(DBUser.email == email_clean).first()
+    if user:
+        return {"exists": True}
+        
+    if cloud_engine:
+        with get_cloud_db() as cloud_db:
+            if cloud_db:
+                res = cloud_db.execute(
+                    text("SELECT id FROM users WHERE email = :e LIMIT 1"),
+                    {"e": email_clean}
+                ).first()
+                if res:
+                    return {"exists": True}
+    return {"exists": False}
 
 @router.get("/patient-info")
 async def get_patient_info(username: str = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -137,13 +154,42 @@ async def change_password(passwords: PasswordChange, background_tasks: Backgroun
     if user.otp_expiry is None or datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="Code expired")
     
-    user.hashed_password = get_password_hash(passwords.new_password)
+    hashed_password = get_password_hash(passwords.new_password)
+    pushed_direct = False
+    
+    if cloud_engine:
+        try:
+            with get_cloud_db() as cloud_db:
+                if cloud_db:
+                    cloud_db.execute(
+                        text("UPDATE users SET hashed_password = :hp, last_modified = :now, otp_code = None, otp_expiry = None WHERE id = :id"),
+                        {"hp": hashed_password, "now": datetime.utcnow(), "id": user.id}
+                    )
+                    cloud_db.commit()
+                    pushed_direct = True
+                    log.info(f"Synchronously updated changed password for user id={user.id} in Supabase.")
+        except Exception as e:
+            log.error(f"Failed to update changed password directly in Supabase for user id={user.id}: {e}")
+
+    user.hashed_password = hashed_password
     user.last_modified = datetime.utcnow()
     user.otp_code = None
     user.otp_expiry = None
+    if pushed_direct:
+        user.synced_at = datetime.utcnow()
     db.commit()
-    # Push updated password hash to Supabase immediately
-    background_tasks.add_task(push_user_to_cloud, user.id)
+
+    if pushed_direct:
+        # Delete from outbox to avoid redundant sync push
+        db.execute(
+            text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+            {"id": user.id}
+        )
+        db.commit()
+    else:
+        # Fallback to push in background task
+        background_tasks.add_task(push_user_to_cloud, user.id)
+
     return {"message": "Password updated successfully"}
 
 @router.delete("/delete-account")

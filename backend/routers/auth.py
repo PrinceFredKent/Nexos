@@ -17,7 +17,8 @@ except ImportError:
 
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
-from database import get_db, cloud_engine
+from database import get_db, cloud_engine, get_cloud_db
+from sqlalchemy import text
 from models.user import User as DBUser
 from schemas import (
     UserSignup, UserLogin, VerifyOTP, 
@@ -75,6 +76,25 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
         db_email = db.query(DBUser).filter(DBUser.email == user.email).first()
         if db_email:
             raise HTTPException(status_code=400, detail="Email already registered")
+            
+    # Uniqueness check in Supabase (if available)
+    if cloud_engine:
+        with get_cloud_db() as cloud_db:
+            if cloud_db:
+                res_user = cloud_db.execute(
+                    text("SELECT id FROM users WHERE username = :u LIMIT 1"),
+                    {"u": user.username}
+                ).first()
+                if res_user:
+                    raise HTTPException(status_code=400, detail="Username already registered")
+                
+                if user.email:
+                    res_email = cloud_db.execute(
+                        text("SELECT id FROM users WHERE email = :e LIMIT 1"),
+                        {"e": user.email}
+                    ).first()
+                    if res_email:
+                        raise HTTPException(status_code=400, detail="Email already registered")
     
     # Hash the password
     hashed_password = get_password_hash(user.password)
@@ -106,16 +126,51 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     if user.google_id:
         new_user.is_verified = 1
     
+    generated_id = None
+    if cloud_engine:
+        try:
+            with get_cloud_db() as cloud_db:
+                if cloud_db:
+                    # Filter columns to only what exists in the cloud table schema
+                    from sync_service import _filter_to_cloud_cols
+                    user_dict = {
+                        c.name: getattr(new_user, c.name)
+                        for c in new_user.__table__.columns
+                        if getattr(new_user, c.name) is not None and c.name != "id"
+                    }
+                    user_dict["last_modified"] = datetime.utcnow()
+                    user_dict = _filter_to_cloud_cols(cloud_db, "users", user_dict)
+                    
+                    cols_str = ", ".join(user_dict.keys())
+                    vals_str = ", ".join([f":{k}" for k in user_dict.keys()])
+                    
+                    stmt = text(f"INSERT INTO users ({cols_str}) VALUES ({vals_str}) RETURNING id")
+                    res = cloud_db.execute(stmt, user_dict)
+                    generated_id = res.scalar()
+                    cloud_db.commit()
+                    log.info(f"Created user '{user.username}' in Supabase with id={generated_id}")
+        except Exception as e:
+            log.error(f"Failed to create user '{user.username}' directly in Supabase: {e}")
+            # We don't raise an error; we'll fall back to SQLite-first flow and background sync
+            
+    if generated_id is not None:
+        new_user.id = generated_id
+        new_user.synced_at = datetime.utcnow()
+        
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-
-    # ── Push user to Supabase immediately ──────────────────────────────────────
-    # Railway uses ephemeral storage: if the server restarts before the
-    # background sync job runs, the SQLite file is wiped and the user is lost.
-    # Pushing directly here (synchronously, in a background task that starts
-    # before we return) guarantees the row exists in Supabase right away.
-    background_tasks.add_task(push_user_to_cloud, new_user.id)
+    
+    if generated_id is not None:
+        # Delete from outbox to avoid redundant sync push
+        db.execute(
+            text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+            {"id": generated_id}
+        )
+        db.commit()
+    else:
+        # Fallback to push in background task
+        background_tasks.add_task(push_user_to_cloud, new_user.id)
 
     if new_user.is_verified:
         # Send Welcome Email immediately if verified (Google signup)
@@ -224,14 +279,40 @@ async def verify_otp(data: VerifyOTP, background_tasks: BackgroundTasks, db: Ses
     if datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="Code expired")
     
+    pushed_direct = False
+    if cloud_engine:
+        try:
+            with get_cloud_db() as cloud_db:
+                if cloud_db:
+                    cloud_db.execute(
+                        text("UPDATE users SET is_verified = 1, last_modified = :now, otp_code = None, otp_expiry = None WHERE id = :id"),
+                        {"now": datetime.utcnow(), "id": user.id}
+                    )
+                    cloud_db.commit()
+                    pushed_direct = True
+                    log.info(f"Synchronously updated verification status for user id={user.id} in Supabase.")
+        except Exception as e:
+            log.error(f"Failed to update verification status directly in Supabase for user id={user.id}: {e}")
+
     user.is_verified = 1
     user.otp_code = None
     user.otp_expiry = None
-    user.last_modified = datetime.utcnow()  # mark dirty so sync picks up is_verified=1
+    user.last_modified = datetime.utcnow()
+    if pushed_direct:
+        user.synced_at = datetime.utcnow()
     db.commit()
 
-    # Push verified status to Supabase immediately so the account survives a server restart.
-    background_tasks.add_task(push_user_to_cloud, user.id)
+    if pushed_direct:
+        # Delete from outbox to avoid redundant sync push
+        db.execute(
+            text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+            {"id": user.id}
+        )
+        db.commit()
+    else:
+        # Fallback to push in background task
+        background_tasks.add_task(push_user_to_cloud, user.id)
+        
     # Send Welcome Email
     background_tasks.add_task(send_welcome_email, user.email, user.username)
     background_tasks.add_task(initial_pull_all, user.username)
@@ -280,7 +361,21 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
     otp = f"{random.randint(100000, 999999)}"
     user.otp_code = otp
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=10)
+    user.last_modified = datetime.utcnow()
     db.commit()
+
+    if cloud_engine:
+        try:
+            with get_cloud_db() as cloud_db:
+                if cloud_db:
+                    cloud_db.execute(
+                        text("UPDATE users SET otp_code = :code, otp_expiry = :expiry, last_modified = :now WHERE id = :id"),
+                        {"code": otp, "expiry": user.otp_expiry, "now": user.last_modified, "id": user.id}
+                    )
+                    cloud_db.commit()
+                    log.info(f"Synchronously pushed reset OTP to Supabase for user id={user.id}")
+        except Exception as e:
+            log.error(f"Failed to push reset OTP to Supabase for user id={user.id}: {e}")
 
     if not _deliver_reset_otp(user.phone, user.email, user.username, otp):
         raise HTTPException(status_code=500, detail="Failed to send password reset code. Please try again.")
@@ -289,6 +384,15 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
 @router.post("/verify-password-otp")
 async def verify_password_otp(req: VerifyPasswordOTPRequest, db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.email == req.email).first()
+    
+    # Fallback: if not found locally (e.g. after a Railway restart wiped SQLite),
+    # pull credentials from Supabase and merge into local so OTP verification can proceed.
+    if not user and cloud_engine:
+        cloud_data = await initial_pull_credentials(req.email)
+        if cloud_data:
+            user = _merge_cloud_user_into_local(db, None, cloud_data)
+            log.info(f"verify_password_otp: pulled user '{req.email}' from Supabase into local DB")
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -303,6 +407,15 @@ async def verify_password_otp(req: VerifyPasswordOTPRequest, db: Session = Depen
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.email == req.email).first()
+    
+    # Fallback: if not found locally (e.g. after a Railway restart wiped SQLite),
+    # pull credentials from Supabase and merge into local so password reset can proceed.
+    if not user and cloud_engine:
+        cloud_data = await initial_pull_credentials(req.email)
+        if cloud_data:
+            user = _merge_cloud_user_into_local(db, None, cloud_data)
+            log.info(f"reset_password: pulled user '{req.email}' from Supabase into local DB")
+
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -312,15 +425,41 @@ async def reset_password(req: ResetPasswordRequest, background_tasks: Background
     if user.otp_expiry is None or datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="Code expired")
 
-    user.hashed_password = get_password_hash(req.new_password)
-    user.last_modified = datetime.utcnow()  # ensure outbox picks this up as a dirty row
+    hashed_password = get_password_hash(req.new_password)
+    pushed_direct = False
+    
+    if cloud_engine:
+        try:
+            with get_cloud_db() as cloud_db:
+                if cloud_db:
+                    cloud_db.execute(
+                        text("UPDATE users SET hashed_password = :hp, last_modified = :now, otp_code = None, otp_expiry = None WHERE id = :id"),
+                        {"hp": hashed_password, "now": datetime.utcnow(), "id": user.id}
+                    )
+                    cloud_db.commit()
+                    pushed_direct = True
+                    log.info(f"Synchronously reset password for user id={user.id} in Supabase.")
+        except Exception as e:
+            log.error(f"Failed to reset password directly in Supabase for user id={user.id}: {e}")
+
+    user.hashed_password = hashed_password
+    user.last_modified = datetime.utcnow()
     user.otp_code = None
     user.otp_expiry = None
+    if pushed_direct:
+        user.synced_at = datetime.utcnow()
     db.commit()
 
-    # Push updated password hash directly to Supabase so the user survives a
-    # Railway restart (ephemeral SQLite is wiped on restart).
-    background_tasks.add_task(push_user_to_cloud, user.id)
+    if pushed_direct:
+        # Delete from outbox to avoid redundant sync push
+        db.execute(
+            text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+            {"id": user.id}
+        )
+        db.commit()
+    else:
+        # Fallback to push in background task
+        background_tasks.add_task(push_user_to_cloud, user.id)
 
     return {"message": "Password has been reset successfully"}
 
@@ -398,12 +537,41 @@ async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, 
         db.commit()
         db.refresh(user)
         if changed:
-            # Sync updated profile to Supabase immediately
-            background_tasks.add_task(push_user_to_cloud, user.id)
+            pushed_direct = False
+            if cloud_engine:
+                try:
+                    with get_cloud_db() as cloud_db:
+                        if cloud_db:
+                            cloud_db.execute(
+                                text("UPDATE users SET google_id = :gid, profile_picture = :pic, is_verified = 1, last_modified = :now WHERE id = :id"),
+                                {
+                                    "gid": user.google_id,
+                                    "pic": user.profile_picture,
+                                    "now": user.last_modified,
+                                    "id": user.id
+                                }
+                            )
+                            cloud_db.commit()
+                            pushed_direct = True
+                            log.info(f"Synchronously updated Google profile for user id={user.id} in Supabase.")
+                except Exception as e:
+                    log.error(f"Failed to update Google profile directly in Supabase for user id={user.id}: {e}")
+            
+            if pushed_direct:
+                user.synced_at = datetime.utcnow()
+                db.commit()
+                db.execute(
+                    text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+                    {"id": user.id}
+                )
+                db.commit()
+            else:
+                background_tasks.add_task(push_user_to_cloud, user.id)
         is_new = False
     else:
         # New user via Google — auto-create and verify
         username = generate_formatted_username(full_name, email, db)
+        import os
         user = DBUser(
             username=username,
             email=email,
@@ -415,11 +583,49 @@ async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, 
             phone="0000000000",
             hashed_password=get_password_hash(os.urandom(32).hex()),  # Unusable password
         )
+        
+        generated_id = None
+        if cloud_engine:
+            try:
+                with get_cloud_db() as cloud_db:
+                    if cloud_db:
+                        from sync_service import _filter_to_cloud_cols
+                        user_dict = {
+                            c.name: getattr(user, c.name)
+                            for c in user.__table__.columns
+                            if getattr(user, c.name) is not None and c.name != "id"
+                        }
+                        user_dict["last_modified"] = datetime.utcnow()
+                        user_dict = _filter_to_cloud_cols(cloud_db, "users", user_dict)
+                        
+                        cols_str = ", ".join(user_dict.keys())
+                        vals_str = ", ".join([f":{k}" for k in user_dict.keys()])
+                        
+                        stmt = text(f"INSERT INTO users ({cols_str}) VALUES ({vals_str}) RETURNING id")
+                        res = cloud_db.execute(stmt, user_dict)
+                        generated_id = res.scalar()
+                        cloud_db.commit()
+                        log.info(f"Created new Google user '{username}' in Supabase with id={generated_id}")
+            except Exception as e:
+                log.error(f"Failed to create Google user '{username}' directly in Supabase: {e}")
+                
+        if generated_id is not None:
+            user.id = generated_id
+            user.synced_at = datetime.utcnow()
+            
         db.add(user)
         db.commit()
         db.refresh(user)
-        # Push new Google user to Supabase immediately (Railway ephemeral storage safety)
-        background_tasks.add_task(push_user_to_cloud, user.id)
+        
+        if generated_id is not None:
+            db.execute(
+                text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+                {"id": generated_id}
+            )
+            db.commit()
+        else:
+            background_tasks.add_task(push_user_to_cloud, user.id)
+            
         background_tasks.add_task(send_welcome_email, user.email, user.username)
         background_tasks.add_task(initial_pull_all, user.username)
         is_new = True

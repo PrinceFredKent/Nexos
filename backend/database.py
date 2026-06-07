@@ -86,10 +86,14 @@ def get_db():
         db.close()
 
 
+from contextlib import contextmanager
+
+@contextmanager
 def get_cloud_db():
-    """Yields a cloud (Supabase) session. Only for use in SyncService."""
+    """Yields a cloud (Supabase) session. Returns None if cloud not configured."""
     if not CloudSession:
-        return None
+        yield None
+        return
     db = CloudSession()
     try:
         yield db
