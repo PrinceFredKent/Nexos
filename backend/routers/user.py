@@ -162,7 +162,7 @@ async def change_password(passwords: PasswordChange, background_tasks: Backgroun
             with get_cloud_db() as cloud_db:
                 if cloud_db:
                     cloud_db.execute(
-                        text("UPDATE users SET hashed_password = :hp, last_modified = :now, otp_code = None, otp_expiry = None WHERE id = :id"),
+                        text("UPDATE users SET hashed_password = :hp, last_modified = :now, otp_code = NULL, otp_expiry = NULL WHERE id = :id"),
                         {"hp": hashed_password, "now": datetime.utcnow(), "id": user.id}
                     )
                     cloud_db.commit()

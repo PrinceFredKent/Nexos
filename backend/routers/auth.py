@@ -285,7 +285,7 @@ async def verify_otp(data: VerifyOTP, background_tasks: BackgroundTasks, db: Ses
             with get_cloud_db() as cloud_db:
                 if cloud_db:
                     cloud_db.execute(
-                        text("UPDATE users SET is_verified = 1, last_modified = :now, otp_code = None, otp_expiry = None WHERE id = :id"),
+                        text("UPDATE users SET is_verified = 1, last_modified = :now, otp_code = NULL, otp_expiry = NULL WHERE id = :id"),
                         {"now": datetime.utcnow(), "id": user.id}
                     )
                     cloud_db.commit()
@@ -433,7 +433,7 @@ async def reset_password(req: ResetPasswordRequest, background_tasks: Background
             with get_cloud_db() as cloud_db:
                 if cloud_db:
                     cloud_db.execute(
-                        text("UPDATE users SET hashed_password = :hp, last_modified = :now, otp_code = None, otp_expiry = None WHERE id = :id"),
+                        text("UPDATE users SET hashed_password = :hp, last_modified = :now, otp_code = NULL, otp_expiry = NULL WHERE id = :id"),
                         {"hp": hashed_password, "now": datetime.utcnow(), "id": user.id}
                     )
                     cloud_db.commit()
