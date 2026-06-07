@@ -8,7 +8,7 @@ from models.user import User as DBUser
 from schemas import UserUpdate, PasswordChangeRequest, PasswordChange, PasswordVerifyRequest
 from auth_service import verify_password, get_password_hash, get_current_user
 from services.email_service import send_security_otp_email
-from sync_service import run_sync
+from sync_service import push_user_to_cloud
 
 router = APIRouter(tags=["User Profile"])
 
@@ -64,12 +64,15 @@ async def update_profile(update: UserUpdate, background_tasks: BackgroundTasks, 
 
     for key, value in update_data.items():
         setattr(user, key, value)
-        
+
+    # Always stamp last_modified so the cloud upsert reflects the latest data
+    user.last_modified = datetime.utcnow()
     db.commit()
     db.refresh(user)
-    
-    background_tasks.add_task(run_sync)
-    
+
+    # Push directly to Supabase — covers the "Skip for Now" flow where Railway
+    # may restart before the periodic scheduler runs a full sync.
+    background_tasks.add_task(push_user_to_cloud, user.id)
     response_data = {
         "message": "Profile updated",
         "username": user.username,
@@ -123,7 +126,7 @@ async def verify_password_route(payload: PasswordVerifyRequest, username: str = 
     return {"message": "Password verified"}
 
 @router.post("/change-password")
-async def change_password(passwords: PasswordChange, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
+async def change_password(passwords: PasswordChange, background_tasks: BackgroundTasks, username: str = Depends(get_current_user), db: Session = Depends(get_db)):
     user = db.query(DBUser).filter(DBUser.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -135,9 +138,12 @@ async def change_password(passwords: PasswordChange, username: str = Depends(get
         raise HTTPException(status_code=400, detail="Code expired")
     
     user.hashed_password = get_password_hash(passwords.new_password)
+    user.last_modified = datetime.utcnow()
     user.otp_code = None
     user.otp_expiry = None
     db.commit()
+    # Push updated password hash to Supabase immediately
+    background_tasks.add_task(push_user_to_cloud, user.id)
     return {"message": "Password updated successfully"}
 
 @router.delete("/delete-account")
