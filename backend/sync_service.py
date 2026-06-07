@@ -507,6 +507,78 @@ async def _pull_remote_changes(local: Session, cloud: Session) -> int:
     return total_pulled
 
 
+async def push_user_to_cloud(user_id: int) -> bool:
+    """
+    Immediately push a single user row to Supabase by ID.
+
+    This is called directly at signup and OTP-verification time so that
+    the user account exists in Supabase *before* the server can restart
+    and wipe the ephemeral local SQLite.  The outbox/background-sync path
+    is intentionally NOT used here because there is no guarantee the
+    background task will complete before a Railway dyno restart.
+
+    Returns True on success, False on failure (non-fatal – login fallback
+    still works via initial_pull_credentials).
+    """
+    cloud = _cloud_db()
+    if not cloud:
+        log.warning("push_user_to_cloud: no cloud engine configured, skipping.")
+        return False
+
+    local = LocalSession()
+    now = datetime.utcnow()
+    try:
+        row = local.execute(
+            text("SELECT * FROM users WHERE id = :id"),
+            {"id": user_id}
+        ).mappings().first()
+
+        if not row:
+            log.warning(f"push_user_to_cloud: user id={user_id} not found locally.")
+            return False
+
+        row_dict = _filter_to_cloud_cols(cloud, "users", dict(row))
+        col_list  = ", ".join(row_dict.keys())
+        placeholders = ", ".join([f":{k}" for k in row_dict.keys()])
+        update_set   = ", ".join([f"{k} = EXCLUDED.{k}" for k in row_dict.keys() if k != "id"])
+
+        cloud.execute(
+            text(f"""
+                INSERT INTO users ({col_list}) VALUES ({placeholders})
+                ON CONFLICT (id) DO UPDATE SET {update_set}
+            """),
+            row_dict
+        )
+        cloud.commit()
+
+        # Mark as synced locally so the outbox won't double-push it
+        local.execute(
+            text("UPDATE users SET synced_at = :now WHERE id = :id"),
+            {"now": now, "id": user_id}
+        )
+        # Remove any pending outbox entries for this user (avoid duplicate push)
+        local.execute(
+            text("DELETE FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
+            {"id": user_id}
+        )
+        local.commit()
+
+        log.info(f"push_user_to_cloud: user id={user_id} pushed to Supabase OK.")
+        return True
+
+    except Exception as e:
+        log.error(f"push_user_to_cloud: failed for user id={user_id}: {e}")
+        try:
+            cloud.rollback()
+            local.rollback()
+        except Exception:
+            pass
+        return False
+    finally:
+        local.close()
+        cloud.close()
+
+
 def estimate_pending_push() -> int:
     """Quick count of unsynced rows — used by /sync-status endpoint."""
     local = LocalSession()

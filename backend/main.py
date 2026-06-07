@@ -13,7 +13,7 @@ from sqlalchemy import text
 # Import all model modules so SQLAlchemy's metadata includes every table
 from models import appointment, cycle, health_data, health_knowledge, medication, outbox, sync_conflict, sync_meta, user
 from models.health_knowledge import HealthCondition
-from sync_service import run_sync
+from sync_service import run_sync, push_user_to_cloud
 
 # Configure logging
 log_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nexos.log")
@@ -163,30 +163,25 @@ async def startup_event():
         except Exception as e:
             log.warning(f"Cloud schema migration failed (non-fatal): {e}")
 
-    # Re-queue any users who have never been synced to Supabase (synced_at IS NULL).
-    # Safe to run on every startup: once a user is pushed, synced_at is set and they
-    # won't be re-queued. This self-heals accounts that were stuck due to schema errors.
+    # Self-heal: push any locally-stored users that were never synced to Supabase.
+    # This handles the Railway ephemeral-storage scenario: the server restarted,
+    # SQLite was restored from a backup/volume (or is fresh), but Supabase may
+    # be missing some users whose outbox push never completed.
+    # push_user_to_cloud() is called for each unsynced user; it's a no-op if the
+    # user already exists in Supabase (ON CONFLICT DO UPDATE).
     if cloud_engine:
         try:
-            with engine.begin() as conn:
+            with engine.connect() as conn:
                 unsynced = conn.execute(
                     text("SELECT id FROM users WHERE synced_at IS NULL")
                 ).fetchall()
+            if unsynced:
+                log.info(f"Startup self-heal: pushing {len(unsynced)} unsynced user(s) to Supabase directly.")
+                import asyncio
                 for (uid,) in unsynced:
-                    # Only insert if not already in outbox
-                    existing = conn.execute(
-                        text("SELECT 1 FROM local_changes_outbox WHERE table_name='users' AND row_id=:id"),
-                        {"id": uid}
-                    ).first()
-                    if not existing:
-                        conn.execute(
-                            text("INSERT INTO local_changes_outbox (table_name, row_id, action) VALUES ('users', :id, 'INSERT')"),
-                            {"id": uid}
-                        )
-                if unsynced:
-                    log.info(f"Re-queued {len(unsynced)} unsynced user(s) for Supabase push.")
+                    asyncio.create_task(push_user_to_cloud(uid))
         except Exception as e:
-            log.warning(f"Re-queue unsynced users failed (non-fatal): {e}")
+            log.warning(f"Startup self-heal failed (non-fatal): {e}")
 
     # Warn loudly if critical production env vars are missing
     _jwt_secret = os.environ.get("JWT_SECRET_KEY", "nexos-dev-secret-change-in-production")

@@ -28,7 +28,7 @@ from auth_service import (
     get_password_hash, verify_password, create_access_token
 )
 from sync_service import (
-    initial_pull_credentials, initial_pull_all, run_sync
+    initial_pull_credentials, initial_pull_all, run_sync, push_user_to_cloud
 )
 from services.email_service import (
     send_otp_email, send_welcome_email, send_password_reset_email
@@ -109,7 +109,14 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
+
+    # ── Push user to Supabase immediately ──────────────────────────────────────
+    # Railway uses ephemeral storage: if the server restarts before the
+    # background sync job runs, the SQLite file is wiped and the user is lost.
+    # Pushing directly here (synchronously, in a background task that starts
+    # before we return) guarantees the row exists in Supabase right away.
+    background_tasks.add_task(push_user_to_cloud, new_user.id)
+
     if new_user.is_verified:
         # Send Welcome Email immediately if verified (Google signup)
         background_tasks.add_task(send_welcome_email, new_user.email, new_user.username)
@@ -133,8 +140,6 @@ async def signup(user: UserSignup, background_tasks: BackgroundTasks, db: Sessio
     if not _deliver_otp(new_user.phone, new_user.email, new_user.username, otp):
         raise HTTPException(status_code=500, detail="Failed to send verification code. Please try again.")
 
-    # Push new user to Supabase immediately (don't wait for the periodic scheduler).
-    background_tasks.add_task(run_sync)
     return {
         "message": "Account created. Please verify your email.",
         "username": new_user.username,
@@ -222,12 +227,15 @@ async def verify_otp(data: VerifyOTP, background_tasks: BackgroundTasks, db: Ses
     user.is_verified = 1
     user.otp_code = None
     user.otp_expiry = None
+    user.last_modified = datetime.utcnow()  # mark dirty so sync picks up is_verified=1
     db.commit()
-    
+
+    # Push verified status to Supabase immediately so the account survives a server restart.
+    background_tasks.add_task(push_user_to_cloud, user.id)
     # Send Welcome Email
     background_tasks.add_task(send_welcome_email, user.email, user.username)
     background_tasks.add_task(initial_pull_all, user.username)
-    
+
     access_token = create_access_token(data={"sub": user.username})
     return {
         "access_token": access_token,
@@ -310,9 +318,9 @@ async def reset_password(req: ResetPasswordRequest, background_tasks: Background
     user.otp_expiry = None
     db.commit()
 
-    # Push the updated password hash to Supabase immediately so the user
-    # survives a server restart (Railway ephemeral storage).
-    background_tasks.add_task(run_sync)
+    # Push updated password hash directly to Supabase so the user survives a
+    # Railway restart (ephemeral SQLite is wiped on restart).
+    background_tasks.add_task(push_user_to_cloud, user.id)
 
     return {"message": "Password has been reset successfully"}
 
@@ -375,14 +383,23 @@ async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, 
 
     if user:
         # Existing user — update google_id and profile picture if needed
+        changed = False
         if not user.google_id:
             user.google_id = google_id
+            changed = True
         if profile_picture and not user.profile_picture:
             user.profile_picture = profile_picture
+            changed = True
         if not user.is_verified:
             user.is_verified = 1
+            changed = True
+        if changed:
+            user.last_modified = datetime.utcnow()
         db.commit()
         db.refresh(user)
+        if changed:
+            # Sync updated profile to Supabase immediately
+            background_tasks.add_task(push_user_to_cloud, user.id)
         is_new = False
     else:
         # New user via Google — auto-create and verify
@@ -401,6 +418,8 @@ async def google_login(payload: GoogleLogin, background_tasks: BackgroundTasks, 
         db.add(user)
         db.commit()
         db.refresh(user)
+        # Push new Google user to Supabase immediately (Railway ephemeral storage safety)
+        background_tasks.add_task(push_user_to_cloud, user.id)
         background_tasks.add_task(send_welcome_email, user.email, user.username)
         background_tasks.add_task(initial_pull_all, user.username)
         is_new = True
