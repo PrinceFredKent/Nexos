@@ -9,14 +9,16 @@ function resolveApiBaseUrl() {
     return fromEnv.replace(/\/$/, '');
   }
 
-  const { hostname, port, protocol } = window.location;
+  const { hostname, port, protocol, origin } = window.location;
   if (LOCAL_HOSTNAMES.has(hostname)) {
     return 'http://localhost:8000';
   }
-  if (port) {
+  // When running on another local dev port or mobile LAN testing with port specified
+  if (port && port !== '80' && port !== '443') {
     return `${protocol}//${hostname}:8000`;
   }
-  return '';
+  // All-in-one unified deployment (Render, Docker, custom domain): API is on same origin
+  return origin || `${protocol}//${hostname}`;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
