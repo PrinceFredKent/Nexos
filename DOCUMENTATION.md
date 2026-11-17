@@ -85,42 +85,6 @@ Nexos is a premium, AI-driven Health Assistant designed to provide patients with
 
 ---
 
-## 6. Environment Setup
-
-### Backend (.env)
-```env
-DATABASE_URL=sqlite:///./health.db
-JWT_SECRET_KEY=your_secret_key
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_USER=your_email
-SMTP_PASSWORD=your_app_password
-SMTP_FROM=your_email
-ALLOWED_ORIGINS=https://your-frontend.pages.dev
-FRONTEND_URL=https://your-frontend.pages.dev
-SYNC_INTERVAL_MINUTES=5
-```
-
-### Optional email provider vars
-If SMTP is blocked by your host, configure Resend or Brevo so the app can send verification and welcome emails over HTTPS.
-```env
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM=your_from_address
-BREVO_API_KEY=your_brevo_api_key
-```
-
-### Optional AI provider var
-```env
-GEMINI_API_KEY=your_gemini_api_key
-```
-
-### Frontend (.env)
-```env
-VITE_API_URL=https://your-backend.render.com
-```
-
 ---
 
 ## 7. Recent Improvements (May 2026)

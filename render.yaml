@@ -1,25 +1,21 @@
 services:
   - type: web
-    name: nexos-api
-    runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements-render.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    name: nexos-health
+    env: docker
+    dockerfilePath: Dockerfile
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      # ── Database ────────────────────────────────────────────────────────────
+      # ── Database (Supabase PostgreSQL) ──────────────────────────────────────
       - key: DATABASE_URL
         sync: false   # Set in Render dashboard → Environment
       # ── Auth ────────────────────────────────────────────────────────────────
       - key: JWT_SECRET_KEY
-        sync: false   # Generate a strong random secret; e.g. openssl rand -hex 32
-      # ── CORS & Frontend ─────────────────────────────────────────────────────
+        sync: false   # Generate with: openssl rand -hex 32
+      # ── CORS ────────────────────────────────────────────────────────────────
       - key: ALLOWED_ORIGINS
-        sync: false   # e.g. https://nexos.pages.dev,https://your-custom-domain.com
-      - key: FRONTEND_URL
-        sync: false   # e.g. https://nexos.pages.dev
-      # ── Email / SMTP ────────────────────────────────────────────────────────
+        value: "*"
+      # ── Email / SMTP (for OTP Verification) ─────────────────────────────────
       - key: SMTP_HOST
         value: smtp.gmail.com
       - key: SMTP_PORT
@@ -27,25 +23,9 @@ services:
       - key: SMTP_USER
         sync: false
       - key: SMTP_PASSWORD
-        sync: false   # Use a Gmail App Password, not your account password
+        sync: false   # Gmail App Password (16 characters)
       - key: SMTP_FROM
         sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: RESEND_FROM
-        sync: false
-      - key: BREVO_API_KEY
-        sync: false
-      # ── SMS via Termii ──────────────────────────────────────────────────────
-      - key: TERMII_API_KEY
-        sync: false   # Get from https://accounts.termii.com/#/
-      - key: TERMII_SENDER_ID
-        value: "NEXOS"  # Max 11 chars branded sender name
-      # ── Google OAuth ────────────────────────────────────────────────────────
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      # ── Sync ────────────────────────────────────────────────────────────────
+      # ── Background Sync ─────────────────────────────────────────────────────
       - key: SYNC_INTERVAL_MINUTES
         value: "5"

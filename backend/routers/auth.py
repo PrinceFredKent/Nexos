@@ -387,6 +387,12 @@ async def forgot_password(req: ForgotPasswordRequest, db: Session = Depends(get_
 
     if not _deliver_reset_otp(user.phone, user.email, user.username, otp):
         raise HTTPException(status_code=500, detail="Failed to send password reset code. Please try again.")
+    
+    # In development mode, return the OTP so the user can see it
+    frontend_url = os.environ.get("FRONTEND_URL", "")
+    if "localhost" in frontend_url or "127.0.0.1" in frontend_url:
+        return {"message": "Password reset code sent", "dev_otp": otp}
+    
     return {"message": "Password reset code sent"}
 
 @router.post("/verify-password-otp")

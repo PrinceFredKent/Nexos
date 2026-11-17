@@ -171,6 +171,7 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
       1. Brevo HTTP API  (free, no domain verification, 300/day)
       2. Resend HTTP API (requires verified sender domain)
       3. SMTP            (local dev only — blocked on Railway/Render)
+      4. Mock (development fallback)
     """
     attempted = []
 
@@ -214,6 +215,13 @@ def _send_real_email(to_email: str, subject: str, html_content: str):
             return True
         except Exception as e:
             log.error(f"SMTP: failed for {to_email}: {e}")
+
+    # ── Priority 4: Mock (development fallback) ──
+    frontend_url = os.environ.get("FRONTEND_URL", "")
+    if "localhost" in frontend_url or "127.0.0.1" in frontend_url:
+        log.warning(f"[DEV MODE] Email delivery mocked for {to_email}. Subject: {subject}")
+        print(f"[DEV MODE] Email would be sent to {to_email} with subject: {subject}")
+        return True
 
     log.error(f"EMAIL DELIVERY FAILED for {to_email} — tried: {', '.join(attempted)}. "
               f"Configure BREVO_API_KEY in Railway env vars.")

@@ -13,6 +13,7 @@ const ForgotPassword = ({ onSwitch }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [devOtp, setDevOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({ email: '', otp: '', newPassword: '', confirmPassword: '' });
 
@@ -45,6 +46,7 @@ const ForgotPassword = ({ onSwitch }) => {
     setFieldErrors(prev => ({ ...prev, email: '' }));
     setError('');
     setMessage('');
+    setDevOtp('');
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/forgot-password`, {
@@ -55,6 +57,9 @@ const ForgotPassword = ({ onSwitch }) => {
       const data = await res.json();
       if (res.ok) {
         setMessage('A reset code has been sent to your email.');
+        if (data.dev_otp) {
+          setDevOtp(data.dev_otp);
+        }
         setStep(2);
       } else {
         setError(data.detail || 'Failed to send reset code');
@@ -163,6 +168,30 @@ const ForgotPassword = ({ onSwitch }) => {
 
         {step === 2 && (
           <form onSubmit={handleVerifyOtp}>
+            {devOtp && (
+              <div style={{
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '2px solid #22c55e',
+                borderRadius: '8px',
+                padding: '1rem',
+                marginBottom: '1rem',
+                textAlign: 'center'
+              }}>
+                <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', color: '#94a3b8' }}>
+                  Dev Mode - Your code:
+                </p>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: '1.5rem', 
+                  fontWeight: 'bold', 
+                  color: '#22c55e',
+                  letterSpacing: '4px',
+                  fontFamily: 'monospace'
+                }}>
+                  {devOtp}
+                </p>
+              </div>
+            )}
             <div className={`input-group ${otp ? 'filled' : ''}`}>
               <input 
                 type="text" 
